@@ -1,0 +1,70 @@
+struct A
+{
+   int i;
+   int j1;
+   bool b;
+   struct A a;
+};
+struct B
+{
+   struct A a;
+};
+
+int i, j, k;
+struct B b, bb, bbb;
+bool bob;
+
+fun f(int i, struct B j) struct A
+{
+   int f, l, k;
+   return b.a.a.a.a;
+}
+
+fun foo(int n) int
+{
+   if (n <= 0)
+   {
+      return 1;
+   }
+   else
+   {
+      return n * foo(n - 1);
+   }
+}
+
+fun g(int i, struct B j) int
+{
+   int g, m, k;
+   return 3;
+}
+
+fun main() int
+{
+   struct A a;
+   int i, j, k;
+   bool b;
+      int h;
+   {
+      i = --2;
+      if (i < g(1,null))
+      {
+         print 1;
+      }
+
+      if (i > g(1,null))
+      {
+         print 1;
+      }
+      else
+      {
+         print 3 endl;
+      }
+      while (true)
+      {
+         print 7;
+      }
+      f(g(1,new B),new B);
+      print f(g(1,new B),new B).i endl;
+   }
+   return 0;
+}

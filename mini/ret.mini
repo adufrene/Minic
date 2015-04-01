@@ -1,0 +1,24 @@
+fun foo(int i) int      # standard case
+{
+   return i;
+}
+
+fun bar(int i) int      # control flow case
+{
+   if (i > 0)
+   {
+      return 1;
+   }
+   else
+   {
+      if (i < 0)
+      {
+         return -1;
+      }
+      else
+      {
+         return 0;
+      }
+   }
+}
+
