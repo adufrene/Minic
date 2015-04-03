@@ -4,7 +4,12 @@ module Mini.Types where
 
 import Data.Aeson
 import Data.Aeson.Types
+import Data.Text
+import Data.HashMap.Lazy
 import Control.Applicative
+
+type Id = String
+type Arguments = [Expression]
 
 data Program = Program { getTypes :: [Type]
                        , getDeclarations :: [Declaration]
@@ -46,12 +51,29 @@ data Statement = Block { getBlockStmts :: [Statement] }
                       , getLoopBlock :: Statement } -- Block Statement
                | Delete { getDelExpr :: Expression }
                | Ret { getRetExpr :: Maybe Expression }
-               | Invocation { getArguments :: [Argument] }
-                       deriving (Show)
+               | Invocation { getSInvocId :: Id
+                            , getSInvocArgs :: Arguments } deriving (Show)
 
-data LValue = LValue deriving (Show)
-data Expression = Expression deriving (Show)
-data Argument = Argument deriving (Show)
+data LValue = LValue { getLValId :: Id
+                     , getLValLeft :: Maybe LValue } deriving (Show)
+
+data Expression = BinExp { getBOp :: String -- binary
+                         , getLeftExp :: Expression
+                         , getRightExp :: Expression }
+                | UExp { getUOp :: String -- unary
+                        , getUOpand :: Expression }
+                | DotExp { getDotLeft :: Expression -- dot
+                         , getDotId :: Id }
+                | InvocExp { getEInvocId :: Id
+                           , getEInvocArgs :: Arguments } -- invocation
+                | IdExp { getId :: Id } -- id
+                | IntExp { getValue :: Int } -- num
+                | TrueExp -- true
+                | FalseExp -- false
+                | NewExp { getNewId :: Id } -- new
+                | NullExp deriving (Show) -- null
+
+
 
 instance FromJSON Program where
         parseJSON (Object v) = 
@@ -90,45 +112,91 @@ instance FromJSON Field where
             (v .: "type") <*>
             (v .: "id")
 
--- Here down is wip
 instance FromJSON Statement where
-       parseJSON obj@(Object v) =
---             jsonToStatement (parse (\obj -> (obj .: "stmt")) v) v
-             jsonToStatement "block" obj
-                where jsonToStatement "block" obj = parseBlock obj
-                      jsonToStatement "assign" obj = parseAsgn obj
-                      jsonToStatement "print" obj = parsePrint obj
-                      jsonToStatement "read" obj = parseRead obj
-                      jsonToStatement "if" obj = parseCond obj
-                      jsonToStatement "while" obj = parseLoop obj
-                      jsonToStatement "delete" obj = parseDelete obj
-                      jsonToStatement "return" obj = parseRet obj
-                      jsonToStatement "invocation" obj = parseInvoc obj
+       parseJSON (Object v) =
+             jsonToStatement (v ! "stmt") v
+                where jsonToStatement "block" = parseBlock 
+                      jsonToStatement "assign" = parseAsgn 
+                      jsonToStatement "print" = parsePrint 
+                      jsonToStatement "read" = parseRead 
+                      jsonToStatement "if" = parseCond 
+                      jsonToStatement "while" = parseLoop 
+                      jsonToStatement "delete" = parseDelete 
+                      jsonToStatement "return" = parseRet 
+                      jsonToStatement "invocation" = parseInvoc 
 
--- Temporarily filling in data, probably not accurate
-parseBlock :: Value -> Parser Statement
-parseBlock (Object v) = Block <$> (v .: "block")
+instance FromJSON LValue where
+        parseJSON (Object v) =
+            LValue <$> (v .: "target") <*> (v .:? "left")
 
-parseAsgn :: Value -> Parser Statement
-parseAsgn (Object v) = Asgn <$> (v .: "id") <*> (v .: "expr")
+instance FromJSON Expression where
+        parseJSON (Object v) =
+            jsonToExpression (v ! "exp") v
+                where jsonToExpression "binary" = parseBinExp 
+                      jsonToExpression "unary" = parseUExp 
+                      jsonToExpression "dot" = parseDotExp 
+                      jsonToExpression "invocation" = parseInvocExp
+                      jsonToExpression "id" = parseIdExp
+                      jsonToExpression "num" = parseNumExp
+                      jsonToExpression "true" = parseTrueExp
+                      jsonToExpression "false" = parseFalseExp
+                      jsonToExpression "new" = parseNewExp
+                      jsonToExpression "null" = parseNullExp
 
-parsePrint :: Value -> Parser Statement
-parsePrint (Object v) = Print <$> (v .: "expr") <*> (v .: "hasEndl")
+parseBlock :: HashMap Text Value -> Parser Statement
+parseBlock hm = Block <$> (hm .: "list")
 
-parseRead :: Value -> Parser Statement
-parseRead (Object v) = Read <$> (v .: "value")
+parseAsgn :: HashMap Text Value -> Parser Statement
+parseAsgn hm = Asgn <$> (hm .: "target") <*> (hm .: "source")
 
-parseCond :: Value -> Parser Statement
-parseCond obj@(Object v) = Cond <$> (v .: "expr") <*> (parseBlock obj) <*> (v .: "else")
+parsePrint :: HashMap Text Value -> Parser Statement
+parsePrint hm = Print <$> (hm .: "exp") <*> (hm .: "endl")
 
-parseLoop :: Value -> Parser Statement
-parseLoop obj@(Object v) = Loop <$> (v .: "expr") <*> (parseBlock obj)
+parseRead :: HashMap Text Value -> Parser Statement
+parseRead hm = Read <$> (hm .: "target")
 
-parseDelete :: Value -> Parser Statement
-parseDelete (Object v) = Delete <$> (v .: "expr")
+parseCond :: HashMap Text Value -> Parser Statement
+parseCond hm = Cond <$> (hm .: "guard") <*> (hm .: "then") <*> (hm .:? "else")
 
-parseRet :: Value -> Parser Statement
-parseRet (Object v) = Ret <$> (v .:? "expr")
+parseLoop :: HashMap Text Value -> Parser Statement
+parseLoop hm = Loop <$> (hm .: "guard") <*> (hm .: "body")
 
-parseInvoc :: Value -> Parser Statement
-parseInvoc (Object v) = Invocation <$> (v .: "args")
+parseDelete :: HashMap Text Value -> Parser Statement
+parseDelete hm = Delete <$> (hm .: "guard")
+
+parseRet :: HashMap Text Value -> Parser Statement
+parseRet hm = Ret <$> (hm .:? "exp")
+
+parseInvoc :: HashMap Text Value -> Parser Statement
+parseInvoc hm = Invocation <$> (hm .: "id") <*> (hm .: "args")
+
+parseBinExp :: HashMap Text Value -> Parser Expression
+parseBinExp hm = BinExp <$> (hm .: "operator") <*> (hm .: "left") <*> (hm .: "right")
+
+parseUExp :: HashMap Text Value -> Parser Expression
+parseUExp hm = UExp <$> (hm .: "operator") <*> (hm .: "operand")
+
+parseDotExp :: HashMap Text Value -> Parser Expression
+parseDotExp hm = DotExp <$> (hm .: "left") <*> (hm .: "id")
+
+parseInvocExp :: HashMap Text Value -> Parser Expression
+parseInvocExp hm = InvocExp <$> (hm .: "id") <*> (hm .: "args")
+
+parseIdExp :: HashMap Text Value -> Parser Expression
+parseIdExp hm = IdExp <$> (hm .: "id")
+
+parseNumExp :: HashMap Text Value -> Parser Expression
+parseNumExp hm = IntExp . read <$> (hm .: "value")
+
+parseTrueExp :: HashMap Text Value -> Parser Expression
+parseTrueExp _ = return TrueExp
+
+parseFalseExp :: HashMap Text Value -> Parser Expression
+parseFalseExp _ = return FalseExp
+
+parseNewExp :: HashMap Text Value -> Parser Expression
+parseNewExp hm = NewExp <$> (hm .: "id")
+
+parseNullExp :: HashMap Text Value -> Parser Expression
+parseNullExp hm = return NullExp
+
