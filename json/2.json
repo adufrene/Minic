@@ -1,1 +1,560 @@
-{"types":[{"line":1,"id":"A","fields":[{"line":3,"type":"int","id":"i"},{"line":4,"type":"int","id":"j1"},{"line":5,"type":"bool","id":"b"},{"line":6,"type":"A","id":"a"}]},{"line":8,"id":"B","fields":[{"line":10,"type":"A","id":"a"}]}],"declarations":[{"line":13,"type":"int","id":"i"},{"line":13,"type":"int","id":"j"},{"line":13,"type":"int","id":"k"},{"line":14,"type":"B","id":"b"},{"line":14,"type":"B","id":"bb"},{"line":14,"type":"B","id":"bbb"},{"line":15,"type":"bool","id":"bob"}],"functions":[{"line":17,"id":"f","parameters":[{"line":17,"type":"int","id":"i"},{"line":17,"type":"B","id":"j"}],"return_type":"A","declarations":[{"line":19,"type":"int","id":"l"},{"line":19,"type":"int","id":"k"}],"body":[{"line":20,"stmt":"return","exp":{"line":20,"exp":"dot","left":{"line":20,"exp":"dot","left":{"line":20,"exp":"dot","left":{"line":20,"exp":"dot","left":{"line":20,"exp":"dot","left":{"line":20,"exp":"id","id":"b"},"id":"a"},"id":"a"},"id":"a"},"id":"a"},"id":"i"}}]},{"line":23,"id":"foo","parameters":[{"line":23,"type":"int","id":"n"}],"return_type":"int","declarations":[],"body":[{"line":25,"stmt":"if","guard":{"line":25,"exp":"binary","operator":"+","lft":{"line":25,"exp":"id","id":"n"},"rht":{"line":25,"exp":"num","value":"0"}},"then":{"stmt":"block","list":[{"line":27,"stmt":"return","exp":{"line":27,"exp":"num","value":"1"}}]},"else":{"stmt":"block","list":[{"line":31,"stmt":"return","exp":{"line":31,"exp":"binary","operator":"*","lft":{"line":31,"exp":"id","id":"n"},"rht":{"line":31,"exp":"invocation","id":"foo","args":[{"line":31,"exp":"binary","operator":"-","lft":{"line":31,"exp":"id","id":"n"},"rht":{"line":31,"exp":"num","value":"1"}}]}}}]}}]},{"line":35,"id":"g","parameters":[{"line":35,"type":"int","id":"i"},{"line":35,"type":"B","id":"j"}],"return_type":"int","declarations":[{"line":37,"type":"int","id":"g"},{"line":37,"type":"int","id":"m"},{"line":37,"type":"int","id":"k"}],"body":[{"line":38,"stmt":"return"}]},{"line":41,"id":"main","parameters":[],"return_type":"int","declarations":[{"line":43,"type":"A","id":"a"},{"line":44,"type":"int","id":"i"},{"line":44,"type":"int","id":"j"},{"line":44,"type":"int","id":"k"},{"line":45,"type":"bool","id":"b"},{"line":46,"type":"int","id":"h"}],"body":[{"stmt":"block","list":[{"line":48,"stmt":"assign","source":{"line":48,"exp":"num","value":"2"},"target":{"id":"i"}},{"line":49,"stmt":"if","guard":{"line":49,"exp":"binary","operator":"<","lft":{"line":49,"exp":"id","id":"i"},"rht":{"line":49,"exp":"invocation","id":"g","args":[{"line":49,"exp":"num","value":"1"},{"line":49,"exp":"null"}]}},"then":{"stmt":"block","list":[{"line":51,"stmt":"print","exp":{"line":51,"exp":"num","value":"1"},"endl":false}]}},{"line":54,"stmt":"if","guard":{"line":54,"exp":"binary","operator":">","lft":{"line":54,"exp":"id","id":"i"},"rht":{"line":54,"exp":"invocation","id":"g","args":[{"line":54,"exp":"num","value":"1"},{"line":54,"exp":"null"}]}},"then":{"stmt":"block","list":[{"line":56,"stmt":"print","exp":{"line":56,"exp":"num","value":"1"},"endl":false}]},"else":{"stmt":"block","list":[{"line":60,"stmt":"print","exp":{"line":60,"exp":"num","value":"3"},"endl":true}]}},{"line":62,"stmt":"while","guard":{"line":62,"exp":"binary","operator":"<","lft":{"line":62,"exp":"true"},"rht":{"line":62,"exp":"false"}},"body":{"stmt":"block","list":[{"line":64,"stmt":"print","exp":{"line":64,"exp":"num","value":"7"},"endl":false}]}},{"line":66,"stmt":"invocation","id":"f","args":[{"line":66,"exp":"invocation","id":"g","args":[{"line":66,"exp":"num","value":"1"},{"line":66,"exp":"new","id":"B"}]},{"line":66,"exp":"num","value":"2"},{"line":66,"exp":"new","id":"B"}]},{"line":67,"stmt":"print","exp":{"line":67,"exp":"dot","left":{"line":67,"exp":"invocation","id":"f","args":[{"line":67,"exp":"num","value":"2"},{"line":67,"exp":"new","id":"B"}]},"id":"bob"},"endl":true},{"line":68,"stmt":"print","exp":{"line":68,"exp":"dot","left":{"line":68,"exp":"invocation","id":"foo","args":[{"line":68,"exp":"num","value":"2"}]},"id":"a"},"endl":true}]},{"line":70,"stmt":"return","exp":{"line":70,"exp":"num","value":"0"}}]}]}
+{
+    "declarations": [
+        {
+            "id": "i",
+            "line": 13,
+            "type": "int"
+        },
+        {
+            "id": "j",
+            "line": 13,
+            "type": "int"
+        },
+        {
+            "id": "k",
+            "line": 13,
+            "type": "int"
+        },
+        {
+            "id": "b",
+            "line": 14,
+            "type": "B"
+        },
+        {
+            "id": "bb",
+            "line": 14,
+            "type": "B"
+        },
+        {
+            "id": "bbb",
+            "line": 14,
+            "type": "B"
+        },
+        {
+            "id": "bob",
+            "line": 15,
+            "type": "bool"
+        }
+    ],
+    "functions": [
+        {
+            "body": [
+                {
+                    "exp": {
+                        "exp": "dot",
+                        "id": "i",
+                        "left": {
+                            "exp": "dot",
+                            "id": "a",
+                            "left": {
+                                "exp": "dot",
+                                "id": "a",
+                                "left": {
+                                    "exp": "dot",
+                                    "id": "a",
+                                    "left": {
+                                        "exp": "dot",
+                                        "id": "a",
+                                        "left": {
+                                            "exp": "id",
+                                            "id": "b",
+                                            "line": 20
+                                        },
+                                        "line": 20
+                                    },
+                                    "line": 20
+                                },
+                                "line": 20
+                            },
+                            "line": 20
+                        },
+                        "line": 20
+                    },
+                    "line": 20,
+                    "stmt": "return"
+                }
+            ],
+            "declarations": [
+                {
+                    "id": "l",
+                    "line": 19,
+                    "type": "int"
+                },
+                {
+                    "id": "k",
+                    "line": 19,
+                    "type": "int"
+                }
+            ],
+            "id": "f",
+            "line": 17,
+            "parameters": [
+                {
+                    "id": "i",
+                    "line": 17,
+                    "type": "int"
+                },
+                {
+                    "id": "j",
+                    "line": 17,
+                    "type": "B"
+                }
+            ],
+            "return_type": "A"
+        },
+        {
+            "body": [
+                {
+                    "else": {
+                        "list": [
+                            {
+                                "exp": {
+                                    "exp": "binary",
+                                    "lft": {
+                                        "exp": "id",
+                                        "id": "n",
+                                        "line": 31
+                                    },
+                                    "line": 31,
+                                    "operator": "*",
+                                    "rht": {
+                                        "args": [
+                                            {
+                                                "exp": "binary",
+                                                "lft": {
+                                                    "exp": "id",
+                                                    "id": "n",
+                                                    "line": 31
+                                                },
+                                                "line": 31,
+                                                "operator": "-",
+                                                "rht": {
+                                                    "exp": "num",
+                                                    "line": 31,
+                                                    "value": "1"
+                                                }
+                                            }
+                                        ],
+                                        "exp": "invocation",
+                                        "id": "foo",
+                                        "line": 31
+                                    }
+                                },
+                                "line": 31,
+                                "stmt": "return"
+                            }
+                        ],
+                        "stmt": "block"
+                    },
+                    "guard": {
+                        "exp": "binary",
+                        "lft": {
+                            "exp": "id",
+                            "id": "n",
+                            "line": 25
+                        },
+                        "line": 25,
+                        "operator": "+",
+                        "rht": {
+                            "exp": "num",
+                            "line": 25,
+                            "value": "0"
+                        }
+                    },
+                    "line": 25,
+                    "stmt": "if",
+                    "then": {
+                        "list": [
+                            {
+                                "exp": {
+                                    "exp": "num",
+                                    "line": 27,
+                                    "value": "1"
+                                },
+                                "line": 27,
+                                "stmt": "return"
+                            }
+                        ],
+                        "stmt": "block"
+                    }
+                }
+            ],
+            "declarations": [],
+            "id": "foo",
+            "line": 23,
+            "parameters": [
+                {
+                    "id": "n",
+                    "line": 23,
+                    "type": "int"
+                }
+            ],
+            "return_type": "int"
+        },
+        {
+            "body": [
+                {
+                    "line": 38,
+                    "stmt": "return"
+                }
+            ],
+            "declarations": [
+                {
+                    "id": "g",
+                    "line": 37,
+                    "type": "int"
+                },
+                {
+                    "id": "m",
+                    "line": 37,
+                    "type": "int"
+                },
+                {
+                    "id": "k",
+                    "line": 37,
+                    "type": "int"
+                }
+            ],
+            "id": "g",
+            "line": 35,
+            "parameters": [
+                {
+                    "id": "i",
+                    "line": 35,
+                    "type": "int"
+                },
+                {
+                    "id": "j",
+                    "line": 35,
+                    "type": "B"
+                }
+            ],
+            "return_type": "int"
+        },
+        {
+            "body": [
+                {
+                    "list": [
+                        {
+                            "line": 48,
+                            "source": {
+                                "exp": "num",
+                                "line": 48,
+                                "value": "2"
+                            },
+                            "stmt": "assign",
+                            "target": {
+                                "id": "i"
+                            }
+                        },
+                        {
+                            "guard": {
+                                "exp": "binary",
+                                "lft": {
+                                    "exp": "id",
+                                    "id": "i",
+                                    "line": 49
+                                },
+                                "line": 49,
+                                "operator": "<",
+                                "rht": {
+                                    "args": [
+                                        {
+                                            "exp": "num",
+                                            "line": 49,
+                                            "value": "1"
+                                        },
+                                        {
+                                            "exp": "null",
+                                            "line": 49
+                                        }
+                                    ],
+                                    "exp": "invocation",
+                                    "id": "g",
+                                    "line": 49
+                                }
+                            },
+                            "line": 49,
+                            "stmt": "if",
+                            "then": {
+                                "list": [
+                                    {
+                                        "endl": false,
+                                        "exp": {
+                                            "exp": "num",
+                                            "line": 51,
+                                            "value": "1"
+                                        },
+                                        "line": 51,
+                                        "stmt": "print"
+                                    }
+                                ],
+                                "stmt": "block"
+                            }
+                        },
+                        {
+                            "else": {
+                                "list": [
+                                    {
+                                        "endl": true,
+                                        "exp": {
+                                            "exp": "num",
+                                            "line": 60,
+                                            "value": "3"
+                                        },
+                                        "line": 60,
+                                        "stmt": "print"
+                                    }
+                                ],
+                                "stmt": "block"
+                            },
+                            "guard": {
+                                "exp": "binary",
+                                "lft": {
+                                    "exp": "id",
+                                    "id": "i",
+                                    "line": 54
+                                },
+                                "line": 54,
+                                "operator": ">",
+                                "rht": {
+                                    "args": [
+                                        {
+                                            "exp": "num",
+                                            "line": 54,
+                                            "value": "1"
+                                        },
+                                        {
+                                            "exp": "null",
+                                            "line": 54
+                                        }
+                                    ],
+                                    "exp": "invocation",
+                                    "id": "g",
+                                    "line": 54
+                                }
+                            },
+                            "line": 54,
+                            "stmt": "if",
+                            "then": {
+                                "list": [
+                                    {
+                                        "endl": false,
+                                        "exp": {
+                                            "exp": "num",
+                                            "line": 56,
+                                            "value": "1"
+                                        },
+                                        "line": 56,
+                                        "stmt": "print"
+                                    }
+                                ],
+                                "stmt": "block"
+                            }
+                        },
+                        {
+                            "body": {
+                                "list": [
+                                    {
+                                        "endl": false,
+                                        "exp": {
+                                            "exp": "num",
+                                            "line": 64,
+                                            "value": "7"
+                                        },
+                                        "line": 64,
+                                        "stmt": "print"
+                                    }
+                                ],
+                                "stmt": "block"
+                            },
+                            "guard": {
+                                "exp": "binary",
+                                "lft": {
+                                    "exp": "true",
+                                    "line": 62
+                                },
+                                "line": 62,
+                                "operator": "<",
+                                "rht": {
+                                    "exp": "false",
+                                    "line": 62
+                                }
+                            },
+                            "line": 62,
+                            "stmt": "while"
+                        },
+                        {
+                            "args": [
+                                {
+                                    "args": [
+                                        {
+                                            "exp": "num",
+                                            "line": 66,
+                                            "value": "1"
+                                        },
+                                        {
+                                            "exp": "new",
+                                            "id": "B",
+                                            "line": 66
+                                        }
+                                    ],
+                                    "exp": "invocation",
+                                    "id": "g",
+                                    "line": 66
+                                },
+                                {
+                                    "exp": "num",
+                                    "line": 66,
+                                    "value": "2"
+                                },
+                                {
+                                    "exp": "new",
+                                    "id": "B",
+                                    "line": 66
+                                }
+                            ],
+                            "id": "f",
+                            "line": 66,
+                            "stmt": "invocation"
+                        },
+                        {
+                            "endl": true,
+                            "exp": {
+                                "exp": "dot",
+                                "id": "bob",
+                                "left": {
+                                    "args": [
+                                        {
+                                            "exp": "num",
+                                            "line": 67,
+                                            "value": "2"
+                                        },
+                                        {
+                                            "exp": "new",
+                                            "id": "B",
+                                            "line": 67
+                                        }
+                                    ],
+                                    "exp": "invocation",
+                                    "id": "f",
+                                    "line": 67
+                                },
+                                "line": 67
+                            },
+                            "line": 67,
+                            "stmt": "print"
+                        },
+                        {
+                            "endl": true,
+                            "exp": {
+                                "exp": "dot",
+                                "id": "a",
+                                "left": {
+                                    "args": [
+                                        {
+                                            "exp": "num",
+                                            "line": 68,
+                                            "value": "2"
+                                        }
+                                    ],
+                                    "exp": "invocation",
+                                    "id": "foo",
+                                    "line": 68
+                                },
+                                "line": 68
+                            },
+                            "line": 68,
+                            "stmt": "print"
+                        }
+                    ],
+                    "stmt": "block"
+                },
+                {
+                    "exp": {
+                        "exp": "num",
+                        "line": 70,
+                        "value": "0"
+                    },
+                    "line": 70,
+                    "stmt": "return"
+                }
+            ],
+            "declarations": [
+                {
+                    "id": "a",
+                    "line": 43,
+                    "type": "A"
+                },
+                {
+                    "id": "i",
+                    "line": 44,
+                    "type": "int"
+                },
+                {
+                    "id": "j",
+                    "line": 44,
+                    "type": "int"
+                },
+                {
+                    "id": "k",
+                    "line": 44,
+                    "type": "int"
+                },
+                {
+                    "id": "b",
+                    "line": 45,
+                    "type": "bool"
+                },
+                {
+                    "id": "h",
+                    "line": 46,
+                    "type": "int"
+                }
+            ],
+            "id": "main",
+            "line": 41,
+            "parameters": [],
+            "return_type": "int"
+        }
+    ],
+    "types": [
+        {
+            "fields": [
+                {
+                    "id": "i",
+                    "line": 3,
+                    "type": "int"
+                },
+                {
+                    "id": "j1",
+                    "line": 4,
+                    "type": "int"
+                },
+                {
+                    "id": "b",
+                    "line": 5,
+                    "type": "bool"
+                },
+                {
+                    "id": "a",
+                    "line": 6,
+                    "type": "A"
+                }
+            ],
+            "id": "A",
+            "line": 1
+        },
+        {
+            "fields": [
+                {
+                    "id": "a",
+                    "line": 10,
+                    "type": "A"
+                }
+            ],
+            "id": "B",
+            "line": 8
+        }
+    ]
+}
