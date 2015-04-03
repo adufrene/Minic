@@ -16,26 +16,23 @@ data Program = Program { getTypes :: [Type]
                        , getFunctions :: [Function]
                        } deriving (Show)
 
-data Type = Type { getTypeLine :: Int
-                 , getTypeId :: String
+data Type = Type { getTypeId :: Id
                  , getTypeFields :: [Field]
                  } deriving (Show)
 
-data Field = Field { getFieldLine :: Int
-                   , getFieldType :: String
-                   , getFieldId :: Int
+data Field = Field { getFieldType :: String
+                   , getFieldId :: Id
                    } deriving (Show)
 
-data Declaration = Declaration { getDecLine :: Int
-                               , getDecType :: String
-                               , getDecId :: Int
+data Declaration = Declaration { getDecType :: String
+                               , getDecId :: Id
                                } deriving (Show)
 
-data Function = Function { getFunLine :: Int
-                         , getFunId :: String
+data Function = Function { getFunId :: Id
                          , getFunParameters :: [Field]
                          , getFunDeclarations :: [Declaration]
                          , getFunBody :: [Statement]
+                         , getFunReturnType :: String
                          } deriving (Show)
 
 data Statement = Block { getBlockStmts :: [Statement] }
@@ -57,21 +54,21 @@ data Statement = Block { getBlockStmts :: [Statement] }
 data LValue = LValue { getLValId :: Id
                      , getLValLeft :: Maybe LValue } deriving (Show)
 
-data Expression = BinExp { getBOp :: String -- binary
+data Expression = BinExp { getBOp :: String
                          , getLeftExp :: Expression
                          , getRightExp :: Expression }
-                | UExp { getUOp :: String -- unary
+                | UExp { getUOp :: String
                         , getUOpand :: Expression }
-                | DotExp { getDotLeft :: Expression -- dot
+                | DotExp { getDotLeft :: Expression
                          , getDotId :: Id }
                 | InvocExp { getEInvocId :: Id
-                           , getEInvocArgs :: Arguments } -- invocation
-                | IdExp { getId :: Id } -- id
-                | IntExp { getValue :: Int } -- num
-                | TrueExp -- true
-                | FalseExp -- false
-                | NewExp { getNewId :: Id } -- new
-                | NullExp deriving (Show) -- null
+                           , getEInvocArgs :: Arguments }
+                | IdExp { getId :: Id }
+                | IntExp { getValue :: Int }
+                | TrueExp
+                | FalseExp
+                | NewExp { getNewId :: Id }
+                | NullExp deriving (Show)
 
 
 
@@ -81,39 +78,41 @@ instance FromJSON Program where
             (v .: "types") <*>
             (v .: "declarations") <*>
             (v .: "functions")
+        parseJSON _ = undefined
 
 instance FromJSON Function where
         parseJSON (Object v) =
             Function <$>
-            (v .: "line") <*>
             (v .: "id") <*>
             (v .: "parameters") <*>
             (v .: "declarations") <*>
-            (v .: "body")
+            (v .: "body") <*>
+            (v .: "return_type")
+        parseJSON _ = undefined
 
 instance FromJSON Type where
         parseJSON (Object v) =
             Type <$>
-            (v .: "line") <*>
             (v .: "id") <*>
             (v .: "fields")
+        parseJSON _ = undefined
 
 instance FromJSON Declaration where
         parseJSON (Object v) =
             Declaration <$>
-            (v .: "line") <*>
             (v .: "type") <*>
             (v .: "id")
+        parseJSON _ = undefined
 
 instance FromJSON Field where
         parseJSON (Object v) =
             Field <$>
-            (v .: "line") <*>
             (v .: "type") <*>
             (v .: "id")
+        parseJSON _ = undefined
 
 instance FromJSON Statement where
-       parseJSON (Object v) =
+        parseJSON (Object v) =
              jsonToStatement (v ! "stmt") v
                 where jsonToStatement "block" = parseBlock 
                       jsonToStatement "assign" = parseAsgn 
@@ -124,10 +123,13 @@ instance FromJSON Statement where
                       jsonToStatement "delete" = parseDelete 
                       jsonToStatement "return" = parseRet 
                       jsonToStatement "invocation" = parseInvoc 
+                      jsonToStatement _ = undefined
+        parseJSON _ = undefined
 
 instance FromJSON LValue where
         parseJSON (Object v) =
-            LValue <$> (v .: "target") <*> (v .:? "left")
+            LValue <$> (v .: "id") <*> (v .:? "left")
+        parseJSON _ = undefined
 
 instance FromJSON Expression where
         parseJSON (Object v) =
@@ -142,6 +144,8 @@ instance FromJSON Expression where
                       jsonToExpression "false" = parseFalseExp
                       jsonToExpression "new" = parseNewExp
                       jsonToExpression "null" = parseNullExp
+                      jsonToExpression _ = undefined
+        parseJSON _ = undefined
 
 parseBlock :: HashMap Text Value -> Parser Statement
 parseBlock hm = Block <$> (hm .: "list")
@@ -171,7 +175,7 @@ parseInvoc :: HashMap Text Value -> Parser Statement
 parseInvoc hm = Invocation <$> (hm .: "id") <*> (hm .: "args")
 
 parseBinExp :: HashMap Text Value -> Parser Expression
-parseBinExp hm = BinExp <$> (hm .: "operator") <*> (hm .: "left") <*> (hm .: "right")
+parseBinExp hm = BinExp <$> (hm .: "operator") <*> (hm .: "lft") <*> (hm .: "rht")
 
 parseUExp :: HashMap Text Value -> Parser Expression
 parseUExp hm = UExp <$> (hm .: "operator") <*> (hm .: "operand")
@@ -198,5 +202,4 @@ parseNewExp :: HashMap Text Value -> Parser Expression
 parseNewExp hm = NewExp <$> (hm .: "id")
 
 parseNullExp :: HashMap Text Value -> Parser Expression
-parseNullExp hm = return NullExp
-
+parseNullExp _ = return NullExp
