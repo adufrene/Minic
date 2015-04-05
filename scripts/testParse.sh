@@ -13,7 +13,7 @@ tests=(1.json 2.json lval.json ret.json) # files to test
 testDir=json # directory of test input files
 outDir=dist/testParse # where to save output
 
-mkdir $outDir
+mkdir -p $outDir
 
 for t in ${tests[@]}; do  # runs the parser, ignores first two lines of random junk, then compares
    echo $testDir/$t...

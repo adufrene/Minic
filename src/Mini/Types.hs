@@ -312,7 +312,7 @@ instance ToJSON Expression where
   toJSON (InvocExp line invocId args) =
     object [ "exp" .= pack "invocation", "line" .= line, "id" .= invocId, "args" .= args]
   toJSON (IdExp line idId) = object ["exp" .= pack "id", "line" .= line, "id" .= idId]
-  toJSON (IntExp line value) = object ["exp" .= pack "num", "line" .= line, "value" .= value]
+  toJSON (IntExp line value) = object ["exp" .= pack "num", "line" .= line, "value" .= show value]
   toJSON (TrueExp line) = object ["exp" .= pack "true", "line" .= line]
   toJSON (FalseExp line) = object ["exp" .= pack "false", "line" .= line]
   toJSON (NewExp line newId) = object ["exp" .= pack "new", "line" .= line, "id" .= newId]
