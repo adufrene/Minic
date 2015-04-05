@@ -9,5 +9,8 @@ main :: IO ()
 main = do
         args <- getArgs
         file <- readFile $ head args
-        putStrLn $ show (decode . BS.pack $ file :: Maybe Program)
+        let parsedJSON = (decode . BS.pack $ file :: Maybe Program)
+        putStrLn $ show parsedJSON
+        -- re-encode the parsed JSON for testing
+        putStrLn $ read $ BS.unpack $ encode $ BS.unpack (encode parsedJSON)
         return ()
