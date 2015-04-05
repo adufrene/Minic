@@ -16,19 +16,23 @@ data Program = Program { getTypes :: [Type]
                        , getFunctions :: [Function]
                        } deriving (Show)
 
-data Type = Type { getTypeId :: Id
+data Type = Type { getTypeLine :: Int
+                 , getTypeId :: Id
                  , getTypeFields :: [Field]
                  } deriving (Show)
 
-data Field = Field { getFieldType :: String
+data Field = Field { getFieldLine :: Int
+                   , getFieldType :: String
                    , getFieldId :: Id
                    } deriving (Show)
 
-data Declaration = Declaration { getDecType :: String
+data Declaration = Declaration { getDecLine :: Int
+                               , getDecType :: String
                                , getDecId :: Id
                                } deriving (Show)
 
-data Function = Function { getFunId :: Id
+data Function = Function { getFunLine :: Int
+                         , getFunId :: Id
                          , getFunParameters :: [Field]
                          , getFunDeclarations :: [Declaration]
                          , getFunBody :: [Statement]
@@ -36,39 +40,55 @@ data Function = Function { getFunId :: Id
                          } deriving (Show)
 
 data Statement = Block { getBlockStmts :: [Statement] }
-               | Asgn { getAsgnLValue :: LValue
+               | Asgn {  getAsgnLine :: Int
+                       , getAsgnLValue :: LValue
                        , getAsgnExpr :: Expression }
-               | Print { getPrintExpr :: Expression
+               | Print { getPrintLine :: Int
+                       , getPrintExpr :: Expression
                        , hasEndl :: Bool }
-               | Read { getReadLValue :: LValue }
-               | Cond { getCondExpr :: Expression
+               | Read { getReadLine :: Int
+                      , getReadLValue :: LValue }
+               | Cond { getCondLine :: Int
+                      , getCondExpr :: Expression
                       , getCondBlock :: Statement -- Block Statement
                       , getElseBlock :: Maybe Statement }
-               | Loop { getLoopExpr :: Expression
+               | Loop { getLoopLine :: Int
+                      , getLoopExpr :: Expression
                       , getLoopBlock :: Statement } -- Block Statement
-               | Delete { getDelExpr :: Expression }
-               | Ret { getRetExpr :: Maybe Expression }
-               | Invocation { getSInvocId :: Id
+               | Delete { getDelLine :: Int
+                        , getDelExpr :: Expression }
+               | Ret { getRetLine :: Int
+                     , getRetExpr :: Maybe Expression }
+               | Invocation { getSInvocLine :: Int
+                            , getSInvocId :: Id
                             , getSInvocArgs :: Arguments } deriving (Show)
 
-data LValue = LValue { getLValId :: Id
+data LValue = LValue { getLValLine :: Maybe Int 
+                     , getLValId :: Id
                      , getLValLeft :: Maybe LValue } deriving (Show)
 
-data Expression = BinExp { getBOp :: String
+data Expression = BinExp { getBinExpLine :: Int
+                         , getBOp :: String
                          , getLeftExp :: Expression
                          , getRightExp :: Expression }
-                | UExp { getUOp :: String
+                | UExp {  getUOpLine :: Int
+                        , getUOp :: String
                         , getUOpand :: Expression }
-                | DotExp { getDotLeft :: Expression
+                | DotExp { getDotLine :: Int
+                         , getDotLeft :: Expression
                          , getDotId :: Id }
-                | InvocExp { getEInvocId :: Id
+                | InvocExp { getEInvocLine :: Int
+                           , getEInvocId :: Id
                            , getEInvocArgs :: Arguments }
-                | IdExp { getId :: Id }
-                | IntExp { getValue :: Int }
-                | TrueExp
-                | FalseExp
-                | NewExp { getNewId :: Id }
-                | NullExp deriving (Show)
+                | IdExp { getIdLine :: Int
+                        , getId :: Id }
+                | IntExp { getIntExpLine :: Int
+                         , getValue :: Int }
+                | TrueExp { getTrueExpLine :: Int}
+                | FalseExp { getFalseExpLine :: Int}
+                | NewExp { getNewLine :: Int
+                         , getNewId :: Id }
+                | NullExp { getNullLine :: Int } deriving (Show)
 
 
 
@@ -83,6 +103,7 @@ instance FromJSON Program where
 instance FromJSON Function where
         parseJSON (Object v) =
             Function <$>
+            (v .: "line") <*>
             (v .: "id") <*>
             (v .: "parameters") <*>
             (v .: "declarations") <*>
@@ -93,6 +114,7 @@ instance FromJSON Function where
 instance FromJSON Type where
         parseJSON (Object v) =
             Type <$>
+            (v .: "line") <*>
             (v .: "id") <*>
             (v .: "fields")
         parseJSON _ = undefined
@@ -100,6 +122,7 @@ instance FromJSON Type where
 instance FromJSON Declaration where
         parseJSON (Object v) =
             Declaration <$>
+            (v .: "line") <*>
             (v .: "type") <*>
             (v .: "id")
         parseJSON _ = undefined
@@ -107,6 +130,7 @@ instance FromJSON Declaration where
 instance FromJSON Field where
         parseJSON (Object v) =
             Field <$>
+            (v .: "line") <*>
             (v .: "type") <*>
             (v .: "id")
         parseJSON _ = undefined
@@ -128,7 +152,7 @@ instance FromJSON Statement where
 
 instance FromJSON LValue where
         parseJSON (Object v) =
-            LValue <$> (v .: "id") <*> (v .:? "left")
+            LValue <$> (v .:? "line") <*> (v .: "id") <*> (v .:? "left")
         parseJSON _ = undefined
 
 instance FromJSON Expression where
@@ -151,55 +175,55 @@ parseBlock :: HashMap Text Value -> Parser Statement
 parseBlock hm = Block <$> (hm .: "list")
 
 parseAsgn :: HashMap Text Value -> Parser Statement
-parseAsgn hm = Asgn <$> (hm .: "target") <*> (hm .: "source")
+parseAsgn hm = Asgn <$> (hm .: "line") <*> (hm .: "target") <*> (hm .: "source")
 
 parsePrint :: HashMap Text Value -> Parser Statement
-parsePrint hm = Print <$> (hm .: "exp") <*> (hm .: "endl")
+parsePrint hm = Print <$> (hm .: "line") <*> (hm .: "exp") <*> (hm .: "endl")
 
 parseRead :: HashMap Text Value -> Parser Statement
-parseRead hm = Read <$> (hm .: "target")
+parseRead hm = Read <$> (hm .: "line") <*> (hm .: "target")
 
 parseCond :: HashMap Text Value -> Parser Statement
-parseCond hm = Cond <$> (hm .: "guard") <*> (hm .: "then") <*> (hm .:? "else")
+parseCond hm = Cond <$> (hm .: "line") <*> (hm .: "guard") <*> (hm .: "then") <*> (hm .:? "else")
 
 parseLoop :: HashMap Text Value -> Parser Statement
-parseLoop hm = Loop <$> (hm .: "guard") <*> (hm .: "body")
+parseLoop hm = Loop <$> (hm .: "line") <*> (hm .: "guard") <*> (hm .: "body")
 
 parseDelete :: HashMap Text Value -> Parser Statement
-parseDelete hm = Delete <$> (hm .: "guard")
+parseDelete hm = Delete <$> (hm .: "line") <*> (hm .: "guard")
 
 parseRet :: HashMap Text Value -> Parser Statement
-parseRet hm = Ret <$> (hm .:? "exp")
+parseRet hm = Ret <$> (hm .: "line") <*> (hm .:? "exp")
 
 parseInvoc :: HashMap Text Value -> Parser Statement
-parseInvoc hm = Invocation <$> (hm .: "id") <*> (hm .: "args")
+parseInvoc hm = Invocation <$> (hm .: "line") <*> (hm .: "id") <*> (hm .: "args")
 
 parseBinExp :: HashMap Text Value -> Parser Expression
-parseBinExp hm = BinExp <$> (hm .: "operator") <*> (hm .: "lft") <*> (hm .: "rht")
+parseBinExp hm = BinExp <$> (hm .: "line") <*> (hm .: "operator") <*> (hm .: "lft") <*> (hm .: "rht")
 
 parseUExp :: HashMap Text Value -> Parser Expression
-parseUExp hm = UExp <$> (hm .: "operator") <*> (hm .: "operand")
+parseUExp hm = UExp <$> (hm .: "line") <*> (hm .: "operator") <*> (hm .: "operand")
 
 parseDotExp :: HashMap Text Value -> Parser Expression
-parseDotExp hm = DotExp <$> (hm .: "left") <*> (hm .: "id")
+parseDotExp hm = DotExp <$> (hm .: "line") <*> (hm .: "left") <*> (hm .: "id")
 
 parseInvocExp :: HashMap Text Value -> Parser Expression
-parseInvocExp hm = InvocExp <$> (hm .: "id") <*> (hm .: "args")
+parseInvocExp hm = InvocExp <$> (hm .: "line") <*> (hm .: "id") <*> (hm .: "args")
 
 parseIdExp :: HashMap Text Value -> Parser Expression
-parseIdExp hm = IdExp <$> (hm .: "id")
+parseIdExp hm = IdExp <$> (hm .: "line") <*> (hm .: "id")
 
 parseNumExp :: HashMap Text Value -> Parser Expression
-parseNumExp hm = IntExp . read <$> (hm .: "value")
+parseNumExp hm = IntExp <$> (hm .: "line") <*> fmap read (hm .: "value")
 
 parseTrueExp :: HashMap Text Value -> Parser Expression
-parseTrueExp _ = return TrueExp
+parseTrueExp hm = TrueExp <$> (hm .: "line")
 
 parseFalseExp :: HashMap Text Value -> Parser Expression
-parseFalseExp _ = return FalseExp
+parseFalseExp hm = FalseExp <$> (hm .: "line")
 
 parseNewExp :: HashMap Text Value -> Parser Expression
-parseNewExp hm = NewExp <$> (hm .: "id")
+parseNewExp hm = NewExp <$> (hm .: "line") <*> (hm .: "id")
 
 parseNullExp :: HashMap Text Value -> Parser Expression
-parseNullExp _ = return NullExp
+parseNullExp hm = NullExp <$> (hm .: "line")
