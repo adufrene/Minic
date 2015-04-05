@@ -7,6 +7,7 @@ import Data.Aeson.Types
 import Data.Text
 import Data.HashMap.Lazy
 import Control.Applicative
+import Data.Maybe
 
 type Id = String
 type Arguments = [Expression]
@@ -227,3 +228,92 @@ parseNewExp hm = NewExp <$> (hm .: "line") <*> (hm .: "id")
 
 parseNullExp :: HashMap Text Value -> Parser Expression
 parseNullExp hm = NullExp <$> (hm .: "line")
+
+instance ToJSON Program where
+  toJSON (Program t d f) = object ["types" .= t, "declarations" .= d, "functions" .= f]
+
+instance ToJSON Function where
+  toJSON (Function line funId parameters declarations body return_type) =
+    object [ "line" .= line
+           , "id" .= funId
+           , "parameters" .= parameters
+           , "declarations" .= declarations
+           , "body" .= body
+           , "return_type" .= return_type]
+
+instance ToJSON Type where
+  toJSON (Type line typeId fields) = object ["line" .= line, "id" .= typeId, "fields" .= fields]
+
+instance ToJSON Declaration where
+  toJSON (Declaration line dType dId) = object ["line" .= line, "type" .= dType, "id" .= dId]
+
+instance ToJSON Field where
+  toJSON (Field line fType fId) = object [ "line" .= line, "type" .= fType, "id" .= fId]
+
+instance ToJSON LValue where
+  toJSON (LValue maybeLine valId maybeLeft) =
+    object (linePair ++ valIdPair ++ leftPair)
+    where
+      linePair
+        | isJust maybeLine = ["line" .= fromJust maybeLine]
+        | otherwise = []
+      valIdPair = ["id" .= valId]
+      leftPair
+        | isJust maybeLeft = ["left" .= fromJust maybeLeft]
+        | otherwise = []
+
+instance ToJSON Statement where
+  toJSON (Block list) = object ["stmt" .= pack "block", "list" .= list]
+  toJSON (Asgn line target source) =
+    object ["stmt" .= pack "assign"
+           , "line" .= line
+           , "target" .= target
+           , "source" .= source]
+  toJSON (Print line printExp endl) =
+    object ["stmt" .= pack "print", "line" .= line, "exp" .= printExp, "endl" .= endl]
+  toJSON (Read line target) = object ["stmt" .= pack "read", "line" .= line, "target" .= target]
+  toJSON (Cond line guard condThen maybeElse) =
+    object (restL ++ elsePair)
+    where
+      elsePair
+        | isJust maybeElse = ["else" .= fromJust maybeElse]
+        | otherwise = []
+      restL = ["stmt" .= pack "if", "line" .= line, "guard" .= guard, "then" .= condThen]
+  toJSON (Loop line guard body) =
+    object ["stmt" .= pack "while"
+           , "line" .= line
+           , "guard" .= guard
+           , "body" .= body]
+  toJSON (Delete line guard) = object ["stmt" .= pack "delete", "line" .= line, "guard" .= guard]
+  toJSON (Ret line maybeExp) =
+    object (restL ++ expPair)
+    where
+      restL = ["stmt" .= pack "return" , "line" .= line]
+      expPair
+        | isJust maybeExp = ["exp" .= fromJust maybeExp]
+        | otherwise = []
+  toJSON (Invocation line invocId args) =
+    object [ "stmt" .= pack "invocation"
+           , "line" .= line
+           , "id" .= invocId
+           , "args" .= args]
+
+instance ToJSON Expression where
+  toJSON (BinExp line operator lft rht) =
+    object [ "exp" .= pack "binary"
+           , "line" .= line
+           , "operator" .= operator
+           , "lft" .= toJSON lft
+           , "rht" .= toJSON rht]
+  toJSON (UExp line operator operand) =
+    object [ "exp" .= pack "unary", "line" .= line, "operator" .= operator, "operand" .= operand]
+  toJSON (DotExp line left dotId) =
+    object [ "exp" .= pack "dot", "line" .= line, "left" .= left, "id" .= dotId]
+  toJSON (InvocExp line invocId args) =
+    object [ "exp" .= pack "invocation", "line" .= line, "id" .= invocId, "args" .= args]
+  toJSON (IdExp line idId) = object ["exp" .= pack "id", "line" .= line, "id" .= idId]
+  toJSON (IntExp line value) = object ["exp" .= pack "num", "line" .= line, "value" .= value]
+  toJSON (TrueExp line) = object ["exp" .= pack "true", "line" .= line]
+  toJSON (FalseExp line) = object ["exp" .= pack "false", "line" .= line]
+  toJSON (NewExp line newId) = object ["exp" .= pack "new", "line" .= line, "id" .= newId]
+  toJSON (NullExp line) = object ["exp" .= pack "null", "line" .= line]
