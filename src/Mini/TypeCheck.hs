@@ -4,9 +4,18 @@ import Mini.Types
 import Data.HashMap.Lazy
 import Data.Maybe
 
-intOps = ["+", "-", "*", "/", ">", "<", "<=", ">="]
-boolOps = ["&&", "||"]
-structOps = ["!=", "=="]
+arithBinops      = ["+", "-", "*", "/"]
+relationalBinops = ["<", ">", "<=", ">="]
+equalityBinops   = ["==", "!="]
+boolBinops       = ["&&", "||"]
+
+intBinops    = arithBinops ++ relationalBinops ++ equalityBinops
+structBinops = equalityBinops
+
+arithUops = ["-"]
+boolUOps  = ["!"]
+
+intUops = arithUops
 
 intType = "int"
 boolType = "bool"
@@ -48,9 +57,9 @@ getExprType NullExp{} = \_ _ -> nullType
 -- We can't compare against null?
 getBinExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getBinExpType exp@(BinExp _ op lft rht) global local
-    | op `elem` boolOps = checkTypes boolType
-    | op `elem` intOps = checkTypes intType
-    | op `elem` structOps = checkTypes lftType -- Allows bool == bool, shouldn't?
+    | op `elem` boolBinops = checkTypes boolType
+    | op `elem` intBinops = checkTypes intType
+    | op `elem` structBinops = checkTypes lftType -- Allows bool == bool, shouldn't?
     | otherwise = printError exp "invalid binary operator"
     where lftType = getExprType lft global local
           rhtType = getExprType rht global local
@@ -61,8 +70,8 @@ getBinExpType exp@(BinExp _ op lft rht) global local
 
 getUExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getUExpType exp@(UExp _ op opnd) global local
-    | op == "!" = validateOpnd boolType
-    | op == "-" = validateOpnd intType
+    | op `elem` boolUOps = validateOpnd boolType
+    | op `elem` intUops = validateOpnd intType
     | otherwise = printError exp "unrecognized unary operator: " ++ op
     where opndType = getExprType opnd global local
           validateOpnd typeString =
