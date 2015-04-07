@@ -9,8 +9,7 @@ relationalBinops = ["<", ">", "<=", ">="]
 equalityBinops   = ["==", "!="]
 boolBinops       = ["&&", "||"]
 
-intBinops    = arithBinops ++ relationalBinops ++ equalityBinops
-structBinops = equalityBinops
+intBinops    = arithBinops ++ relationalBinops
 
 arithUops = ["-"]
 boolUOps  = ["!"]
@@ -57,9 +56,11 @@ getExprType NullExp{} = \_ _ -> nullType
 -- We can't compare against null?
 getBinExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getBinExpType exp@(BinExp _ op lft rht) global local
-    | op `elem` boolBinops = checkTypes boolType
-    | op `elem` intBinops = checkTypes intType
-    | op `elem` structBinops = checkTypes lftType -- Allows bool == bool, shouldn't?
+    | op `elem` boolBinops = checkTypes boolType -- bool
+    | op `elem` equalityBinops = if lftType == boolType -- int & struct
+                                     then printError exp "cannot perform equality check on bool type"
+                                     else checkTypes lftType
+    | op `elem` intBinops = checkTypes intType -- int
     | otherwise = printError exp "invalid binary operator"
     where lftType = getExprType lft global local
           rhtType = getExprType rht global local
@@ -128,46 +129,39 @@ checkStatements :: GlobalEnv -> LocalEnv -> String -> [Statement] -> Maybe Strin
 checkStatements glob loc expect stmts =
    checkRet $ actuallyCheckStatements stmts
       where
-         checkRet :: (Maybe String, Maybe Int) -> Maybe String
          checkRet (Nothing, _) = Nothing
          checkRet (Just theType, line)
-            | (theType == expect) = (Just expect)
+            | theType == expect = Just expect
             | otherwise = error $ lineStr ++ "statement returns " ++ theType ++ " expected " ++ expect
                where
                   lineStr
-                     | isJust line = (show (fromJust line)) ++ ": "
+                     | isJust line = show (fromJust line) ++ ": "
                      | otherwise = ""
-
-         recur :: [Statement] -> Maybe String
-         recur recurStmts = checkStatements glob loc expect recurStmts
-
-         checkGuard :: Expression -> Int -> String
+         recur = checkStatements glob loc expect 
          checkGuard expr line
-            | exprType /= "bool" = error $ (show line) ++ ": non-boolean guard"
+            | exprType /= "bool" = error $ show line ++ ": non-boolean guard"
             | otherwise = exprType
                where exprType = getExprType expr glob loc
-
-         actuallyCheckStatements :: [Statement] -> (Maybe String, Maybe Int)
-         actuallyCheckStatements ((Ret line Nothing):_) = ((Just "void"), (Just line))
-         actuallyCheckStatements ((Ret line (Just expr)):_) =
-            ((Just (getExprType expr glob loc)), (Just line))
-         actuallyCheckStatements ((Cond line expr (Block ifStmts) Nothing):rest) =
+         actuallyCheckStatements (Ret line Nothing:_) = (Just "void", Just line)
+         actuallyCheckStatements (Ret line (Just expr):_) =
+            (Just (getExprType expr glob loc), Just line)
+         actuallyCheckStatements (Cond line expr (Block ifStmts) Nothing:rest) =
             let ifStmtsType = recur ifStmts;
                 guardType = checkGuard expr line
                 in (recur rest, Just line)
-         actuallyCheckStatements ((Cond line expr (Block ifStmts) (Just (Block elseStmts))):rest)
-            | (isJust ifType) && (ifType == elseType) = (ifType, Just line)
+         actuallyCheckStatements (Cond line expr (Block ifStmts) (Just (Block elseStmts)):rest)
+            | isJust ifType && ifType == elseType = (ifType, Just line)
             | otherwise = (recur rest, Just line)
                where
                   guardType = checkGuard expr line
                   ifType = recur ifStmts
                   elseType = recur elseStmts
-         actuallyCheckStatements ((Cond line _ _ _):_) = error $ (show line) ++ ": bad conditional"
-         actuallyCheckStatements ((Loop line expr (Block whileStmts)):rest) =
+         actuallyCheckStatements (Cond line _ _ _:_) = error $ show line ++ ": bad conditional"
+         actuallyCheckStatements (Loop line expr (Block whileStmts):rest) =
             let whileStmtsType = recur whileStmts;
                 guardType = checkGuard expr line
                 in (recur rest, Just line)
-         actuallyCheckStatements ((Loop line _ _):_) = error $ (show line) ++ ": bad loop"
+         actuallyCheckStatements (Loop line _ _:_) = error $ show line ++ ": bad loop"
          -- TODO: Asgn, Print, Read, Delete, Invocation
          actuallyCheckStatements (_:rest) = (recur rest, Nothing)
          actuallyCheckStatements [] = (Nothing, Nothing)
