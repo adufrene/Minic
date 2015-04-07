@@ -13,12 +13,19 @@ type Id = String
 type Arguments = [Expression]
 type Type = String
 
-type TypeHash = HashMap Id [Field]
+type TypeHash = HashMap Type [Field]
 type DecHash = HashMap Id Type
-type FunHash = HashMap Id Type
+type FunHash = HashMap Id ([Type], Type)
 
-type GlobalEnv = (TypeHash, DecHash, FunHash)
 type LocalEnv = DecHash
+data GlobalEnv = GlobalEnv { getTypesHash :: TypeHash
+                           , getDecsHash :: DecHash
+                           , getFuncsHash :: FunHash}
+
+class HasLines a where
+        getLineString :: a -> String
+
+-- Data Constructors --
 
 data Program = Program { getTypes :: [TypeDef]
                        , getDeclarations :: [Declaration]
@@ -99,7 +106,7 @@ data Expression = BinExp { getBinExpLine :: Int
                          , getNewId :: Id }
                 | NullExp { getNullLine :: Int } deriving (Show)
 
-
+-- FromJSON --
 
 instance FromJSON Program where
         parseJSON (Object v) = 
@@ -180,62 +187,7 @@ instance FromJSON Expression where
                       jsonToExpression _ = undefined
         parseJSON _ = undefined
 
-parseBlock :: HashMap Text Value -> Parser Statement
-parseBlock hm = Block <$> (hm .: "list")
-
-parseAsgn :: HashMap Text Value -> Parser Statement
-parseAsgn hm = Asgn <$> (hm .: "line") <*> (hm .: "target") <*> (hm .: "source")
-
-parsePrint :: HashMap Text Value -> Parser Statement
-parsePrint hm = Print <$> (hm .: "line") <*> (hm .: "exp") <*> (hm .: "endl")
-
-parseRead :: HashMap Text Value -> Parser Statement
-parseRead hm = Read <$> (hm .: "line") <*> (hm .: "target")
-
-parseCond :: HashMap Text Value -> Parser Statement
-parseCond hm = Cond <$> (hm .: "line") <*> (hm .: "guard") <*> (hm .: "then") <*> (hm .:? "else")
-
-parseLoop :: HashMap Text Value -> Parser Statement
-parseLoop hm = Loop <$> (hm .: "line") <*> (hm .: "guard") <*> (hm .: "body")
-
-parseDelete :: HashMap Text Value -> Parser Statement
-parseDelete hm = Delete <$> (hm .: "line") <*> (hm .: "guard")
-
-parseRet :: HashMap Text Value -> Parser Statement
-parseRet hm = Ret <$> (hm .: "line") <*> (hm .:? "exp")
-
-parseInvoc :: HashMap Text Value -> Parser Statement
-parseInvoc hm = Invocation <$> (hm .: "line") <*> (hm .: "id") <*> (hm .: "args")
-
-parseBinExp :: HashMap Text Value -> Parser Expression
-parseBinExp hm = BinExp <$> (hm .: "line") <*> (hm .: "operator") <*> (hm .: "lft") <*> (hm .: "rht")
-
-parseUExp :: HashMap Text Value -> Parser Expression
-parseUExp hm = UExp <$> (hm .: "line") <*> (hm .: "operator") <*> (hm .: "operand")
-
-parseDotExp :: HashMap Text Value -> Parser Expression
-parseDotExp hm = DotExp <$> (hm .: "line") <*> (hm .: "left") <*> (hm .: "id")
-
-parseInvocExp :: HashMap Text Value -> Parser Expression
-parseInvocExp hm = InvocExp <$> (hm .: "line") <*> (hm .: "id") <*> (hm .: "args")
-
-parseIdExp :: HashMap Text Value -> Parser Expression
-parseIdExp hm = IdExp <$> (hm .: "line") <*> (hm .: "id")
-
-parseNumExp :: HashMap Text Value -> Parser Expression
-parseNumExp hm = IntExp <$> (hm .: "line") <*> fmap read (hm .: "value")
-
-parseTrueExp :: HashMap Text Value -> Parser Expression
-parseTrueExp hm = TrueExp <$> (hm .: "line")
-
-parseFalseExp :: HashMap Text Value -> Parser Expression
-parseFalseExp hm = FalseExp <$> (hm .: "line")
-
-parseNewExp :: HashMap Text Value -> Parser Expression
-parseNewExp hm = NewExp <$> (hm .: "line") <*> (hm .: "id")
-
-parseNullExp :: HashMap Text Value -> Parser Expression
-parseNullExp hm = NullExp <$> (hm .: "line")
+-- ToJSON --
 
 instance ToJSON Program where
   toJSON (Program t d f) = object ["types" .= t, "declarations" .= d, "functions" .= f]
@@ -325,3 +277,106 @@ instance ToJSON Expression where
   toJSON (FalseExp line) = object ["exp" .= pack "false", "line" .= line]
   toJSON (NewExp line newId) = object ["exp" .= pack "new", "line" .= line, "id" .= newId]
   toJSON (NullExp line) = object ["exp" .= pack "null", "line" .= line]
+
+-- HasLines --
+
+instance HasLines TypeDef where
+        getLineString = show . getTypeLine 
+
+instance HasLines Field where
+        getLineString = show . getFieldLine
+
+instance HasLines Declaration where
+        getLineString = show . getDecLine
+
+instance HasLines Function where
+        getLineString = show . getFunLine
+
+instance HasLines Statement where
+        getLineString (Block (x:_)) = getLineString x
+        getLineString stmt@Block{} = "Unknown line"
+        getLineString stmt@Asgn{} = show $ getAsgnLine stmt
+        getLineString stmt@Print{} = show $ getPrintLine stmt
+        getLineString stmt@Read{} = show $ getReadLine stmt
+        getLineString stmt@Cond{} = show $ getCondLine stmt
+        getLineString stmt@Loop{} = show $ getLoopLine stmt
+        getLineString stmt@Delete{} = show $ getDelLine stmt
+        getLineString stmt@Ret{} = show $ getRetLine stmt
+        getLineString stmt@Invocation{} = show $ getSInvocLine stmt
+
+instance HasLines LValue where
+        getLineString val = toString $ getLValLine val
+            where toString (Just line) = show line
+                  toString Nothing = "Unknown line"
+
+instance HasLines Expression where
+        getLineString stmt@BinExp{} = show $ getBinExpLine stmt
+        getLineString stmt@UExp{} = show $ getUOpLine stmt
+        getLineString stmt@DotExp{} = show $ getDotLine stmt
+        getLineString stmt@InvocExp{} = show $ getEInvocLine stmt
+        getLineString stmt@IdExp{} = show $ getIdLine stmt
+        getLineString stmt@IntExp{} = show $ getIntExpLine stmt
+        getLineString stmt@TrueExp{} = show $ getTrueExpLine stmt
+        getLineString stmt@FalseExp{} = show $ getFalseExpLine stmt
+        getLineString stmt@NewExp{} = show $ getNewLine stmt
+        getLineString stmt@NullExp{} = show $ getNullLine stmt
+
+-- Helpers --
+
+parseBlock :: HashMap Text Value -> Parser Statement
+parseBlock hm = Block <$> (hm .: "list")
+
+parseAsgn :: HashMap Text Value -> Parser Statement
+parseAsgn hm = Asgn <$> (hm .: "line") <*> (hm .: "target") <*> (hm .: "source")
+
+parsePrint :: HashMap Text Value -> Parser Statement
+parsePrint hm = Print <$> (hm .: "line") <*> (hm .: "exp") <*> (hm .: "endl")
+
+parseRead :: HashMap Text Value -> Parser Statement
+parseRead hm = Read <$> (hm .: "line") <*> (hm .: "target")
+
+parseCond :: HashMap Text Value -> Parser Statement
+parseCond hm = Cond <$> (hm .: "line") <*> (hm .: "guard") <*> (hm .: "then") <*> (hm .:? "else")
+
+parseLoop :: HashMap Text Value -> Parser Statement
+parseLoop hm = Loop <$> (hm .: "line") <*> (hm .: "guard") <*> (hm .: "body")
+
+parseDelete :: HashMap Text Value -> Parser Statement
+parseDelete hm = Delete <$> (hm .: "line") <*> (hm .: "guard")
+
+parseRet :: HashMap Text Value -> Parser Statement
+parseRet hm = Ret <$> (hm .: "line") <*> (hm .:? "exp")
+
+parseInvoc :: HashMap Text Value -> Parser Statement
+parseInvoc hm = Invocation <$> (hm .: "line") <*> (hm .: "id") <*> (hm .: "args")
+
+parseBinExp :: HashMap Text Value -> Parser Expression
+parseBinExp hm = BinExp <$> (hm .: "line") <*> (hm .: "operator") <*> (hm .: "lft") <*> (hm .: "rht")
+
+parseUExp :: HashMap Text Value -> Parser Expression
+parseUExp hm = UExp <$> (hm .: "line") <*> (hm .: "operator") <*> (hm .: "operand")
+
+parseDotExp :: HashMap Text Value -> Parser Expression
+parseDotExp hm = DotExp <$> (hm .: "line") <*> (hm .: "left") <*> (hm .: "id")
+
+parseInvocExp :: HashMap Text Value -> Parser Expression
+parseInvocExp hm = InvocExp <$> (hm .: "line") <*> (hm .: "id") <*> (hm .: "args")
+
+parseIdExp :: HashMap Text Value -> Parser Expression
+parseIdExp hm = IdExp <$> (hm .: "line") <*> (hm .: "id")
+
+parseNumExp :: HashMap Text Value -> Parser Expression
+parseNumExp hm = IntExp <$> (hm .: "line") <*> fmap read (hm .: "value")
+
+parseTrueExp :: HashMap Text Value -> Parser Expression
+parseTrueExp hm = TrueExp <$> (hm .: "line")
+
+parseFalseExp :: HashMap Text Value -> Parser Expression
+parseFalseExp hm = FalseExp <$> (hm .: "line")
+
+parseNewExp :: HashMap Text Value -> Parser Expression
+parseNewExp hm = NewExp <$> (hm .: "line") <*> (hm .: "id")
+
+parseNullExp :: HashMap Text Value -> Parser Expression
+parseNullExp hm = NullExp <$> (hm .: "line")
+
