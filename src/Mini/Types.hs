@@ -11,24 +11,32 @@ import Data.Maybe
 
 type Id = String
 type Arguments = [Expression]
+type Type = String
 
-data Program = Program { getTypes :: [Type]
+type TypeHash = HashMap Id [Field]
+type DecHash = HashMap Id Type
+type FunHash = HashMap Id Type
+
+type GlobalEnv = (TypeHash, DecHash, FunHash)
+type LocalEnv = DecHash
+
+data Program = Program { getTypes :: [TypeDef]
                        , getDeclarations :: [Declaration]
                        , getFunctions :: [Function]
                        } deriving (Show)
 
-data Type = Type { getTypeLine :: Int
-                 , getTypeId :: Id
-                 , getTypeFields :: [Field]
-                 } deriving (Show)
+data TypeDef = TypeDef { getTypeLine :: Int
+                       , getTypeId :: Id
+                       , getTypeFields :: [Field]
+                       } deriving (Show)
 
 data Field = Field { getFieldLine :: Int
-                   , getFieldType :: String
+                   , getFieldType :: Type
                    , getFieldId :: Id
                    } deriving (Show)
 
 data Declaration = Declaration { getDecLine :: Int
-                               , getDecType :: String
+                               , getDecType :: Type
                                , getDecId :: Id
                                } deriving (Show)
 
@@ -37,7 +45,7 @@ data Function = Function { getFunLine :: Int
                          , getFunParameters :: [Field]
                          , getFunDeclarations :: [Declaration]
                          , getFunBody :: [Statement]
-                         , getFunReturnType :: String
+                         , getFunReturnType :: Type
                          } deriving (Show)
 
 data Statement = Block { getBlockStmts :: [Statement] }
@@ -112,9 +120,9 @@ instance FromJSON Function where
             (v .: "return_type")
         parseJSON _ = undefined
 
-instance FromJSON Type where
+instance FromJSON TypeDef where
         parseJSON (Object v) =
-            Type <$>
+            TypeDef <$>
             (v .: "line") <*>
             (v .: "id") <*>
             (v .: "fields")
@@ -241,8 +249,8 @@ instance ToJSON Function where
            , "body" .= body
            , "return_type" .= return_type]
 
-instance ToJSON Type where
-  toJSON (Type line typeId fields) = object ["line" .= line, "id" .= typeId, "fields" .= fields]
+instance ToJSON TypeDef where
+  toJSON (TypeDef line typeId fields) = object ["line" .= line, "id" .= typeId, "fields" .= fields]
 
 instance ToJSON Declaration where
   toJSON (Declaration line dType dId) = object ["line" .= line, "type" .= dType, "id" .= dId]
