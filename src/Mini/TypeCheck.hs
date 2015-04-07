@@ -9,7 +9,7 @@ relationalBinops = ["<", ">", "<=", ">="]
 equalityBinops   = ["==", "!="]
 boolBinops       = ["&&", "||"]
 
-intBinops    = arithBinops ++ relationalBinops
+intBinops = arithBinops ++ relationalBinops
 
 arithUops = ["-"]
 boolUOps  = ["!"]
@@ -23,23 +23,28 @@ nullType = "null"
 printError :: HasLines a => a -> String -> b
 printError lineItem errMsg = error $ getLineString lineItem ++ ":" ++ errMsg
 
-readTypes :: Program -> HashMap Id [Field]
-readTypes prog = foldl foldFun empty $ getTypes prog
+readTypes :: [TypeDef] -> HashMap Id [Field]
+readTypes = foldl foldFun empty 
     where foldFun hash td@(TypeDef _ id fields) = 
               let newHash = insert id fields hash
                   isValid = all (\field -> getFieldType field `member` newHash) fields
               in if isValid then newHash else printError td "Type contains field of undeclared type" 
 
-readDecls :: Program -> HashMap Id [Field] -> HashMap Id Type
-readDecls prog hash = foldl foldFun empty $ getDeclarations prog
+readDecls :: HashMap Id [Field] -> [Declaration] -> HashMap Id Type
+readDecls hash = foldl foldFun empty 
     where foldFun newHash dec@(Declaration _ decType id)
             | decType == intType || decType == boolType = insert id decType newHash
             | otherwise = if decType `member` hash 
                             then insert id decType newHash 
                             else printError dec "use of undefined type"
 
-readFuncs :: Program -> (HashMap Id [Field], HashMap Id Type) -> HashMap Id Type
-readFuncs prog (typeHash, decHash) = empty
+readFuncs :: HashMap Id [Field] -> HashMap Id Type -> [Function] -> HashMap Id Type
+readFuncs typeHash decHash = foldl foldFun empty
+    where foldFun hash fun@(Function _ id params decls body expectRet) =
+            let newHash = insert id (fmap getFieldType params, expectRet)
+                locals = readDecls decls typeHash
+                _ = checkStatements (GlobalEnv typeHash decHash newHash) locals expectRet body
+            in newHash
 
 getExprType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getExprType exp@BinExp{} = getBinExpType exp 
