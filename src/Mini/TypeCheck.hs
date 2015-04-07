@@ -2,6 +2,7 @@ module TypeCheck where
 
 import Mini.Types
 import Data.HashMap.Lazy
+import Data.Maybe
 
 intOps = ["+", "-", "*", "/", ">", "<", "<=", ">="]
 boolOps = ["&&", "||"]
@@ -113,3 +114,51 @@ getNewExpType exp global _
     | otherwise = printError exp "Undefined type" ++ id
     where id = getNewId exp
           typeHash = getTypesHash global
+
+checkStatements :: GlobalEnv -> LocalEnv -> String -> [Statement] -> Maybe String
+checkStatements glob loc expect stmts =
+   checkRet $ actuallyCheckStatements stmts
+      where
+         checkRet :: (Maybe String, Maybe Int) -> Maybe String
+         checkRet (Nothing, _) = Nothing
+         checkRet (Just theType, line)
+            | (theType == expect) = (Just expect)
+            | otherwise = error $ lineStr ++ "statement returns " ++ theType ++ " expected " ++ expect
+               where
+                  lineStr
+                     | isJust line = (show (fromJust line)) ++ ": "
+                     | otherwise = ""
+
+         recur :: [Statement] -> Maybe String
+         recur recurStmts = checkStatements glob loc expect recurStmts
+
+         checkGuard :: Expression -> Int -> String
+         checkGuard expr line
+            | exprType /= "bool" = error $ (show line) ++ ": non-boolean guard"
+            | otherwise = exprType
+               where exprType = getExprType expr glob loc
+
+         actuallyCheckStatements :: [Statement] -> (Maybe String, Maybe Int)
+         actuallyCheckStatements ((Ret line Nothing):_) = ((Just "void"), (Just line))
+         actuallyCheckStatements ((Ret line (Just expr)):_) =
+            ((Just (getExprType expr glob loc)), (Just line))
+         actuallyCheckStatements ((Cond line expr (Block ifStmts) Nothing):rest) =
+            let ifStmtsType = recur ifStmts;
+                guardType = checkGuard expr line
+                in (recur rest, Just line)
+         actuallyCheckStatements ((Cond line expr (Block ifStmts) (Just (Block elseStmts))):rest)
+            | (isJust ifType) && (ifType == elseType) = (ifType, Just line)
+            | otherwise = (recur rest, Just line)
+               where
+                  guardType = checkGuard expr line
+                  ifType = recur ifStmts
+                  elseType = recur elseStmts
+         actuallyCheckStatements ((Cond line _ _ _):_) = error $ (show line) ++ ": bad conditional"
+         actuallyCheckStatements ((Loop line expr (Block whileStmts)):rest) =
+            let whileStmtsType = recur whileStmts;
+                guardType = checkGuard expr line
+                in (recur rest, Just line)
+         actuallyCheckStatements ((Loop line _ _):_) = error $ (show line) ++ ": bad loop"
+         -- TODO: Asgn, Print, Read, Delete, Invocation
+         actuallyCheckStatements (_:rest) = (recur rest, Nothing)
+         actuallyCheckStatements [] = (Nothing, Nothing)
