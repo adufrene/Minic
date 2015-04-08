@@ -143,22 +143,27 @@ getIdExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getIdExpType exp@(IdExp _ id) global local
     | localContains = local ! id 
     | globalContains = globalVars ! id
-    | otherwise = printError exp "Undefined id " ++ id
+    | otherwise = printError exp ("Undefined id " ++ id)
     where localContains = id `member` local
           globalContains = id `member` globalVars
           globalVars = getDecsHash global
 
-getIdType :: Id -> GlobalEnv -> LocalEnv -> Type
-getIdType theId = getIdExpType (IdExp 0 theId)
+getIdType :: Id -> Maybe Int -> GlobalEnv -> LocalEnv -> Type
+getIdType "" _ = error "empty string passed to getIdType"
+getIdType theId line = getIdExpType (IdExp lineNo theId)
+  where
+    lineNo
+      | isNothing line = -1
+      | otherwise = fromJust line
 -- ^ those two funcs need refactor. getIdExpType should call getIdType
 
 getLValType :: LValue -> GlobalEnv -> LocalEnv -> Type
-getLValType (LValue _ theId Nothing) globs locs = getIdType theId globs locs
+getLValType (LValue line theId Nothing) globs locs = getIdType theId line globs locs
 getLValType (LValue line theId (Just lval)) globs locs
   | idType /= recurType = error $ show line ++ ": assigning " ++ idType ++ " to" ++ recurType
   | otherwise = idType
     where
-      idType = getIdType theId globs locs
+      idType = getIdType theId line globs locs
       recurType = getLValType lval globs locs
 
 getNewExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
