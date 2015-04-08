@@ -14,7 +14,7 @@ if file.nil?
 end
 
 # execute following command in subshell, and save stdout to variable
-json = `cabal configure --verbose=0 && cabal run --verbose=0 #{file} testParse`
+json = `cabal configure --verbose=0 && cabal run --verbose=0 -- #{file} --testJSON`
 if json.nil?
     abort "Bad json file"
 end

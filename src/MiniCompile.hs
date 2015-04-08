@@ -15,12 +15,12 @@ main = do
         args <- getArgs
         file <- readFile $ head args
         let parsedJSON = decode . BS.pack $ file :: Maybe Program
-        when ("--printJSON" `elem` args) $ 
-            putStrLn $ BS.unpack $ encode $ BS.unpack (encode parsedJSON)
+        when ("--testJSON" `elem` args) $ 
+            putStrLn $ BS.unpack $ encode parsedJSON
         when ("--printProgram" `elem` args) $ print parsedJSON
         let env = fmap checkTypes parsedJSON
         when ("--printEnv" `elem` args) $ print env
-        putStrLn $ "Compilation finished: " ++ envReport env
+        when ("--testJSON" `notElem` args) $ putStrLn $ "Compilation finished: " ++ envReport env
 
 envReport :: Maybe GlobalEnv -> String
 envReport Nothing = "No environment"
