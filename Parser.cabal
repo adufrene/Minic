@@ -6,7 +6,7 @@ version:             0.1.0.0
 synopsis:            Compiler for the "mini" subset of C
 -- description:         
 -- license:             
-license-file:        LICENSE
+-- license-file:
 author:              Andy DuFrene & Zach Arend
 maintainer:          none
 -- copyright:           

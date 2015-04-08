@@ -1,8 +1,9 @@
 module Mini.TypeCheck where
 
 import Mini.Types
-import Data.HashMap.Lazy
+import Data.HashMap.Strict
 import Data.Maybe
+import Data.List (find)
 
 arithBinops      = ["+", "-", "*", "/"]
 relationalBinops = ["<", ">", "<=", ">="]
@@ -30,17 +31,20 @@ checkTypes (Program types decls funcs) =
             main = funcHash ! mainId 
         in if mainId `member` funcHash && Prelude.null (fst main) && snd main == intType
                then GlobalEnv typeHash decHash funcHash
-               else error "Missing 'int main()' function"   
+               else error "Missing function 'int main()'"
 
 printError :: HasLines a => a -> String -> b
-printError lineItem errMsg = error $ "Line " ++ getLineString lineItem ++ ":" ++ errMsg
+printError lineItem errMsg = error $ "Line " ++ getLineString lineItem ++ ": " ++ errMsg
 
 readTypes :: [TypeDef] -> HashMap Id [Field]
 readTypes = foldl foldFun empty 
     where foldFun hash td@(TypeDef _ id fields) = 
               let newHash = insert id fields hash
-                  isValid = all (\field -> getFieldType field `member` newHash) fields
-              in if isValid then newHash else printError td "Type contains field of undeclared type" 
+                  badField = find (\(Field _ fType _) -> fType /= intType && fType /= boolType 
+                                  && not (fType `member` newHash)) fields
+              in if isNothing badField 
+                     then newHash 
+                     else printError (fromJust badField) "Type contains field of undeclared type" 
 
 readDecls :: HashMap Id [Field] -> [Declaration] -> HashMap Id Type
 readDecls hash = foldl foldFun empty 
