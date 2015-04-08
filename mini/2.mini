@@ -17,12 +17,12 @@ bool bob;
 fun f(int i, struct B j) struct A
 {
    int l, k;
-   return b.a.a.a.a.i;           # remove i
+   return b.a.a.a.a; #.i;           # remove i
 }
 
 fun foo(int n) int
 {
-   if (n + 0) # change operator
+   if (n > 0) # change operator
    {
       return 1;
    }
@@ -35,7 +35,7 @@ fun foo(int n) int
 fun g(int i, struct B j) int
 {
    int g, m, k;
-   return;                       # add an integer return value
+   return 3;                       # add an integer return value
 }
 
 fun main() int
