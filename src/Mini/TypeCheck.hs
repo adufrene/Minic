@@ -56,12 +56,18 @@ readDecls hash = foldl foldFun empty
 
 readFuncs :: HashMap Id [Field] -> HashMap Id Type -> [Function] -> HashMap Id ([Type], Type)
 readFuncs typeHash decHash = foldl foldFun empty
-    where foldFun hash fun@(Function _ id params decls body expectRet) =
+    where foldFun hash fun@(Function line id params decls body expectRet) =
             let newHash = insert id (fmap getFieldType params, expectRet) hash
                 locals = readDecls typeHash decls
                 global = GlobalEnv typeHash decHash newHash
-                _ = checkStatements global locals expectRet body -- void func?
-            in newHash
+                maybeRetType = checkStatements global locals body
+                retType
+                  | isJust maybeRetType = fromJust maybeRetType,
+                  | otherwise = "void"
+            in
+              if retType /= expectRet then
+                error $ show line ++ ": function returns " ++ retType ++ " expected " ++ expectRet
+              else newHash
 
 getExprType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getExprType exp@BinExp{} = getBinExpType exp 
@@ -147,43 +153,53 @@ getNewExpType exp global _
     where id = getNewId exp
           typeHash = getTypesHash global
 
-checkStatements :: GlobalEnv -> LocalEnv -> String -> [Statement] -> Maybe String
-checkStatements glob loc expect stmts =
-   checkRet $ actuallyCheckStatements stmts
-      where
-         checkRet (Nothing, _) = Nothing
-         checkRet (Just theType, line)
-            | theType == expect = Just expect
-            | otherwise = error $ lineStr ++ "statement returns " ++ theType ++ " expected " ++ expect
-               where
-                  lineStr
-                     | isJust line = show (fromJust line) ++ ": "
-                     | otherwise = ""
-         recur = checkStatements glob loc expect 
-         checkGuard expr line
-            | exprType /= "bool" = error $ show line ++ ": non-boolean guard"
-            | otherwise = exprType
-               where exprType = getExprType expr glob loc
-         actuallyCheckStatements (Ret line Nothing:_) = (Just "void", Just line)
-         actuallyCheckStatements (Ret line (Just expr):_) =
-            (Just (getExprType expr glob loc), Just line)
-         actuallyCheckStatements (Cond line expr (Block ifStmts) Nothing:rest) =
-            let ifStmtsType = recur ifStmts;
-                guardType = checkGuard expr line
-                in (recur rest, Just line)
-         actuallyCheckStatements (Cond line expr (Block ifStmts) (Just (Block elseStmts)):rest)
-            | isJust ifType && ifType == elseType = (ifType, Just line)
-            | otherwise = (recur rest, Just line)
-               where
-                  guardType = checkGuard expr line
-                  ifType = recur ifStmts
-                  elseType = recur elseStmts
-         actuallyCheckStatements (Cond line _ _ _:_) = error $ show line ++ ": bad conditional"
-         actuallyCheckStatements (Loop line expr (Block whileStmts):rest) =
-            let whileStmtsType = recur whileStmts;
-                guardType = checkGuard expr line
-                in (recur rest, Just line)
-         actuallyCheckStatements (Loop line _ _:_) = error $ show line ++ ": bad loop"
-         -- TODO: Asgn, Print, Read, Delete, Invocation
-         actuallyCheckStatements (_:rest) = (recur rest, Nothing)
-         actuallyCheckStatements [] = (Nothing, Nothing)
+-- determines if all the elements of given list are equal
+allEqual :: Eq a => [a] -> Bool
+allEqual xs = all (== head xs) xs
+
+-- takes a list of types, are returns true if they are all the same type, excluding Nothing's
+sameTypes :: [Maybe String] -> Bool
+sameTypes types = allEqual [fromJust x | x <- types, isJust x]
+
+-- takes an environment and a list of statments and returns the type that the statements will return
+-- returns Nothing is the statments don't return and does type checking along the way
+checkStatements :: GlobalEnv -> LocalEnv -> [Statement] -> Maybe String
+checkStatements globs locs stmts = recur stmts
+  where
+    getExprTypeHelper expr = getExprType expr globs locs
+
+    recur :: [Statement] -> Maybe String
+    recur (Ret _ Nothing:_) = Just "void"
+    recur (Ret _ (Just expr):_) = Just $ getExprTypeHelper expr
+    recur (Cond line expr (Block ifStmts) Nothing:rest)
+      | getExprTypeHelper expr /= boolType = error $ show line ++  ": non-boolean guard"
+      | sameTypes [ifBlockType, restType] = restType
+      | otherwise = error $ show line ++ ": if block returns " ++ fromJust ifBlockType ++
+          ", code after if statment returns" ++ fromJust restType
+        where
+          ifBlockType = recur ifStmts
+          restType = recur rest
+    recur (Cond line expr (Block ifStmts) (Just (Block elseStmts)):rest)
+      | getExprTypeHelper expr /= boolType = error $ show line ++  ": non-boolean guard"
+      | sameTypes [ifBlockType, elseBlockType, restType] == False =
+          error $ show line ++ ": if block, else block, and preceding code do not return save types"
+      | all isJust [ifBlockType, elseBlockType] = ifBlockType
+      | isNothing restType = error $ show line ++ ": does not return in all paths"
+      | otherwise = restType
+        where
+          ifBlockType = recur ifStmts
+          elseBlockType = recur elseStmts
+          restType = recur rest
+    recur (Cond line _ _ _:_) = error $ show line ++ ": bad conditional"
+    recur (Loop line expr (Block whileStmts):rest)
+      | getExprTypeHelper expr /= boolType = error $ show line ++  ": non-boolean guard"
+      | sameTypes [whileBlockType, restType] = restType
+      | otherwise = error $ show line ++ ": while block returns " ++ fromJust whileBlockType ++
+          ", code after loop returns " ++ fromJust restType
+        where
+          whileBlockType = recur whileStmts
+          restType = recur rest
+    recur (Loop line _ _:_) = error $ show line ++ ": bad loop"
+    -- TODO: Asgn, Print, Read, Delete, Invocation
+    recur (_:rest) = recur rest
+    recur [] = Nothing
