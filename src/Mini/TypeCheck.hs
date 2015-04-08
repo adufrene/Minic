@@ -1,4 +1,4 @@
-module TypeCheck where
+module Mini.TypeCheck where
 
 import Mini.Types
 import Data.HashMap.Lazy
@@ -20,8 +20,20 @@ intType = "int"
 boolType = "bool"
 nullType = "null"
 
+mainId = "main"
+
+checkTypes :: Program -> GlobalEnv
+checkTypes (Program types decls funcs) = 
+        let typeHash = readTypes types
+            decHash = readDecls typeHash decls
+            funcHash = readFuncs typeHash decHash funcs
+            main = funcHash ! mainId 
+        in if mainId `member` funcHash && Prelude.null (fst main) && snd main == intType
+               then GlobalEnv typeHash decHash funcHash
+               else error "Missing 'int main()' function"   
+
 printError :: HasLines a => a -> String -> b
-printError lineItem errMsg = error $ getLineString lineItem ++ ":" ++ errMsg
+printError lineItem errMsg = error $ "Line " ++ getLineString lineItem ++ ":" ++ errMsg
 
 readTypes :: [TypeDef] -> HashMap Id [Field]
 readTypes = foldl foldFun empty 
@@ -38,12 +50,13 @@ readDecls hash = foldl foldFun empty
                             then insert id decType newHash 
                             else printError dec "use of undefined type"
 
-readFuncs :: HashMap Id [Field] -> HashMap Id Type -> [Function] -> HashMap Id Type
+readFuncs :: HashMap Id [Field] -> HashMap Id Type -> [Function] -> HashMap Id ([Type], Type)
 readFuncs typeHash decHash = foldl foldFun empty
     where foldFun hash fun@(Function _ id params decls body expectRet) =
-            let newHash = insert id (fmap getFieldType params, expectRet)
-                locals = readDecls decls typeHash
-                _ = checkStatements (GlobalEnv typeHash decHash newHash) locals expectRet body
+            let newHash = insert id (fmap getFieldType params, expectRet) hash
+                locals = readDecls typeHash decls
+                global = GlobalEnv typeHash decHash newHash
+                _ = checkStatements global locals expectRet body -- void func?
             in newHash
 
 getExprType :: Expression -> GlobalEnv -> LocalEnv -> Type

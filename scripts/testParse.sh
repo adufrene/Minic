@@ -17,7 +17,7 @@ mkdir -p $outDir
 
 for t in ${tests[@]}; do  # runs the parser, ignores first two lines of random junk, then compares
    echo $testDir/$t...
-   cabal run Parser $testDir/$t testParse > $outDir/$t
+   cabal run -- $testDir/$t --printJSON > $outDir/$t
    tail -n +3 $outDir/$t > $outDir/tail_$t
    node scripts/compareJSON.js $testDir/$t $outDir/tail_$t
 done

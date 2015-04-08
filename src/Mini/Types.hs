@@ -20,7 +20,7 @@ type FunHash = HashMap Id ([Type], Type)
 type LocalEnv = DecHash
 data GlobalEnv = GlobalEnv { getTypesHash :: TypeHash
                            , getDecsHash :: DecHash
-                           , getFuncsHash :: FunHash}
+                           , getFuncsHash :: FunHash} deriving (Show)
 
 class HasLines a where
         getLineString :: a -> String
