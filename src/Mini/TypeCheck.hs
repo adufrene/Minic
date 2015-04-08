@@ -10,8 +10,6 @@ relationalBinops = ["<", ">", "<=", ">="]
 equalityBinops   = ["==", "!="]
 boolBinops       = ["&&", "||"]
 
-intBinops = arithBinops ++ relationalBinops
-
 arithUops = ["-"]
 boolUOps  = ["!"]
 
@@ -58,16 +56,17 @@ readFuncs :: HashMap Id [Field] -> HashMap Id Type -> [Function] -> HashMap Id (
 readFuncs typeHash decHash = foldl foldFun empty
     where foldFun hash fun@(Function line id params decls body expectRet) =
             let newHash = insert id (fmap getFieldType params, expectRet) hash
-                locals = readDecls typeHash decls
+                localsWOutArgs = readDecls typeHash decls
+                locals = foldl (\hash (Field _ fType id) -> insert id fType hash) localsWOutArgs params
                 global = GlobalEnv typeHash decHash newHash
                 maybeRetType = checkStatements global locals body
                 retType
-                  | isJust maybeRetType = fromJust maybeRetType,
+                  | isJust maybeRetType = fromJust maybeRetType
                   | otherwise = "void"
             in
-              if retType /= expectRet then
-                error $ show line ++ ": function returns " ++ retType ++ " expected " ++ expectRet
-              else newHash
+              if retType /= expectRet 
+                  then printError fun $ "function returns " ++ retType ++ " expected " ++ expectRet
+                  else newHash
 
 getExprType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getExprType exp@BinExp{} = getBinExpType exp 
@@ -84,17 +83,16 @@ getExprType NullExp{} = \_ _ -> nullType
 -- We can't compare against null?
 getBinExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getBinExpType exp@(BinExp _ op lft rht) global local
-    | op `elem` boolBinops = checkTypes boolType -- bool
-    | op `elem` equalityBinops = if lftType == boolType -- int & struct
-                                     then printError exp "cannot perform equality check on bool type"
-                                     else checkTypes lftType
-    | op `elem` intBinops = checkTypes intType -- int
+    | op `elem` boolBinops = checkTypes boolType boolType -- bool
+    | op `elem` equalityBinops = checkTypes lftType boolType -- int & struct
+    | op `elem` relationalBinops = checkTypes intType boolType
+    | op `elem` arithBinops = checkTypes intType intType -- int
     | otherwise = printError exp "invalid binary operator"
     where lftType = getExprType lft global local
           rhtType = getExprType rht global local
-          checkTypes exprType = 
+          checkTypes exprType retType = 
             if all (==exprType) [lftType, rhtType] 
-                then exprType 
+                then retType 
                 else printError exp "expected " ++ exprType ++ ", found " ++ lftType ++ " and " ++ rhtType
 
 getUExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
@@ -164,7 +162,7 @@ sameTypes types = allEqual [fromJust x | x <- types, isJust x]
 -- takes an environment and a list of statments and returns the type that the statements will return
 -- returns Nothing is the statments don't return and does type checking along the way
 checkStatements :: GlobalEnv -> LocalEnv -> [Statement] -> Maybe String
-checkStatements globs locs stmts = recur stmts
+checkStatements globs locs = recur 
   where
     getExprTypeHelper expr = getExprType expr globs locs
 
@@ -181,7 +179,7 @@ checkStatements globs locs stmts = recur stmts
           restType = recur rest
     recur (Cond line expr (Block ifStmts) (Just (Block elseStmts)):rest)
       | getExprTypeHelper expr /= boolType = error $ show line ++  ": non-boolean guard"
-      | sameTypes [ifBlockType, elseBlockType, restType] == False =
+      | not $ sameTypes [ifBlockType, elseBlockType, restType] =
           error $ show line ++ ": if block, else block, and preceding code do not return save types"
       | all isJust [ifBlockType, elseBlockType] = ifBlockType
       | isNothing restType = error $ show line ++ ": does not return in all paths"
