@@ -196,7 +196,6 @@ checkStatements globs locs = recur
       | not $ sameTypes [ifBlockType, elseBlockType, restType] =
           error $ show line ++ ": if block, else block, and preceding code do not return same types"
       | all isJust [ifBlockType, elseBlockType] = ifBlockType
-      | isNothing restType = error $ show line ++ ": does not return in all paths"
       | otherwise = restType
         where
           ifBlockType = recur ifStmts
