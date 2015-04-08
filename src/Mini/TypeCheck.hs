@@ -93,7 +93,7 @@ getBinExpType exp@(BinExp _ op lft rht) global local
           checkTypes exprType retType = 
             if all (==exprType) [lftType, rhtType] 
                 then retType 
-                else printError exp "expected " ++ exprType ++ ", found " ++ lftType ++ " and " ++ rhtType
+                else printError exp $ "expected " ++ exprType ++ ", found " ++ lftType ++ " and " ++ rhtType
 
 getUExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getUExpType exp@(UExp _ op opnd) global local
@@ -159,12 +159,15 @@ getIdType theId line = getIdExpType (IdExp lineNo theId)
 
 getLValType :: LValue -> GlobalEnv -> LocalEnv -> Type
 getLValType (LValue line theId Nothing) globs locs = getIdType theId line globs locs
-getLValType (LValue line theId (Just lval)) globs locs
-  | idType /= recurType = error $ show line ++ ": assigning " ++ idType ++ " to" ++ recurType
-  | otherwise = idType
-    where
-      idType = getIdType theId line globs locs
-      recurType = getLValType lval globs locs
+getLValType val@(LValue line theId (Just lval)) globs locs = theId `memberType` targetFields
+    where targetType = getLValType lval globs locs
+          typesHash = getTypesHash globs
+          targetFields = if targetType `member` typesHash
+                             then typesHash ! targetType
+                             else printError val $ "Unexpected type for id " ++ theId
+          maybeMember = find (\(Field _ t id) -> id == theId) targetFields
+          err id = printError val $ "undefined id " ++ id
+          memberType id fields = maybe (err id) getFieldType maybeMember 
 
 getNewExpType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getNewExpType exp global _ 
