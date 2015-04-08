@@ -29,7 +29,7 @@ checkTypes (Program types decls funcs) =
             main = funcHash ! mainId 
         in if mainId `member` funcHash && Prelude.null (fst main) && snd main == intType
                then GlobalEnv typeHash decHash funcHash
-               else error "Missing function 'int main()'"
+               else error "Missing function 'fun main() int'"
 
 printError :: HasLines a => a -> String -> b
 printError lineItem errMsg = error $ "Line " ++ getLineString lineItem ++ ": " ++ errMsg
@@ -180,7 +180,7 @@ checkStatements globs locs = recur
     recur (Cond line expr (Block ifStmts) (Just (Block elseStmts)):rest)
       | getExprTypeHelper expr /= boolType = error $ show line ++  ": non-boolean guard"
       | not $ sameTypes [ifBlockType, elseBlockType, restType] =
-          error $ show line ++ ": if block, else block, and preceding code do not return save types"
+          error $ show line ++ ": if block, else block, and preceding code do not return same types"
       | all isJust [ifBlockType, elseBlockType] = ifBlockType
       | isNothing restType = error $ show line ++ ": does not return in all paths"
       | otherwise = restType
