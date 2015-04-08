@@ -122,10 +122,14 @@ getDotExpType exp@(DotExp _ lft id) global local =
                              then typeHash ! lftType
                              else dotErr
 
+matches :: [Type] -> [Type] -> Bool
+expected `matches` given = all equalOrNull $ zip expected given
+    where equalOrNull (x,y) = y == nullType || x == y
+
 getInvocFuncType :: Expression -> GlobalEnv -> LocalEnv -> Type
 getInvocFuncType exp@(InvocExp _ id args) global local
     | doesntExist = printError exp "Undefined function " ++ id
-    | funcParamTypes == evaledArgs = funcType
+    | funcParamTypes `matches` evaledArgs = funcType
     | otherwise = printError exp "Invalid arguments"
     where funcHash = getFuncsHash global
           doesntExist = not $ id `member` funcHash
@@ -145,7 +149,7 @@ getIdExpType exp@(IdExp _ id) global local
           globalVars = getDecsHash global
 
 getIdType :: Id -> GlobalEnv -> LocalEnv -> Type
-getIdType theId global local = getIdExpType (IdExp 0 theId) global local
+getIdType theId = getIdExpType (IdExp 0 theId)
 -- ^ those two funcs need refactor. getIdExpType should call getIdType
 
 getLValType :: LValue -> GlobalEnv -> LocalEnv -> Type
@@ -211,15 +215,15 @@ checkStatements globs locs = recur
           whileBlockType = recur whileStmts
           restType = recur rest
     recur (Loop line _ _:_) = error $ show line ++ ": bad loop"
-    recur ((Asgn line lval expr):rest)
+    recur (Asgn line lval expr:rest)
       | exprType /= lValType = error $ show line ++ ": assigning " ++ exprType ++ " to " ++ lValType
       | otherwise = recur rest
         where
           exprType = getExprTypeHelper expr
           lValType = getLValTypeHelper lval
-    recur ((Invocation line invocId args):rest)
+    recur (Invocation line invocId args:rest)
       | doesntExist = error $ show line ++ ": undefined function " ++ invocId
-      | funcParamTypes /= evaledArgs = error $ show line ++ ": invalid arguments to " ++ invocId
+      | not $ funcParamTypes `matches` evaledArgs = error $ show line ++ ": invalid arguments to " ++ invocId
       | otherwise = recur rest
       where
         funcHash = getFuncsHash globs
@@ -228,15 +232,18 @@ checkStatements globs locs = recur
         funcParamTypes = fst func
         evaledArgs = fmap (\x -> getExprType x globs locs) args
         funcType = snd func
-    recur ((Print line expr _):rest)
+    recur (Print line expr _:rest)
       | getExprTypeHelper expr /= intType = error $ show line ++ ": print requires an integer param"
       | otherwise = recur rest
-    recur ((Read line lval):rest)
+    recur (Read line lval:rest)
       | getLValTypeHelper lval /= intType = error $ show line ++ ": must read into int lval"
       | otherwise = recur rest
-    recur ((Delete line expr):rest)
+    recur (Delete line expr:rest)
       | getExprTypeHelper expr `elem` [intType, boolType]
         = error $ show line ++ ": cannot delete integer or boolean"
       | otherwise = recur rest
-    recur (_:rest) = recur rest
+    recur (Block stmts:rest) = if isJust bodyType
+                                  then bodyType
+                                  else recur rest
+      where bodyType = recur stmts
     recur [] = Nothing
