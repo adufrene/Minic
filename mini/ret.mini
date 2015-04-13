@@ -13,16 +13,12 @@ fun bar(int i) int      # control flow case
    {
       if (i < 0)
       {
-#         return -1;
+         return -1;
       }
       else
       {
-#         return 0;
+         return 0;
       }
    }
-   return 3;
 }
 
-fun main() int {
-    return 1;
-}
