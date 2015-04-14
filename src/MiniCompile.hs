@@ -2,7 +2,6 @@ module Main where
 
 import Control.Monad
 import Data.Aeson
-import Data.HashMap.Strict
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Mini.Types
 import Mini.TypeCheck
@@ -20,12 +19,9 @@ main = do
         when ("--printProgram" `elem` args) $ print parsedJSON
         let env = fmap checkTypes parsedJSON
         when ("--printEnv" `elem` args) $ print env
-        when ("--testJSON" `notElem` args) $ putStrLn $ "Compilation finished: " ++ envReport env
+        when (length args < 2) $ envReport env
 
-envReport :: Maybe GlobalEnv -> String
-envReport Nothing = "No environment"
-envReport (Just env) = 
-        let numTypes = show $ size $ getTypesHash env
-            numDecs = show $ size $ getDecsHash env
-            numFuncs = show $ size $ getFuncsHash env
-        in numTypes ++ " types, " ++ numDecs ++ " declarations, " ++ numFuncs ++ " functions."
+envReport :: Maybe (Either ErrType GlobalEnv) -> IO ()
+envReport Nothing = error "Bad input"
+envReport (Just (Left msg)) = error msg
+envReport _ = putStrLn "Successful Compilation"

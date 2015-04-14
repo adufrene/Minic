@@ -59,13 +59,13 @@ fun main() int
       {
          print 3 endl;
       }
-      while (true < false)          # remove comparison
+      while (true && false)          # remove comparison
       {
          print 7;
       }
-      f(g(1,new B),2,new B);        # f(g(1,new B),new B);
-      print f(2,new B).bob endl;    # change .bob to .i
-      print foo(2).a endl;          # remove .a
+      f(g(1,new B),new B);        # f(g(1,new B),new B);
+      print f(2,new B).i endl;    # change .bob to .i
+      print foo(2) endl;          # remove .a
    }
    return 0;
 }
