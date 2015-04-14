@@ -24,4 +24,4 @@ main = do
 envReport :: Maybe (Either ErrType GlobalEnv) -> IO ()
 envReport Nothing = error "Bad input"
 envReport (Just (Left msg)) = error msg
-envReport _ = return ()
+envReport _ = putStrLn "Successful Compilation"
