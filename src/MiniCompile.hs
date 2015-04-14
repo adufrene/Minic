@@ -19,7 +19,7 @@ main = do
         when ("--printProgram" `elem` args) $ print parsedJSON
         let env = fmap checkTypes parsedJSON
         when ("--printEnv" `elem` args) $ print env
-        when ("--testJSON" `notElem` args) $ envReport env
+        when (length args < 2) $ envReport env
 
 envReport :: Maybe (Either ErrType GlobalEnv) -> IO ()
 envReport Nothing = error "Bad input"
