@@ -9,13 +9,15 @@ import Data.Text
 import Data.HashMap.Lazy
 import Data.Maybe
 
-type Id = String
+import Mini.Iloc
+
 type Arguments = [Expression]
 type Type = String
 
 type TypeHash = HashMap Type [Field]
 type DecHash = HashMap Id Type
 type FunHash = HashMap Id ([Type], Type)
+type StructHash = HashMap Id [Field]
 
 type LocalEnv = DecHash
 data GlobalEnv = GlobalEnv { getTypesHash :: TypeHash
@@ -75,7 +77,7 @@ data Statement = Block { getBlockStmts :: [Statement] }
                         , getDelExpr :: Expression }
                | Ret { getRetLine :: Int
                      , getRetExpr :: Maybe Expression }
-               | Invocation { getSInvocLine :: Int
+               | InvocSt { getSInvocLine :: Int
                             , getSInvocId :: Id
                             , getSInvocArgs :: Arguments } deriving (Show)
 
@@ -252,7 +254,7 @@ instance ToJSON Statement where
       expPair
         | isJust maybeExp = ["exp" .= fromJust maybeExp]
         | otherwise = []
-  toJSON (Invocation line invocId args) =
+  toJSON (InvocSt line invocId args) =
     object [ "stmt" .= pack "invocation"
            , "line" .= line
            , "id" .= invocId
@@ -302,7 +304,7 @@ instance HasLines Statement where
         getLineString stmt@Loop{} = show $ getLoopLine stmt
         getLineString stmt@Delete{} = show $ getDelLine stmt
         getLineString stmt@Ret{} = show $ getRetLine stmt
-        getLineString stmt@Invocation{} = show $ getSInvocLine stmt
+        getLineString stmt@InvocSt{} = show $ getSInvocLine stmt
 
 instance HasLines LValue where
         getLineString val = toString $ getLValLine val
@@ -310,16 +312,30 @@ instance HasLines LValue where
                   toString Nothing = "Unknown line"
 
 instance HasLines Expression where
-        getLineString stmt@BinExp{} = show $ getBinExpLine stmt
-        getLineString stmt@UExp{} = show $ getUOpLine stmt
-        getLineString stmt@DotExp{} = show $ getDotLine stmt
-        getLineString stmt@InvocExp{} = show $ getEInvocLine stmt
-        getLineString stmt@IdExp{} = show $ getIdLine stmt
-        getLineString stmt@IntExp{} = show $ getIntExpLine stmt
-        getLineString stmt@TrueExp{} = show $ getTrueExpLine stmt
-        getLineString stmt@FalseExp{} = show $ getFalseExpLine stmt
-        getLineString stmt@NewExp{} = show $ getNewLine stmt
-        getLineString stmt@NullExp{} = show $ getNullLine stmt
+        getLineString expr@BinExp{} = show $ getBinExpLine expr
+        getLineString expr@UExp{} = show $ getUOpLine expr
+        getLineString expr@DotExp{} = show $ getDotLine expr
+        getLineString expr@InvocExp{} = show $ getEInvocLine expr
+        getLineString expr@IdExp{} = show $ getIdLine expr
+        getLineString expr@IntExp{} = show $ getIntExpLine expr
+        getLineString expr@TrueExp{} = show $ getTrueExpLine expr
+        getLineString expr@FalseExp{} = show $ getFalseExpLine expr
+        getLineString expr@NewExp{} = show $ getNewLine expr
+        getLineString expr@NullExp{} = show $ getNullLine expr
+
+-- ToIloc --
+
+instance ToIloc Expression where
+        toIloc BinExp{} = undefined
+        toIloc UExp{} = undefined
+        toIloc DotExp{} = undefined
+        toIloc InvocExp{} = undefined
+        toIloc IdExp{} = undefined
+        toIloc IntExp{} = undefined
+        toIloc TrueExp{} = undefined
+        toIloc FalseExp{} = undefined
+        toIloc NewExp{} = undefined
+        toIloc NullExp{} = undefined
 
 -- Helpers --
 
@@ -348,7 +364,7 @@ parseRet :: HashMap Text Value -> Parser Statement
 parseRet hm = Ret <$> (hm .: "line") <*> (hm .:? "exp")
 
 parseInvoc :: HashMap Text Value -> Parser Statement
-parseInvoc hm = Invocation <$> (hm .: "line") <*> (hm .: "id") <*> (hm .: "args")
+parseInvoc hm = InvocSt <$> (hm .: "line") <*> (hm .: "id") <*> (hm .: "args")
 
 parseBinExp :: HashMap Text Value -> Parser Expression
 parseBinExp hm = BinExp <$> (hm .: "line") <*> (hm .: "operator") <*> (hm .: "lft") <*> (hm .: "rht")

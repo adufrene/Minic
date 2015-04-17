@@ -62,7 +62,7 @@ checkTypes (Program types decls funcs) = do
 createError :: HasLines a => a -> String -> Either ErrType b
 createError lineItem errMsg = Left $ "Line " ++ getLineString lineItem ++ ": " ++ errMsg
 
-readTypes :: [TypeDef] -> Either ErrType (HashMap Id [Field])
+readTypes :: [TypeDef] -> Either ErrType StructHash
 readTypes = foldM foldFun empty
     where foldFun hash (TypeDef _ typeId fields) = 
               let newHash = insert typeId fields hash
@@ -72,7 +72,7 @@ readTypes = foldM foldFun empty
                      then Right newHash 
                      else createError (fromJust badField) "Type contains field of undeclared type" 
 
-readDecls :: HashMap Id [Field] -> [Declaration] -> Either ErrType (HashMap Id Type)
+readDecls :: StructHash -> [Declaration] -> Either ErrType DecHash
 readDecls hash = foldM foldFun empty 
     where foldFun newHash dec@(Declaration _ decType decId)
             | decType `elem` [intType, boolType] = Right $ insert decId decType newHash
@@ -80,7 +80,7 @@ readDecls hash = foldM foldFun empty
                             then Right $ insert decId decType newHash 
                             else createError dec "use of undefined type"
 
-readFuncs :: HashMap Id [Field] -> HashMap Id Type -> [Function] -> Either ErrType (HashMap Id ([Type], Type))
+readFuncs :: StructHash -> DecHash -> [Function] -> Either ErrType FunHash
 readFuncs typeHash decHash = foldM foldFun empty
     where createGlobal = GlobalEnv typeHash decHash 
           createLocal = foldl (\hash (Field _ fType fieldId) -> insert fieldId fType hash)
@@ -92,7 +92,7 @@ readFuncs typeHash decHash = foldM foldFun empty
                 then createError fun $ "function returns " ++ retType ++ " expected " ++ expectRet
                 else Right newHash
 
-getFuncType :: HasLines a => a -> Id -> Arguments -> GlobalEnv -> LocalEnv -> Either ErrType Type
+getFuncType :: HasLines a => a -> String -> Arguments -> GlobalEnv -> LocalEnv -> Either ErrType Type
 getFuncType lineItem funcId args global local 
     | doesntExist = createError lineItem $ "Undefined function " ++ funcId
     | otherwise = do 
@@ -173,7 +173,7 @@ getInvocFuncType expr@(InvocExp _ invocId args) = getFuncType expr invocId args
 getIdExpType :: Expression -> GlobalEnv -> LocalEnv -> Either ErrType Type
 getIdExpType expr@(IdExp _ expId) = getIdType expId expr
 
-getIdType :: HasLines a => Id -> a -> GlobalEnv -> LocalEnv -> Either ErrType Type
+getIdType :: HasLines a => String -> a -> GlobalEnv -> LocalEnv -> Either ErrType Type
 getIdType name lineItem global local
     | localContains = Right $ local ! name 
     | globalContains = Right $ globalVars ! name
@@ -212,9 +212,9 @@ allEqual xs = all (== head xs) xs
 sameTypes :: [Maybe String] -> Bool
 sameTypes types = allEqual [fromJust x | x <- types, isJust x]
 
-checkReturn :: Statement -> GlobalEnv -> LocalEnv -> Either ErrType Type
-checkReturn (Ret _ Nothing) _ _ = Right voidType
-checkReturn (Ret _ (Just expr)) global local = getExprType expr global local
+checkReturn :: [Statement] -> GlobalEnv -> LocalEnv -> Either ErrType Type
+checkReturn (Ret _ Nothing:_) _ _ = Right voidType
+checkReturn (Ret _ (Just expr):_) global local = getExprType expr global local
 
 validateGuard :: Expression -> Statement -> GlobalEnv -> LocalEnv -> StatementRet
 validateGuard condGuard (Block stmts) global local = do
@@ -223,60 +223,89 @@ validateGuard condGuard (Block stmts) global local = do
             then checkStatements stmts global local
             else createError condGuard "non-boolean guard"
 
+validateReturn :: HasLines l => l -> Maybe Type -> [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+validateReturn line expectRet nextStmts global local = do
+        nextRet <- checkStatements nextStmts global local
+        compareReturns expectRet nextRet
+    where compareReturns Nothing (Just t) = Right $ Just t
+          compareReturns Nothing Nothing = Right Nothing
+          compareReturns (Just t1) (Just t2) = 
+               if t1 == t2
+                then Right $ Just t1
+                else createError line $ "Function returns " ++ t1 ++ " and " ++ t2
+          compareReturns (Just t) Nothing = 
+               if t == voidType
+                then Right $ Just voidType
+                else createError line "Function missing final return"
+    
+
 -- Return: 
 -- Nothing means needs return after stmt, 
 -- Just means function returns within conditional
-checkCond :: Statement -> GlobalEnv -> LocalEnv -> StatementRet
-checkCond (Cond _ condGuard thenBlock Nothing) global local =
-        validateGuard condGuard thenBlock global local
-checkCond stmt@(Cond _ condGuard thenBlock (Just elseBlock)) global local = do
+checkCond :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+checkCond (Cond _ condGuard thenBlock Nothing:rest) global local = do
+        thenType <- validateGuard condGuard thenBlock global local
+        if isNothing thenType
+            then checkStatements rest global local
+            else Right thenType
+checkCond (stmt@(Cond _ condGuard thenBlock (Just elseBlock)):rest) global local = do
         thenType <- validateGuard condGuard thenBlock global local
         elseType <- checkStatements (getBlockStmts elseBlock) global local
         compareTypes thenType elseType 
-    where compareTypes type1 type2 = maybe (Right Nothing)  
-            (\x -> if x 
-                    then Right type2 
-                    else createError stmt $ "function returns " ++ (getTypeString type1) 
-                        ++ " and " ++ (getTypeString type2)) 
-            (liftM2 (==) type1 type2)
+    where compareTypes (Just t) Nothing = validateReturn stmt (Just t) rest global local
+          compareTypes Nothing (Just t) = validateReturn stmt (Just t) rest global local
+          compareTypes Nothing Nothing = validateReturn stmt Nothing rest global local
+          compareTypes (Just t1) (Just t2) = 
+            if t1 == t2
+              then Right $ Just t1
+              else createError stmt $ "Function returns " ++ t1 ++ " and " ++ t2
 
-checkLoop :: Statement -> GlobalEnv -> LocalEnv -> StatementRet
-checkLoop (Loop _ loopGuard body) = validateGuard loopGuard body
+-- Loop may never run, check post-code
+checkLoop :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+checkLoop (stmt@(Loop _ loopGuard body):rest) global local = do
+        expectRet <- validateGuard loopGuard body global local
+        validateReturn stmt expectRet rest global local
 
-checkAsgn :: Statement -> GlobalEnv -> LocalEnv -> Either ErrType ()
-checkAsgn stmt@(Asgn _ lval expr) global local = do
+checkAsgn :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+checkAsgn (stmt@(Asgn _ lval expr):rest) global local = do
         expType <- getExprType expr global local
         lValType <- getLValType lval global local
         if lValType == expType
-            then Right ()
+            then checkStatements rest global local
             else createError stmt $ "assigning " ++ expType ++ " to " ++ lValType
 
-checkInvoc :: Statement -> GlobalEnv -> LocalEnv -> Either ErrType ()
-checkInvoc stmt@(Invocation _ invocId args) global local = getFuncType stmt invocId args global local >> Right ()
+checkInvoc :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+checkInvoc (stmt@(InvocSt _ invocId args):rest) global local =  do
+        getFuncType stmt invocId args global local
+        checkStatements rest global local
 
-checkPrint :: Statement -> GlobalEnv -> LocalEnv -> Either ErrType ()
-checkPrint stmt@(Print _ expr _) global local = do
+checkPrint :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+checkPrint (stmt@(Print _ expr _):rest) global local = do
         expType <- getExprType expr global local
         if expType == intType
-            then Right ()
+            then checkStatements rest global local
             else createError stmt "print requires an integer parameter"
 
-checkRead :: Statement -> GlobalEnv -> LocalEnv -> Either ErrType ()
-checkRead stmt@(Read _ lval) global local = do
+checkRead :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+checkRead (stmt@(Read _ lval):rest) global local = do
         lValType <- getLValType lval global local 
         if lValType == intType
-            then Right ()
+            then checkStatements rest global local
             else createError stmt "must read into int lval"
 
-checkDelete :: Statement -> GlobalEnv -> LocalEnv -> Either ErrType ()
-checkDelete (Delete _ expr) global local = do
+checkDelete :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+checkDelete ((Delete _ expr):rest) global local = do
         expType <- getExprType expr global local
         if expType `elem` [intType, boolType]
             then createError expr "cannot delete integer or boolean"
-            else Right ()
+            else checkStatements rest global local
 
-checkBlock :: Statement -> GlobalEnv -> LocalEnv -> StatementRet
-checkBlock (Block stmts) = checkStatements stmts
+checkBlock :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+checkBlock (Block stmts:rest) global local = do
+        bodyRet <- checkStatements stmts global local
+        if isJust bodyRet
+            then Right bodyRet
+            else checkStatements rest global local 
 
 checkFunctionBody :: Function -> GlobalEnv -> LocalEnv -> Either ErrType Type
 checkFunctionBody fun global local = do
@@ -287,22 +316,15 @@ checkFunctionBody fun global local = do
 -- returns Nothing is the statments don't return and does type checking along the way
 checkStatements :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
 checkStatements [] _ _ = Right Nothing
-checkStatements (stmt:rest) global local = do
-        stmtType <- delegateStmt stmt global local
-        continueOrReturn stmtType rest 
-    where continueOrReturn Nothing stmts = checkStatements stmts global local
-          continueOrReturn justType _ = Right justType
+checkStatements stmts@(stmt:_) global local = delegateStmt stmt stmts global local
 
-delegateStmt :: Statement -> GlobalEnv -> LocalEnv -> StatementRet
-delegateStmt stmt@Ret{} = \x y -> checkReturn stmt x y >>= Right . Just
-delegateStmt stmt@Cond{} = checkCond stmt
-delegateStmt stmt@Loop{} = checkLoop stmt
-delegateStmt stmt@Asgn{} = retNothing $ checkAsgn stmt
-delegateStmt stmt@Invocation{} = retNothing $ checkInvoc stmt
-delegateStmt stmt@Print{} = retNothing $ checkPrint stmt
-delegateStmt stmt@Read{} = retNothing $ checkRead stmt
-delegateStmt stmt@Delete{} = retNothing $ checkDelete stmt
-delegateStmt stmt@Block{} = checkBlock stmt
-
-retNothing :: (a -> b -> Either ErrType c) -> a -> b -> StatementRet
-retNothing f x y = f x y >> Right Nothing
+delegateStmt :: Statement -> [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
+delegateStmt stmt@Ret{} = \x y z -> checkReturn x y z >>= Right . Just
+delegateStmt stmt@Cond{} = checkCond 
+delegateStmt stmt@Loop{} = checkLoop 
+delegateStmt stmt@Asgn{} = checkAsgn 
+delegateStmt stmt@InvocSt{} = checkInvoc 
+delegateStmt stmt@Print{} = checkPrint 
+delegateStmt stmt@Read{} = checkRead 
+delegateStmt stmt@Delete{} = checkDelete 
+delegateStmt stmt@Block{} = checkBlock 
