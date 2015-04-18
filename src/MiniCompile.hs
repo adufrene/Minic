@@ -3,9 +3,12 @@ module Main where
 import Control.Monad
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BS
+import System.Environment
+
+import Mini.CFG
+import Mini.Iloc
 import Mini.Types
 import Mini.TypeCheck
-import System.Environment
 
 -- if "testParse" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
@@ -20,6 +23,8 @@ main = do
         let env = fmap checkTypes parsedJSON
         when ("--printEnv" `elem` args) $ print env
         when (length args < 2) $ envReport env
+        let graphs = fmap createCFGS parsedJSON
+        return ()
 
 envReport :: Maybe (Either ErrType GlobalEnv) -> IO ()
 envReport Nothing = error "Bad input"

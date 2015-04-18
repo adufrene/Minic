@@ -14,7 +14,6 @@ type Id = String
 type Reg = Int
 type Immed = Int
 type Label = String
-type Node = [Iloc]
 
 class ToIloc a where
         toIloc :: a -> Iloc
