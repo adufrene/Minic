@@ -6,7 +6,7 @@ import Control.Applicative
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Text
-import Data.HashMap.Lazy
+import Data.HashMap.Strict
 import Data.Maybe
 
 import Mini.Iloc
