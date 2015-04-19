@@ -1,6 +1,29 @@
 module Mini.CFG where
 
-import Control.Applicative
+{-
+- Functions for converting a function/list of statements into a Control
+- Flow Graph made up of iloc instructions. Assumptions made in this module:
+-
+- Yes NodeGraph means that graph is guaranteed to hit an explicit return
+- statement
+-
+- No NodeGraph means that at least one path taken in graph will result in
+- no explicit return statement
+-
+- The '0' Vertex is the entry node to a function, and will point to the
+- first node that will be run
+-
+- The '-1' Vertex is the exit node to a function, and anything pointing to
+- it will return from the function
+-
+- Any True/False forks in graph will follow convention where true branch is
+- the lower-numbered vertex of the two children. False branch will be the
+- higher-numbered child.
+-
+- A node is a list of iloc instructions or statements in reverse order
+-}
+
+import Control.Applicative hiding (empty)
 import Control.Arrow
 import Control.Monad
 import Data.Array
@@ -43,11 +66,23 @@ emptyNode = []
 initVertex :: Vertex
 initVertex = 1
 
-createCFGS :: Program -> [NodeGraph]
-createCFGS = fmap functionToCFG . getFunctions
+exitVertex :: Vertex
+exitVertex = -1
 
-functionToCFG :: Function -> NodeGraph
-functionToCFG func = undefined
+entryVertex :: Vertex
+entryVertex = 0
+
+defaultBounds :: Bounds
+defaultBounds = (exitVertex, initVertex)
+
+createGraphs :: Program -> [NodeGraph]
+createGraphs = fmap functionToGraph . getFunctions
+
+functionToGraph :: Function -> NodeGraph
+functionToGraph func = 
+        getData $ stmtsToGraph argNode (getFunBody func) argHash
+    where argNode = emptyNode -- Start node by storing args in regs
+          argHash = empty -- create HashMap from args
 
 -- Append 2nd graph to first one, 
 -- creating edge from vertices arguments to Graph 2's Vertex 0's child
@@ -56,39 +91,39 @@ functionToCFG func = undefined
 -- edge connecting them
 appendGraph :: NodeGraph -> [Vertex] -> NodeGraph -> NodeGraph
 appendGraph (graph1, map1) vertices (graph2, map2) = 
-        (buildG (-1, newUpperB) newEdges, map1 `union` newMap2)
+        (buildG (exitVertex, newUpperB) newEdges, map1 `union` newMap2)
     where g1Upper = snd $ bounds graph1
           newUpperB = g1Upper + snd (bounds graph2)
           newEdges2 = fmap mapFun (edges graph2)
           replacedEdges = concat 
-            (replaceFun <$> filter((==0) . fst) newEdges2)
+            (replaceFun <$> filter((==entryVertex) . fst) newEdges2)
           newEdges = edges graph1 ++ 
-            filter ((/=0) . fst) newEdges2 ++ replacedEdges
+            filter ((/=entryVertex) . fst) newEdges2 ++ replacedEdges
           newMap2 = fromList 
             ((\(k, v)->(k+g1Upper,v)) <$> toList map2)
           mapFun = moveVertex *** moveVertex 
           replaceFun (_, v) = (\x -> (x,v)) <$> vertices
-          moveVertex v = if v `notElem` [-1, 0]
+          moveVertex v = if v `notElem` [exitVertex, entryVertex]
                              then v + g1Upper
                              else v
 
 -- RegHash will be important once we translate statements to iloc
--- Do we need to return a RegHash?
 -- Need a better function name
 -- Yes means we will return in this graph
 -- No means we may not return in this graph
-buildBlock :: Node -> [Statement] -> RegHash -> YesNo NodeGraph -- (NodeGraph, RegHash)
-buildBlock node [] hash = No $ fromNode node
-buildBlock node (stmt:rest) hash = 
+stmtsToGraph :: Node -> [Statement] -> RegHash -> YesNo NodeGraph -- (NodeGraph, RegHash)
+stmtsToGraph node [] hash = No $ fromNode node
+stmtsToGraph node (stmt:rest) hash = 
         case stmt of
-            Block body -> buildBlock node (body ++ rest) hash
+            Block body -> stmtsToGraph node (body ++ rest) hash
             Cond{} -> createCondGraph stmt node successorGraph hash
             Loop{} -> createLoopGraph stmt node successorGraph hash
             Ret _ expr -> Yes pointToExit
-            _ -> buildBlock newNode rest hash
-    where successorGraph = buildBlock emptyNode rest hash
+            _ -> stmtsToGraph newNode rest hash
+    where successorGraph = stmtsToGraph emptyNode rest hash
           pointToExit = 
-            (buildG (-1,initVertex) [(0,initVertex), (initVertex,-1)], 
+            (buildG defaultBounds 
+                [(entryVertex,initVertex), (initVertex,exitVertex)],
                 singleton initVertex newNode)
           newNode = stmt:node
 
@@ -97,10 +132,10 @@ buildBlock node (stmt:rest) hash =
 createCondGraph :: Statement -> Node -> YesNo NodeGraph -> RegHash -> YesNo NodeGraph
 createCondGraph (Cond _ guard thenBlock maybeElseBlock) node nextGraph hash = 
         runIf Yes (\x -> appendGraph x ifVertices <$> nextGraph) ifGraph
-    where newNode = node -- finish node with guard clause
+    where newNode = node -- finish node with guard
           ifThenGraph = appendIf <$> graphFromBlock thenBlock
           appendIf = appendGraph (fromNode newNode) [initVertex]
-          graphFromBlock block = buildBlock emptyNode (getBlockStmts block) hash
+          graphFromBlock block = stmtsToGraph emptyNode (getBlockStmts block) hash
           graphEnd g = snd $ bounds $ fst $ getData g
           ifVertices = nub $ fmap graphEnd [ifThenGraph, ifGraph]
           ifGraph = 
@@ -111,11 +146,25 @@ createCondGraph (Cond _ guard thenBlock maybeElseBlock) node nextGraph hash =
 
 
 createLoopGraph :: Statement -> Node -> YesNo NodeGraph -> RegHash -> YesNo NodeGraph 
-createLoopGraph (Loop _ guard body) node nextGraph hash = undefined
+createLoopGraph (Loop _ guard body) node nextGraph hash = 
+        appendGraph cyclicTG [initVertex, ctgEnd] <$> nextGraph
+    where newNode = node -- finish node with guard
+          startGraph = fromNode newNode
+          -- start with node checking loop condition
+          bodyGraph = stmtsToGraph emptyNode (getBlockStmts body) hash
+          trueGraph = appendGraph startGraph [initVertex] $ 
+            getData bodyGraph
+          trueChild = snd $ head $ filter ((==initVertex) . fst) $ 
+            edges $ fst trueGraph
+          cyclicTG = trueGraph `addEdge` (trueChild, initVertex)
+          ctgEnd = snd $ bounds $ fst cyclicTG
 
 fromNode :: Node -> NodeGraph
-fromNode node = (buildG (-1,initVertex) [(0,initVertex)], 
+fromNode node = (buildG defaultBounds [(entryVertex,initVertex)], 
                     singleton initVertex node)
+
+addEdge :: NodeGraph -> Edge -> NodeGraph
+addEdge (graph, hash) edge = (buildG (bounds graph) (edge:edges graph), hash)
 
 -- If 3rd arg is yes, run 1st function
 -- else run 2nd function

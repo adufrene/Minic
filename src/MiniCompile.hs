@@ -23,7 +23,7 @@ main = do
         let env = fmap checkTypes parsedJSON
         when ("--printEnv" `elem` args) $ print env
         when (length args < 2) $ envReport env
-        let graphs = fmap createCFGS parsedJSON
+        let graphs = fmap createGraphs parsedJSON
         return ()
 
 envReport :: Maybe (Either ErrType GlobalEnv) -> IO ()
