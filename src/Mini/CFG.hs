@@ -1,6 +1,7 @@
 module Mini.CFG where
 
 import Control.Applicative
+import Control.Arrow
 import Control.Monad
 import Data.Array
 import Data.Either
@@ -43,7 +44,7 @@ initVertex :: Vertex
 initVertex = 1
 
 createCFGS :: Program -> [NodeGraph]
-createCFGS = (fmap functionToCFG) . getFunctions
+createCFGS = fmap functionToCFG . getFunctions
 
 functionToCFG :: Function -> NodeGraph
 functionToCFG func = undefined
@@ -57,17 +58,17 @@ appendGraph :: NodeGraph -> [Vertex] -> NodeGraph -> NodeGraph
 appendGraph (graph1, map1) vertices (graph2, map2) = 
         (buildG (-1, newUpperB) newEdges, map1 `union` newMap2)
     where g1Upper = snd $ bounds graph1
-          newUpperB = g1Upper + (snd $ bounds graph2)
+          newUpperB = g1Upper + snd (bounds graph2)
           newEdges2 = fmap mapFun (edges graph2)
-          replacedEdges = concat $ fmap replaceFun $ 
-            filter((==0) . fst) newEdges2
+          replacedEdges = concat 
+            (replaceFun <$> filter((==0) . fst) newEdges2)
           newEdges = edges graph1 ++ 
             filter ((/=0) . fst) newEdges2 ++ replacedEdges
-          newMap2 = fromList $ fmap (\(k, v)->(k+g1Upper,v)) $ 
-            toList map2
-          mapFun = \(v, out) -> (moveVertex v, moveVertex out)
-          replaceFun = \(_, v) -> fmap (\x -> (x,v)) vertices
-          moveVertex v = if not $ v `elem` [-1, 0]
+          newMap2 = fromList 
+            ((\(k, v)->(k+g1Upper,v)) <$> toList map2)
+          mapFun = moveVertex *** moveVertex 
+          replaceFun (_, v) = (\x -> (x,v)) <$> vertices
+          moveVertex v = if v `notElem` [-1, 0]
                              then v + g1Upper
                              else v
 
@@ -82,7 +83,7 @@ buildBlock node (stmt:rest) hash =
         case stmt of
             Block body -> buildBlock node (body ++ rest) hash
             Cond{} -> createCondGraph stmt node successorGraph hash
-            Loop _ _ _ -> createLoopGraph stmt node successorGrap hash
+            Loop{} -> createLoopGraph stmt node successorGraph hash
             Ret _ expr -> Yes pointToExit
             _ -> buildBlock newNode rest hash
     where successorGraph = buildBlock emptyNode rest hash
@@ -97,7 +98,7 @@ createCondGraph :: Statement -> Node -> YesNo NodeGraph -> RegHash -> YesNo Node
 createCondGraph (Cond _ guard thenBlock maybeElseBlock) node nextGraph hash = 
         runIf Yes (\x -> appendGraph x ifVertices <$> nextGraph) ifGraph
     where newNode = node -- finish node with guard clause
-          ifThenGraph = fmap appendIf $ graphFromBlock thenBlock
+          ifThenGraph = appendIf <$> graphFromBlock thenBlock
           appendIf = appendGraph (fromNode newNode) [initVertex]
           graphFromBlock block = buildBlock emptyNode (getBlockStmts block) hash
           graphEnd g = snd $ bounds $ fst $ getData g
@@ -105,7 +106,7 @@ createCondGraph (Cond _ guard thenBlock maybeElseBlock) node nextGraph hash =
           ifGraph = 
             case maybeElseBlock of
                 Just elseBlock -> appendGraph <$> ifThenGraph <*> 
-                    (pure [initVertex]) <*> (graphFromBlock elseBlock)
+                    pure [initVertex] <*> graphFromBlock elseBlock
                 Nothing -> ifThenGraph
 
 
