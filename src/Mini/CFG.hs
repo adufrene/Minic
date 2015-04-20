@@ -26,16 +26,15 @@ module Mini.CFG where
 import Control.Applicative hiding (empty)
 import Control.Arrow
 import Control.Monad
-import Data.Array
+import Data.Array hiding ((!))
 import Data.Either
 import Data.Graph
 import Data.Maybe
-import Data.List (nub)
 import Data.HashMap.Strict hiding (filter)
 import Mini.Iloc
 import Mini.Types
 
-data YesNo a = Yes a | No a
+data YesNo a = Yes a | No a deriving (Show)
 
 instance Functor YesNo where
         fmap f (Yes a) = Yes $ f a
@@ -55,8 +54,8 @@ instance Applicative YesNo where
 -- MUCH more efficient
 type Node = [Statement] -- [Iloc]
 
--- Entry point will be Vertex 0?
--- Exit point will be Vertex -1?
+-- Entry point will be Vertex 0
+-- Exit point will be Vertex -1
 type NodeGraph = (Graph, HashMap Vertex Node)
 type RegHash = HashMap Id Reg
 
@@ -130,25 +129,48 @@ stmtsToGraph node (stmt:rest) hash =
 -- Yes means we will return in this graph
 -- No means we may not return in this graph
 createCondGraph :: Statement -> Node -> YesNo NodeGraph -> RegHash -> YesNo NodeGraph
-createCondGraph (Cond _ guard thenBlock maybeElseBlock) node nextGraph hash = 
-        runIf Yes (\x -> appendGraph x ifVertices <$> nextGraph) ifGraph
-    where newNode = node -- finish node with guard
+createCondGraph stmt@(Cond _ guard thenBlock maybeElseBlock) node nextGraph hash = 
+        linkGraphs ifThenGraph elseGraph nextGraph
+    where newNode = stmt:node -- finish node with guard
+          thenGraph = graphFromBlock thenBlock
+          elseGraph = graphFromBlock <$> maybeElseBlock
           ifThenGraph = appendIf <$> graphFromBlock thenBlock
           appendIf = appendGraph (fromNode newNode) [initVertex]
           graphFromBlock block = stmtsToGraph emptyNode (getBlockStmts block) hash
-          graphEnd g = snd $ bounds $ fst $ getData g
-          ifVertices = nub $ fmap graphEnd [ifThenGraph, ifGraph]
-          ifGraph = 
-            case maybeElseBlock of
-                Just elseBlock -> appendGraph <$> ifThenGraph <*> 
-                    pure [initVertex] <*> graphFromBlock elseBlock
-                Nothing -> ifThenGraph
+
+linkGraphs :: YesNo NodeGraph -> Maybe (YesNo NodeGraph) -> YesNo NodeGraph -> YesNo NodeGraph
+linkGraphs ifThenGraph Nothing nextGraph =
+        appendGraph <$> ifThenGraph <*> 
+            pure (initVertex:runIf (const []) (\g -> [graphEnd $ pure g]) ifThenGraph) <*> nextGraph
+linkGraphs ifThenGraph (Just elseGraph) nextGraph =
+        runIf Yes (\g -> appendGraph g ifVertices <$> nextGraph) ifGraph
+    where ifGraph = appendGraph <$> ifThenGraph <*> pure [initVertex] <*> elseGraph
+          thenVertex = [graphEnd ifThenGraph | isNo ifThenGraph]
+          elseVertex = [graphEnd ifGraph | isNo ifGraph]
+          ifVertices = elseVertex ++ thenVertex
+
+
+graphEnd :: YesNo NodeGraph -> Vertex
+graphEnd g = snd $ bounds $ fst $ getData g
+
+
+{-
+(Yes then) = [initVertex]
+(No then) = [graphEnd ifThenGraph, initVertex]
+
+(Yes then) (Yes else) = none
+           
+(Yes then) (No else) = [graphEnd ifGraph]
+(No then) (Yes else) = [graphEnd ifThenGraph]
+(No then) (No else) = [graphEnd ifGraph, graphEnd ifThenGraph]
+-}
+
 
 
 createLoopGraph :: Statement -> Node -> YesNo NodeGraph -> RegHash -> YesNo NodeGraph 
-createLoopGraph (Loop _ guard body) node nextGraph hash = 
+createLoopGraph stmt@(Loop _ guard body) node nextGraph hash = 
         appendGraph cyclicTG [initVertex, ctgEnd] <$> nextGraph
-    where newNode = node -- finish node with guard
+    where newNode = stmt:node -- finish node with guard
           startGraph = fromNode newNode
           -- start with node checking loop condition
           bodyGraph = stmtsToGraph emptyNode (getBlockStmts body) hash
@@ -171,6 +193,16 @@ addEdge (graph, hash) edge = (buildG (bounds graph) (edge:edges graph), hash)
 runIf :: (a -> b) -> (a -> b) -> YesNo a -> b
 runIf f _ (Yes a) = f a
 runIf _ f (No a) = f a
+
+isYes :: YesNo a -> Bool
+isYes (Yes _) = True
+isYes (No _) = False
+
+isNo :: YesNo a -> Bool
+isNo = not . isYes
+
+
+
 
 getData :: YesNo a -> a
 getData (Yes x) = x
