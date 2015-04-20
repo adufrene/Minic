@@ -43,7 +43,7 @@ instance Functor YesNo where
 instance Monad YesNo where
         return = Yes
         (Yes x) >>= f = f x
-        (No x) >>= f = No $ getData $ f x
+        (No x) >>= f = No $ fromYesNo $ f x
 
 instance Applicative YesNo where
         pure = return
@@ -79,7 +79,7 @@ createGraphs = fmap functionToGraph . getFunctions
 
 functionToGraph :: Function -> NodeGraph
 functionToGraph func = 
-        getData $ stmtsToGraph argNode (getFunBody func) argHash
+        fromYesNo $ stmtsToGraph argNode (getFunBody func) argHash
     where argNode = emptyNode -- Start node by storing args in regs
           argHash = empty -- create HashMap from args
 
@@ -149,10 +149,8 @@ linkGraphs ifThenGraph (Just elseGraph) nextGraph =
           elseVertex = [graphEnd ifGraph | isNo ifGraph]
           ifVertices = elseVertex ++ thenVertex
 
-
 graphEnd :: YesNo NodeGraph -> Vertex
-graphEnd g = snd $ bounds $ fst $ getData g
-
+graphEnd g = snd $ bounds $ fst $ fromYesNo g
 
 {-
 (Yes then) = [initVertex]
@@ -165,21 +163,19 @@ graphEnd g = snd $ bounds $ fst $ getData g
 (No then) (No else) = [graphEnd ifGraph, graphEnd ifThenGraph]
 -}
 
-
-
 createLoopGraph :: Statement -> Node -> YesNo NodeGraph -> RegHash -> YesNo NodeGraph 
 createLoopGraph stmt@(Loop _ guard body) node nextGraph hash = 
-        appendGraph cyclicTG [initVertex, ctgEnd] <$> nextGraph
-    where newNode = stmt:node -- finish node with guard
+        if isNo trueGraph
+            then appendGraph <$> cyclicTG <*> pure [initVertex, graphEnd cyclicTG] <*> nextGraph
+            else appendGraph <$> trueGraph <*> pure [initVertex] <*> nextGraph
+    where newNode = stmt:node
           startGraph = fromNode newNode
-          -- start with node checking loop condition
+          -- Update bodyGraph's endNode to include guard
           bodyGraph = stmtsToGraph emptyNode (getBlockStmts body) hash
-          trueGraph = appendGraph startGraph [initVertex] $ 
-            getData bodyGraph
+          trueGraph = appendGraph startGraph [initVertex] <$> bodyGraph
           trueChild = snd $ head $ filter ((==initVertex) . fst) $ 
-            edges $ fst trueGraph
-          cyclicTG = trueGraph `addEdge` (trueChild, initVertex)
-          ctgEnd = snd $ bounds $ fst cyclicTG
+            edges $ fst $ fromYesNo trueGraph
+          cyclicTG = addEdge <$> trueGraph <*> pure (trueChild, initVertex)
 
 fromNode :: Node -> NodeGraph
 fromNode node = (buildG defaultBounds [(entryVertex,initVertex)], 
@@ -201,9 +197,6 @@ isYes (No _) = False
 isNo :: YesNo a -> Bool
 isNo = not . isYes
 
-
-
-
-getData :: YesNo a -> a
-getData (Yes x) = x
-getData (No x) = x
+fromYesNo :: YesNo a -> a
+fromYesNo (Yes x) = x
+fromYesNo (No x) = x
