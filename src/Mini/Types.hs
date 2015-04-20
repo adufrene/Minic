@@ -323,20 +323,6 @@ instance HasLines Expression where
         getLineString expr@NewExp{} = show $ getNewLine expr
         getLineString expr@NullExp{} = show $ getNullLine expr
 
--- ToIloc --
-
-instance ToIloc Expression where
-        toIloc BinExp{} = undefined
-        toIloc UExp{} = undefined
-        toIloc DotExp{} = undefined
-        toIloc InvocExp{} = undefined
-        toIloc IdExp{} = undefined
-        toIloc IntExp{} = undefined
-        toIloc TrueExp{} = undefined
-        toIloc FalseExp{} = undefined
-        toIloc NewExp{} = undefined
-        toIloc NullExp{} = undefined
-
 -- Helpers --
 
 parseBlock :: HashMap Text Value -> Parser Statement

@@ -294,7 +294,7 @@ checkRead (stmt@(Read _ lval):rest) global local = do
             else createError stmt "must read into int lval"
 
 checkDelete :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
-checkDelete ((Delete _ expr):rest) global local = do
+checkDelete (Delete _ expr:rest) global local = do
         expType <- getExprType expr global local
         if expType `elem` [intType, boolType]
             then createError expr "cannot delete integer or boolean"

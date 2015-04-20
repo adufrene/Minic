@@ -15,9 +15,6 @@ type Reg = Int
 type Immed = Int
 type Label = String
 
-class ToIloc a where
-        toIloc :: a -> Iloc
-
 data Iloc = Arithmetic | Boolean | Comparison | Branching | Loads | Stores | Invocation | Allocation | IO | Moves 
 
 data Arithmetic = Add Reg Reg Reg
@@ -80,10 +77,10 @@ condCodeReg :: String
 condCodeReg = "ccr"
 
 showReg :: Reg -> String
-showReg regNum = "r" ++ (show regNum)
+showReg regNum = "r" ++ show regNum
 
 showIlocHelper :: String -> [String] -> String
-showIlocHelper name args = name ++ " " ++ ( concat $ intersperse ", " args)
+showIlocHelper name args = name ++ " " ++ intercalate ", " args
 
 instance Show Arithmetic where
    show (Add r1 r2 r3) = showIlocHelper "add" $ map showReg [r1, r2, r3]
@@ -126,7 +123,7 @@ instance Show Stores where
    show (Storeglobal r1 s1) = showIlocHelper "storeglobal" [showReg r1, s1]
    show (Storeinargument r1 s1 i1) = showIlocHelper "storeinargument" [showReg r1, s1, showReg i1]
    show (Storeoutargument r1 i1) = showIlocHelper "storeoutargument" [showReg r1, show i1]
-   show (Storeret r1) = showIlocHelper "storeret" [(showReg r1)]
+   show (Storeret r1) = showIlocHelper "storeret" [showReg r1]
 
 instance Show Invocation where
    show (Call l1) = showIlocHelper "call" [l1]

@@ -140,13 +140,13 @@ createCondGraph stmt@(Cond _ guard thenBlock maybeElseBlock) node nextGraph hash
 
 linkGraphs :: YesNo NodeGraph -> Maybe (YesNo NodeGraph) -> YesNo NodeGraph -> YesNo NodeGraph
 linkGraphs ifThenGraph Nothing nextGraph =
-        appendGraph <$> ifThenGraph <*> 
-            pure (initVertex:runIf (const []) (\g -> [graphEnd $ pure g]) ifThenGraph) <*> nextGraph
+        appendGraph <$> ifThenGraph <*> pure (initVertex:secVert) <*> nextGraph
+    where secVert = runIf (const []) (\g -> [graphEnd $ pure g]) ifThenGraph 
 linkGraphs ifThenGraph (Just elseGraph) nextGraph =
         runIf Yes (\g -> appendGraph g ifVertices <$> nextGraph) ifGraph
     where ifGraph = appendGraph <$> ifThenGraph <*> pure [initVertex] <*> elseGraph
           thenVertex = [graphEnd ifThenGraph | isNo ifThenGraph]
-          elseVertex = [graphEnd ifGraph | isNo ifGraph]
+          elseVertex = [graphEnd ifGraph | isNo elseGraph]
           ifVertices = elseVertex ++ thenVertex
 
 graphEnd :: YesNo NodeGraph -> Vertex
@@ -175,7 +175,7 @@ createLoopGraph stmt@(Loop _ guard body) node nextGraph hash =
           trueGraph = appendGraph startGraph [initVertex] <$> bodyGraph
           trueChild = snd $ head $ filter ((==initVertex) . fst) $ 
             edges $ fst $ fromYesNo trueGraph
-          cyclicTG = addEdge <$> trueGraph <*> pure (trueChild, initVertex)
+          cyclicTG = addEdge <$> trueGraph <*> pure (graphEnd trueGraph, initVertex)
 
 fromNode :: Node -> NodeGraph
 fromNode node = (buildG defaultBounds [(entryVertex,initVertex)], 
