@@ -152,17 +152,6 @@ linkGraphs ifThenGraph (Just elseGraph) nextGraph =
 graphEnd :: YesNo NodeGraph -> Vertex
 graphEnd g = snd $ bounds $ fst $ fromYesNo g
 
-{-
-(Yes then) = [initVertex]
-(No then) = [graphEnd ifThenGraph, initVertex]
-
-(Yes then) (Yes else) = none
-           
-(Yes then) (No else) = [graphEnd ifGraph]
-(No then) (Yes else) = [graphEnd ifThenGraph]
-(No then) (No else) = [graphEnd ifGraph, graphEnd ifThenGraph]
--}
-
 createLoopGraph :: Statement -> Node -> YesNo NodeGraph -> RegHash -> YesNo NodeGraph 
 createLoopGraph stmt@(Loop _ guard body) node nextGraph hash = 
         if isNo trueGraph
@@ -175,7 +164,7 @@ createLoopGraph stmt@(Loop _ guard body) node nextGraph hash =
           trueGraph = appendGraph startGraph [initVertex] <$> bodyGraph
           trueChild = snd $ head $ filter ((==initVertex) . fst) $ 
             edges $ fst $ fromYesNo trueGraph
-          cyclicTG = addEdge <$> trueGraph <*> pure (graphEnd trueGraph, initVertex)
+          cyclicTG = addEdge <$> trueGraph <*> pure (graphEnd trueGraph, trueChild)
 
 fromNode :: Node -> NodeGraph
 fromNode node = (buildG defaultBounds [(entryVertex,initVertex)], 
@@ -200,3 +189,15 @@ isNo = not . isYes
 fromYesNo :: YesNo a -> a
 fromYesNo (Yes x) = x
 fromYesNo (No x) = x
+
+stmtToIloc :: Statement -> RegHash -> ([Iloc], RegHash)
+-- stmtToIloc stmt@Ret{} hash = RetToIloc stmt hash
+stmtToIloc stmt hash = undefined
+
+exprToIloc :: Reg -> Expression -> RegHash -> ([Iloc], RegHash)
+exprToIloc reg expr hash = undefined
+
+-- RetToIloc :: Statement -> RegHash -> ([Iloc], RegHash)
+-- RetToIloc (Ret _ expr) hash = (exprInsns ++ [RetILOC], exprHash)
+--     where (exprInsns, exprHash) = maybe ([],hash) 
+--             (flip (exprToIloc retReg) hash) expr

@@ -15,6 +15,12 @@ type Reg = Int
 type Immed = Int
 type Label = String
 
+retReg :: Reg
+retReg = 1
+
+ccReg :: Reg
+ccReg = -1
+
 data Iloc = Arithmetic | Boolean | Comparison | Branching | Loads | Stores | Invocation | Allocation | IO | Moves 
 
 data Arithmetic = Add Reg Reg Reg
