@@ -17,16 +17,16 @@ main = do
         args <- getArgs
         file <- readFile $ head args
         let parsedJSON = decode . BS.pack $ file :: Maybe Program
+            program = maybe (error "Invalid JSON input") id parsedJSON
         when ("--testJSON" `elem` args) $ 
             putStrLn $ BS.unpack $ encode parsedJSON
-        when ("--printProgram" `elem` args) $ print parsedJSON
-        let env = fmap checkTypes parsedJSON
+        when ("--printProgram" `elem` args) $ print program
+        let env = checkTypes program
         when ("--printEnv" `elem` args) $ print env
         when (length args < 2) $ envReport env
-        let graphs = fmap createGraphs parsedJSON
+        let graphs = fmap (flip createGraphs program) env
         return ()
 
-envReport :: Maybe (Either ErrType GlobalEnv) -> IO ()
-envReport Nothing = error "Bad input"
-envReport (Just (Left msg)) = error msg
-envReport _ = putStrLn "Successful Compilation"
+envReport :: Either ErrType GlobalEnv -> IO ()
+envReport (Left msg) = error msg
+envReport _ = return ()
