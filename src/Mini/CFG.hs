@@ -33,6 +33,8 @@ import Data.Maybe
 import Data.HashMap.Strict hiding (filter)
 import Mini.Iloc
 import Mini.Types
+import Mini.TypeCheck
+import Data.List (elemIndex)
 
 data YesNo a = Yes a | No a deriving (Show)
 
@@ -82,6 +84,136 @@ functionToGraph func =
         fromYesNo $ stmtsToGraph argNode (getFunBody func) argHash
     where argNode = emptyNode -- Start node by storing args in regs
           argHash = empty -- create HashMap from args
+
+{-
+converts an expression to ILOC and supplies register where result is
+
+params:
+  Expression - expression to evaluate as ILOC
+  RegHash - maps local vars to the register they live in
+  GlobalEnv - environment for global vars
+  LocalEnv - environment for local vars
+  Reg - next register to use when we need a new register
+
+returns:
+  The evaluated Iloc and the register containing the result of this expression
+
+assumes no registers are used greater than result register
+-}
+evalExpr :: Expression -> RegHash -> StructHash -> GlobalEnv -> LocalEnv -> Reg -> ([Iloc], Reg)
+evalExpr expr@BinExp{} = evalBinopExpr expr
+evalExpr expr@UExp{} = evalUopExpr expr
+evalExpr expr@DotExp{} = evalDotExpr expr
+evalExpr expr@InvocExp{} = evalInvocExpr expr
+evalExpr expr@IdExp{} = evalIdExpr expr
+evalExpr (IntExp _ val) = \_ _ _ _ nextReg -> ([Movi val nextReg], nextReg)
+evalExpr (TrueExp _) = \_ _ _ _ nextReg -> ([Movi 1 nextReg], nextReg)
+evalExpr (FalseExp _) = \_ _ _ _ nextReg -> ([Movi 0 nextReg], nextReg)
+evalExpr expr@NewExp{} = evalNewExpr expr
+evalExpr expr@NullExp{} = \_ _ _ _ nextReg -> ([Movi 0 nextReg], nextReg)
+
+evalBinopExpr (BinExp _ binop lhs rhs) regHash structHash globals locals nextReg =
+   (lhsIloc ++ rhsIloc ++ binopExprs, resultReg)
+   where
+      (lhsIloc, lhsReg) = evalExpr lhs regHash structHash globals locals nextReg
+      (rhsIloc, rhsReg) = evalExpr rhs regHash structHash globals locals (lhsReg + 1)
+      resultReg = (rhsReg + 1)
+      binopExprs
+        | binop == "+" = [Add lhsReg rhsReg resultReg]
+        | binop == "-" = [Sub lhsReg rhsReg resultReg]
+        | binop == "*" = [Mult lhsReg rhsReg resultReg]
+        | binop == "/" = [Div lhsReg rhsReg resultReg]
+        | binop == "<" = [ Movi 0 resultReg
+                         , Comp lhsReg rhsReg
+                         , Movlt 1 resultReg]
+        | binop == "<=" = [ Movi 0 resultReg
+                          , Comp lhsReg rhsReg
+                          , Movle 1 resultReg]
+        | binop == ">" = [ Movi 0 resultReg
+                         , Comp lhsReg rhsReg
+                         , Movgt 1 resultReg]
+        | binop == ">=" = [ Movi 0 resultReg
+                          , Comp lhsReg rhsReg
+                          , Movge 1 resultReg]
+        | binop == "==" = [ Movi 0 resultReg
+                          , Comp lhsReg rhsReg
+                          , Moveq 1 resultReg]
+        | binop == "!=" = [ Movi 0 resultReg
+                          , Comp lhsReg rhsReg
+                          , Movne 1 resultReg]
+        | binop == "&&" = [ Movi 1 resultReg
+                          , Compi lhsReg 0
+                          , Moveq 0 resultReg
+                          , Compi rhsReg 0
+                          , Moveq 0 resultReg]
+        | binop == "||" = [ Movi 0 resultReg
+                          , Compi lhsReg 0
+                          , Movne 1 resultReg
+                          , Compi rhsReg 0
+                          , Moveq 1 resultReg]
+        | otherwise = error $ "don't know what to do with " ++ binop
+
+evalUopExpr (UExp _ op operand) regHash structHash globals locals nextReg =
+   (operandIloc ++ uopIloc, resultReg)
+   where
+      (operandIloc, operandReg) = evalExpr operand regHash structHash globals locals nextReg
+      resultReg = operandReg + 1
+      uopIloc
+         | op == "-" = [Multi operandReg (-1) resultReg]
+         | op == "!" = [ Movi 0 resultReg
+                       , Compi operandReg 0
+                       , Moveq 1 resultReg ]
+         | otherwise = error $ "unexpected uop: " ++ op
+
+evalDotExpr (DotExp _ leftExpr dotId) regHash structHash globals locals nextReg =
+  (recurIloc ++ currIloc, resultReg)
+  where
+    (recurIloc, leftReg) = evalLeft leftExpr
+    currIloc = [Loadai leftReg fieldIdx resultReg]
+    structType = getExprTypeOrDieTrying leftExpr globals locals
+    structFields = structHash ! structType
+    fieldIdx = fromJust $ elemIndex dotId $ fmap getFieldId structFields
+    resultReg = leftReg + 1
+
+    evalLeft leftExpr@(IdExp _ theId) = evalIdExpr leftExpr regHash structHash globals locals nextReg
+    evalLeft dotExpr = evalDotExpr dotExpr regHash structHash globals locals nextReg
+
+getExprTypeOrDieTrying :: Expression -> GlobalEnv -> LocalEnv -> Type
+getExprTypeOrDieTrying expr globs locs = extractTypeFromEither $ getExprType expr globs locs
+  where
+    extractTypeFromEither (Right t) = t
+    extractTypeFromEither _ = error $ "died trying to get expression type"
+
+evalInvocExpr (InvocExp _ invocId args) regHash structHash globals locals nextReg =
+  (argsIloc ++ outArgIloc ++ callIloc, retReg)
+  where
+    (argsIloc, argsRegs) = evalInvocArgs args [] [] nextReg
+    outArgIloc = [Storeoutargument (argsRegs !! idx) idx | idx <- [0..((length argsRegs) - 1)]]
+    callIloc = [ Call invocId
+               , Loadret retReg ]
+    retReg = 1 + (last argsRegs)
+
+    evalInvocArgs :: Arguments -> [Iloc] -> [Reg] -> Int -> ([Iloc], [Reg])
+    evalInvocArgs (arg:rest) currIloc currRegs nextReg =
+      evalInvocArgs rest (currIloc ++ argIloc) (currRegs ++ [argReg]) (argReg + 1)
+      where
+        (argIloc, argReg) = evalExpr arg regHash structHash globals locals nextReg
+    evalInvocArgs _ currIloc currRegs _ =
+      (currIloc, currRegs)
+
+evalIdExpr (IdExp _  theId) regHash _ _ _ nextReg
+  | isLocal = evalLocalIdExpr
+  | otherwise = evalGlobalIdExpr
+  where
+    isLocal = theId `member` regHash
+    evalLocalIdExpr = ([Mov varReg nextReg], nextReg)
+      where
+        varReg = regHash ! theId
+    evalGlobalIdExpr = ([Loadglobal theId nextReg], nextReg)
+
+evalNewExpr (NewExp _ newId) _ structHash _ _ nextReg =
+  ([New numWords nextReg], nextReg)  
+  where numWords = length $ fromJust $ Data.HashMap.Strict.lookup newId structHash
 
 -- Append 2nd graph to first one, 
 -- creating edge from vertices arguments to Graph 2's Vertex 0's child
