@@ -50,20 +50,20 @@ getTypeString Nothing = voidType
 getTypeString (Just justType) = justType
 
 checkTypes :: Program -> Either ErrType GlobalEnv
-checkTypes (Program types decls funcs) = do
-        typeHash <- readTypes types
-        decHash <- readDecls typeHash decls
-        funcHash <- readFuncs typeHash decHash funcs
+checkTypes (Program structs decls funcs) = do
+        structHash <- readStructs structs
+        decHash <- readDecls structHash decls
+        funcHash <- readFuncs structHash decHash funcs
         let main = funcHash ! mainId
         if mainId `member` funcHash && Prelude.null (fst main) && snd main == intType
-            then Right $ GlobalEnv typeHash decHash funcHash
+            then Right $ GlobalEnv structHash decHash funcHash
             else Left "Missing function 'fun main() int'"
 
 createError :: HasLines a => a -> String -> Either ErrType b
 createError lineItem errMsg = Left $ "Line " ++ getLineString lineItem ++ ": " ++ errMsg
 
-readTypes :: [TypeDef] -> Either ErrType StructHash
-readTypes = foldM foldFun empty
+readStructs :: [TypeDef] -> Either ErrType StructHash
+readStructs = foldM foldFun empty
     where foldFun hash (TypeDef _ typeId fields) = 
               let newHash = insert typeId fields hash
                   badField = find (\(Field _ fType _) -> fType /= intType && fType /= boolType 
@@ -81,11 +81,11 @@ readDecls hash = foldM foldFun empty
                             else createError dec "use of undefined type"
 
 readFuncs :: StructHash -> DecHash -> [Function] -> Either ErrType FunHash
-readFuncs typeHash decHash = foldM foldFun empty
-    where createGlobal = GlobalEnv typeHash decHash 
+readFuncs structHash decHash = foldM foldFun empty
+    where createGlobal = GlobalEnv structHash decHash 
           createLocal = foldl (\hash (Field _ fType fieldId) -> insert fieldId fType hash)
           foldFun hash fun@(Function _ fieldId params decls _ expectRet) = do
-            localsWOutArgs <- readDecls typeHash decls
+            localsWOutArgs <- readDecls structHash decls
             let newHash = insert fieldId (fmap getFieldType params, expectRet) hash
             retType <- checkFunctionBody fun (createGlobal newHash) (createLocal localsWOutArgs params)
             if retType /= expectRet 
@@ -149,13 +149,13 @@ getUExpType expr@(UExp _ op opnd) global local
 getDotExpType :: Expression -> GlobalEnv -> LocalEnv -> Either ErrType Type
 getDotExpType expr@(DotExp _ lft dotId) global local = do
         lftType <- getExprType lft global local
-        fields <- if lftType `member` typeHash
-                    then Right $ typeHash ! lftType
+        fields <- if lftType `member` structHash
+                    then Right $ structHash ! lftType
                     else dotErr
         let maybeField = foldl foldFun Nothing fields
         getType maybeField
     where dotErr = createError expr $ "Unrecognized id " ++ dotId
-          typeHash = getTypesHash global
+          structHash = getStructHash global
           getType Nothing = dotErr
           getType (Just typeStr) = Right typeStr
           foldFun (Just thing) _ = Just thing
@@ -188,21 +188,21 @@ getLValType val@(LValue _ theId (Just lval)) globs locs = do
         targetType <- getLValType lval globs locs
         targFields <- targetFields targetType
         theId `memberType` targFields
-    where typesHash = getTypesHash globs
+    where structHash = getStructHash globs
           maybeMember = find (\(Field _ _ fieldId) -> fieldId == theId) 
           err errId = createError val $ "undefined id " ++ errId
           memberType fieldId fields = maybe (err fieldId) (Right . getFieldType) $ maybeMember fields
 --           targetType = getLValType lval globs locs
-          targetFields structType = if structType `member` typesHash
-                                     then Right $ typesHash ! structType
+          targetFields structType = if structType `member` structHash
+                                     then Right $ structHash ! structType
                                      else createError val $ "Unexpected type for id " ++ theId
 
 getNewExpType :: Expression -> GlobalEnv -> LocalEnv -> Either ErrType Type
 getNewExpType expr global _ 
-    | newId `member` typeHash = Right newId
+    | newId `member` structHash = Right newId
     | otherwise = createError expr $ "Undefined type" ++ newId
     where newId = getNewId expr
-          typeHash = getTypesHash global
+          structHash = getStructHash global
 
 -- determines if all the elements of given list are equal
 allEqual :: Eq a => [a] -> Bool

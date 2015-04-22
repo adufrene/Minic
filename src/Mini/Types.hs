@@ -14,13 +14,12 @@ import Mini.Iloc
 type Arguments = [Expression]
 type Type = String
 
-type TypeHash = HashMap Type [Field]
 type DecHash = HashMap Id Type
 type FunHash = HashMap Id ([Type], Type)
 type StructHash = HashMap Id [Field]
 
 type LocalEnv = DecHash
-data GlobalEnv = GlobalEnv { getTypesHash :: TypeHash
+data GlobalEnv = GlobalEnv { getStructHash :: StructHash
                            , getDecsHash :: DecHash
                            , getFuncsHash :: FunHash} deriving (Show)
 

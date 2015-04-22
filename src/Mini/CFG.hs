@@ -65,9 +65,16 @@ type NodeGraph = (Graph, HashMap Vertex Node)
 type RegHash = HashMap Id Reg
 type ReturnBlock = YesNo NodeGraph
 type LabelNum = Int
-type NumAndGraph = (LabelNum, ReturnBlock)
-
+type ExprIloc = ([Iloc], Reg)
 type Baggage = (GlobalEnv, LocalEnv, RegHash)
+type LabelReg = (LabelNum, Reg)
+type NumAndGraph = (LabelReg, ReturnBlock)
+
+label :: LabelReg -> LabelNum
+label = fst
+
+reg :: LabelReg -> Reg
+reg = snd
 
 initVertex :: Vertex
 initVertex = 1
@@ -98,18 +105,19 @@ createGraphs global = snd . foldl' foldFun (1,[]) . getFunctions
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
 functionToGraph func nextLabel global = 
-        (fst numGraph, fromYesNo $ snd numGraph)
+        (label $ fst numGraph, fromYesNo $ snd numGraph)
     where argNode = emptyNode $ getFunId func-- Start node by storing args in regs
           (nextNum, regHash, locals) = 
             foldl' localFoldFun argsHashes $ getFunDeclarations func
           localFoldFun (reg,rHash,lHash) (Declaration _ dType dId) =
               (reg+1, insert dId reg rHash, insert dId dType lHash)
-          argsHashes = foldl' argFoldFun (nextLabel, empty, empty) $ 
+-- Assumes registers start over between functions
+          argsHashes = foldl' argFoldFun (1, empty, empty) $  
             getFunParameters func
           argFoldFun (reg,rHash,lHash) (Field _ fType fId) =
               (reg+1, insert fId reg rHash, insert fId fType lHash)
           numGraph = stmtsToGraph argNode (getFunBody func) 
-            nextNum (global, locals, regHash)
+            (nextLabel, nextNum) (global, locals, regHash)
 
 {-
 converts an expression to ILOC and supplies register where result is
@@ -126,23 +134,24 @@ returns:
 
 assumes no registers are used greater than result register
 -}
-evalExpr :: Expression -> RegHash -> StructHash -> GlobalEnv -> LocalEnv -> Reg -> ([Iloc], Reg)
+evalExpr :: Expression -> Baggage -> Reg -> ExprIloc
 evalExpr expr@BinExp{} = evalBinopExpr expr
 evalExpr expr@UExp{} = evalUopExpr expr
 evalExpr expr@DotExp{} = evalDotExpr expr
 evalExpr expr@InvocExp{} = evalInvocExpr expr
-evalExpr expr@IdExp{} = evalIdExpr expr
-evalExpr (IntExp _ val) = \_ _ _ _ nextReg -> ([Movi val nextReg], nextReg)
-evalExpr (TrueExp _) = \_ _ _ _ nextReg -> ([Movi 1 nextReg], nextReg)
-evalExpr (FalseExp _) = \_ _ _ _ nextReg -> ([Movi 0 nextReg], nextReg)
-evalExpr expr@NewExp{} = evalNewExpr expr
-evalExpr expr@NullExp{} = \_ _ _ _ nextReg -> ([Movi 0 nextReg], nextReg)
+evalExpr expr@IdExp{} = \(_, _, regHash) reg -> evalIdExpr expr regHash reg
+evalExpr (IntExp _ val) = \_ nextReg -> ([Movi val nextReg], nextReg)
+evalExpr (TrueExp _) = \_ nextReg -> ([Movi 1 nextReg], nextReg)
+evalExpr (FalseExp _) = \_ nextReg -> ([Movi 0 nextReg], nextReg)
+evalExpr expr@NewExp{} = \(global, local, _) reg -> evalNewExpr expr global local reg
+evalExpr expr@NullExp{} = \_ nextReg -> ([Movi 0 nextReg], nextReg)
 
-evalBinopExpr (BinExp _ binop lhs rhs) regHash structHash globals locals nextReg =
+evalBinopExpr :: Expression -> Baggage ->Reg -> ExprIloc
+evalBinopExpr (BinExp _ binop lhs rhs) baggage nextReg =
    (lhsIloc ++ rhsIloc ++ binopExprs, resultReg)
    where
-      (lhsIloc, lhsReg) = evalExpr lhs regHash structHash globals locals nextReg
-      (rhsIloc, rhsReg) = evalExpr rhs regHash structHash globals locals (lhsReg + 1)
+      (lhsIloc, lhsReg) = evalExpr lhs baggage nextReg
+      (rhsIloc, rhsReg) = evalExpr rhs baggage (lhsReg + 1)
       resultReg = (rhsReg + 1)
       binopExprs
         | binop == "+" = [Add lhsReg rhsReg resultReg]
@@ -179,10 +188,11 @@ evalBinopExpr (BinExp _ binop lhs rhs) regHash structHash globals locals nextReg
                           , Moveq 1 resultReg]
         | otherwise = error $ "don't know what to do with " ++ binop
 
-evalUopExpr (UExp _ op operand) regHash structHash globals locals nextReg =
+evalUopExpr :: Expression -> Baggage -> Reg -> ExprIloc
+evalUopExpr (UExp _ op operand) baggage nextReg =
    (operandIloc ++ uopIloc, resultReg)
    where
-      (operandIloc, operandReg) = evalExpr operand regHash structHash globals locals nextReg
+      (operandIloc, operandReg) = evalExpr operand baggage nextReg
       resultReg = operandReg + 1
       uopIloc
          | op == "-" = [Multi operandReg (-1) resultReg]
@@ -191,18 +201,19 @@ evalUopExpr (UExp _ op operand) regHash structHash globals locals nextReg =
                        , Moveq 1 resultReg ]
          | otherwise = error $ "unexpected uop: " ++ op
 
-evalDotExpr (DotExp _ leftExpr dotId) regHash structHash globals locals nextReg =
+evalDotExpr :: Expression -> Baggage -> Reg -> ExprIloc
+evalDotExpr (DotExp _ leftExpr dotId) bag@(globals, locals, regHash) nextReg =
   (recurIloc ++ currIloc, resultReg)
   where
     (recurIloc, leftReg) = evalLeft leftExpr
     currIloc = [Loadai leftReg fieldIdx resultReg]
     structType = getExprTypeOrDieTrying leftExpr globals locals
-    structFields = structHash ! structType
+    structFields = (getStructHash globals) ! structType
     fieldIdx = fromJust $ elemIndex dotId $ fmap getFieldId structFields
     resultReg = leftReg + 1
 
-    evalLeft leftExpr@(IdExp _ theId) = evalIdExpr leftExpr regHash structHash globals locals nextReg
-    evalLeft dotExpr = evalDotExpr dotExpr regHash structHash globals locals nextReg
+    evalLeft leftExpr@(IdExp _ theId) = evalIdExpr leftExpr regHash nextReg
+    evalLeft dotExpr = evalDotExpr dotExpr bag nextReg
 
 getExprTypeOrDieTrying :: Expression -> GlobalEnv -> LocalEnv -> Type
 getExprTypeOrDieTrying expr globs locs = extractTypeFromEither $ getExprType expr globs locs
@@ -210,24 +221,26 @@ getExprTypeOrDieTrying expr globs locs = extractTypeFromEither $ getExprType exp
     extractTypeFromEither (Right t) = t
     extractTypeFromEither _ = error $ "died trying to get expression type"
 
-evalInvocExpr (InvocExp _ invocId args) regHash structHash globals locals nextReg =
+evalInvocExpr :: Expression -> Baggage -> Reg -> ExprIloc
+evalInvocExpr (InvocExp _ invocId args) baggage nextReg =
   (argsIloc ++ outArgIloc ++ callIloc, retReg)
   where
-    (argsIloc, argsRegs) = evalInvocArgs args [] [] nextReg
+    (argsIloc, argsRegs) = evalInvocArgs args [] [] baggage nextReg
     outArgIloc = [Storeoutargument (argsRegs !! idx) idx | idx <- [0..((length argsRegs) - 1)]]
     callIloc = [ Call invocId
                , Loadret retReg ]
     retReg = 1 + (last argsRegs)
 
-    evalInvocArgs :: Arguments -> [Iloc] -> [Reg] -> Int -> ([Iloc], [Reg])
-    evalInvocArgs (arg:rest) currIloc currRegs nextReg =
-      evalInvocArgs rest (currIloc ++ argIloc) (currRegs ++ [argReg]) (argReg + 1)
-      where
-        (argIloc, argReg) = evalExpr arg regHash structHash globals locals nextReg
-    evalInvocArgs _ currIloc currRegs _ =
-      (currIloc, currRegs)
+evalInvocArgs :: Arguments -> [Iloc] -> [Reg] -> Baggage -> Reg -> ([Iloc], [Reg])
+evalInvocArgs (arg:rest) currIloc currRegs baggage nextReg =
+  evalInvocArgs rest (currIloc ++ argIloc) (currRegs ++ [argReg]) baggage  (argReg + 1)
+  where
+    (argIloc, argReg) = evalExpr arg baggage nextReg
+evalInvocArgs _ currIloc currRegs _ _ = (currIloc, currRegs)
+  
 
-evalIdExpr (IdExp _  theId) regHash _ _ _ nextReg
+evalIdExpr :: Expression -> RegHash -> Reg -> ExprIloc
+evalIdExpr (IdExp _  theId) regHash nextReg
   | isLocal = evalLocalIdExpr
   | otherwise = evalGlobalIdExpr
   where
@@ -237,9 +250,11 @@ evalIdExpr (IdExp _  theId) regHash _ _ _ nextReg
         varReg = regHash ! theId
     evalGlobalIdExpr = ([Loadglobal theId nextReg], nextReg)
 
-evalNewExpr (NewExp _ newId) _ structHash _ _ nextReg =
+evalNewExpr :: Expression -> GlobalEnv -> LocalEnv -> Reg -> ExprIloc
+evalNewExpr (NewExp _ newId) global local nextReg =
   ([New numWords nextReg], nextReg)  
-  where numWords = length $ fromJust $ Data.HashMap.Strict.lookup newId structHash
+  where numWords = length $ (getStructHash global) ! newId
+--         fromJust $ Data.HashMap.Strict.lookup newId structHash -- FIX --
 
 -- Append 2nd graph to first one, 
 -- creating edge from vertices arguments to Graph 2's Vertex 0's child
@@ -268,45 +283,49 @@ appendGraph (graph1, map1) vertices (graph2, map2) =
 -- Need a better function name
 -- Yes means we will return in this graph
 -- No means we may not return in this graph
-stmtsToGraph :: Node -> [Statement] -> LabelNum -> Baggage -> NumAndGraph -- (NodeGraph, RegHash)
-stmtsToGraph node [] num _ = (num, No $ fromNode node)
-stmtsToGraph node (stmt:rest) nextLabel baggage = 
+stmtsToGraph :: Node -> [Statement] -> LabelReg -> Baggage -> NumAndGraph -- (NodeGraph, RegHash)
+stmtsToGraph node [] nexts _ = (nexts, No $ fromNode node)
+stmtsToGraph node (stmt:rest) nexts baggage = 
         case stmt of
-            Block body -> stmtsToGraph node (body ++ rest) nextLabel baggage
+            Block body -> stmtsToGraph node (body ++ rest) nexts baggage
             Cond{} -> createGraph createCondGraph
             Loop{} -> createGraph createLoopGraph
-            Ret _ expr -> (nextLabel, Yes pointToExit)
-            _ -> stmtsToGraph newNode rest nextLabel baggage
+            Ret _ expr -> (nexts, Yes pointToExit)
+            _ -> stmtsToGraph newNode rest nexts baggage
     where successorGraph = 
-            stmtsToGraph startNode rest (nextLabel + 1) baggage
+            stmtsToGraph startNode rest (nextLabel + 1, nextReg) baggage
+          nextLabel = label nexts
+          nextReg = reg nexts
           startNode = emptyNode $ createLabel nextLabel
           pointToExit = 
             (buildG defaultBounds 
                 [(entryVertex,initVertex), (initVertex,exitVertex)],
                 singleton initVertex newNode)
-          newNode = node `addToNode` stmtToIloc stmt baggage
+          newNode = node `addToNode` stmtToIloc stmt baggage nextReg
           createGraph f = f stmt node successorGraph baggage
 
 -- Yes means we will return in this graph
 -- No means we may not return in this graph
 createCondGraph :: Statement -> Node -> NumAndGraph -> Baggage -> NumAndGraph
-createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (num, nextG) baggage = 
-        linkGraphs ifThenGraph elseNumGraph thenLabel nextG
-    where newNode = node `addToNode` [] --(exprToIloc guard baggage) -- finish node with guard
-          (thenLabel, thenGraph) = graphFromBlock thenBlock num
-          elseNumGraph = graphFromBlock <$> maybeElseBlock <*> pure thenLabel
+createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (nexts, nextG) baggage = 
+        ((thenLabel,newReg), linkGraphs ifThenGraph elseNumGraph nextG)
+    where newNode = node `addToNode` guardInsns --(exprToIloc guard baggage) -- finish node with guard
+          (guardInsns, newReg) = evalExpr guard baggage $ reg nexts
+          nextLabel = label nexts
+          ((thenLabel, thenReg), thenGraph) = graphFromBlock thenBlock (nextLabel, newReg + 1)
+          elseNumGraph = graphFromBlock <$> maybeElseBlock <*> pure (thenLabel, thenReg)
           ifThenGraph = appendIf <$> thenGraph
           appendIf = appendGraph (fromNode newNode) [initVertex]
-          graphFromBlock block label = 
-            stmtsToGraph (emptyNode $ createLabel label) 
-                (getBlockStmts block) (label + 1) baggage 
+          graphFromBlock block nextStuff = 
+            stmtsToGraph (emptyNode $ createLabel $ label nextStuff) 
+                (getBlockStmts block) (label nextStuff + 1, reg nextStuff) baggage 
 
-linkGraphs :: ReturnBlock -> Maybe NumAndGraph -> LabelNum -> ReturnBlock -> NumAndGraph
-linkGraphs ifThenGraph Nothing num nextGraph =
-        (num, appendGraph <$> ifThenGraph <*> pure (initVertex:secVert) <*> nextGraph)
+linkGraphs :: ReturnBlock -> Maybe NumAndGraph -> ReturnBlock -> YesNo NodeGraph
+linkGraphs ifThenGraph Nothing nextGraph =
+        appendGraph <$> ifThenGraph <*> pure (initVertex:secVert) <*> nextGraph
     where secVert = yesNo (const []) (\g -> [graphEnd $ pure g]) ifThenGraph 
-linkGraphs ifThenGraph (Just (elseNum, elseGraph)) num nextGraph =
-        (elseNum, yesNo Yes (\g -> appendGraph g ifVertices <$> nextGraph) ifGraph)
+linkGraphs ifThenGraph (Just (elseNum, elseGraph)) nextGraph =
+        yesNo Yes (\g -> appendGraph g ifVertices <$> nextGraph) ifGraph
     where ifGraph = appendGraph <$> ifThenGraph <*> pure [initVertex] <*> elseGraph
           thenVertex = [graphEnd ifThenGraph | isNo ifThenGraph]
           elseVertex = [graphEnd ifGraph | isNo elseGraph]
@@ -316,16 +335,18 @@ graphEnd :: ReturnBlock -> Vertex
 graphEnd g = snd $ bounds $ fst $ fromYesNo g
 
 createLoopGraph :: Statement -> Node -> NumAndGraph -> Baggage -> NumAndGraph
-createLoopGraph (Loop _ guard body) node (nextNum, nextGraph) baggage = 
+createLoopGraph (Loop _ guard body) node (nexts, nextGraph) baggage = 
         (bodyNum, if isNo trueGraph
             then appendGraph <$> cyclicTG <*> pure [initVertex, graphEnd cyclicTG] <*> nextGraph
             else appendGraph <$> trueGraph <*> pure [initVertex] <*> nextGraph)
     where newNode = node `addToNode` [] -- guard iloc
+          nextLabel = label nexts
+          nextReg = reg nexts
           startGraph = fromNode newNode
-          startNode = emptyNode $ createLabel nextNum
+          startNode = emptyNode $ createLabel nextLabel
           -- Update bodyGraph's endNode to include guard
           (bodyNum, bodyGraph) = 
-            stmtsToGraph startNode (getBlockStmts body) (nextNum + 1) baggage
+            stmtsToGraph startNode (getBlockStmts body) (nextLabel + 1, nextReg) baggage
           trueGraph = appendGraph startGraph [initVertex] <$> bodyGraph
           trueChild = snd $ head $ filter ((==initVertex) . fst) $ 
             edges $ fst $ fromYesNo trueGraph
@@ -355,19 +376,18 @@ fromYesNo :: YesNo a -> a
 fromYesNo (Yes x) = x
 fromYesNo (No x) = x
 
-stmtToIloc :: Statement -> Baggage -> [Iloc]
--- stmtToIloc stmt@Ret{} hash = RetToIloc stmt hash
-stmtToIloc stmt hash = []
+stmtToIloc :: Statement -> Baggage -> Reg -> [Iloc]
+stmtToIloc stmt@Ret{} = retToIloc stmt 
+stmtToIloc _ = \_ _ -> []
 
-exprToIloc :: Expression -> Baggage -> ([Iloc], Reg)
-exprToIloc expr hash = ([],0)
-
-retToIloc :: Statement -> Baggage -> [Iloc]
-retToIloc (Ret _ expr) hash = RetILOC : retInsn ++ exprInsns
-    where (exprInsns, reg) = maybe ([],-1) (`exprToIloc` hash) expr
+retToIloc :: Statement -> Baggage -> Reg -> [Iloc]
+retToIloc (Ret _ expr) baggage nextReg  = 
+        RetILOC : retInsn ++ exprInsns
+    where (exprInsns, reg) = 
+            maybe ([],-1) (\e -> evalExpr e baggage nextReg) expr
           retInsn = if null exprInsns then [] else [Storeret reg]
 
-lValToIloc :: LValue -> Baggage -> Reg -> ([Iloc], Reg)
+lValToIloc :: LValue -> Baggage -> Reg -> ExprIloc
 lValToIloc _ _ _ = ([], 0)
 -- lValToIloc (LValue _ name Nothing) hash _ = ([], hash ! name)
 -- lValToIloc (LValue _ name (Just lval)) nextReg = 
@@ -376,7 +396,7 @@ lValToIloc _ _ _ = ([], 0)
 --             Loadai reg (getTypeOffset 
 --           recur reg (LValue _ newName Nothing) currType nextReg = 
 
-asgnToIloc :: Statement -> Baggage -> [Iloc]
-asgnToIloc (Asgn _ lval expr) hash = undefined
-    where (exprInsns, reg) = exprToIloc expr hash
+asgnToIloc :: Statement -> Baggage -> Reg -> [Iloc]
+asgnToIloc (Asgn _ lval expr) baggage nextReg = undefined
+    where (exprInsns, reg) = evalExpr expr baggage nextReg
 
