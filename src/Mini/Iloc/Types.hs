@@ -1,4 +1,4 @@
-module Mini.Iloc where
+module Mini.Iloc.Types where
 {-|
 
 This file contains the data definitions for our internal ILOC.
@@ -9,8 +9,13 @@ Adds a new instruction - brz
 -}
 
 import Data.List
+import Data.HashMap.Strict hiding (map)
+import Mini.Types
 
-type Id = String
+type RegHash = HashMap Id Reg
+type Baggage = (GlobalEnv, LocalEnv, RegHash)
+type IlocRet = ([Iloc], Reg)
+
 type Reg = Int
 type Immed = Int
 type Label = String

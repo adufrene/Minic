@@ -9,10 +9,9 @@ import Data.Text
 import Data.HashMap.Strict
 import Data.Maybe
 
-import Mini.Iloc
-
 type Arguments = [Expression]
 type Type = String
+type Id = String
 
 type DecHash = HashMap Id Type
 type FunHash = HashMap Id ([Type], Type)
