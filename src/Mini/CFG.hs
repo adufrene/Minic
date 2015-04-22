@@ -102,8 +102,7 @@ createGraphs global = snd . foldl' foldFun (1,[]) . getFunctions
           app xs (label, x) = (label, x:xs)
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
-functionToGraph func nextLabel global = 
-        (label *** fromYesNo) numGraph
+functionToGraph func nextLabel global = (label *** fromYesNo) numGraph
     where argNode = emptyNode $ getFunId func-- Start node by storing args in regs
           (nextNum, regHash, locals) = 
             foldl' localFoldFun argsHashes $ getFunDeclarations func
@@ -169,24 +168,24 @@ stmtsToGraph node (stmt:rest) nexts baggage =
 -- No means we may not return in this graph
 createCondGraph :: Statement -> Node -> NumAndGraph -> Baggage -> NumAndGraph
 createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (nexts, nextG) baggage = 
-        ((thenLabel,newReg), linkGraphs ifThenGraph elseNumGraph nextG)
+        linkGraphs ifThenGraph elseNumGraph nextG thenNexts
     where newNode = node `addToNode` guardInsns --(exprToIloc guard baggage) -- finish node with guard
           (guardInsns, newReg) = evalExpr guard baggage $ reg nexts
           nextLabel = label nexts
-          ((thenLabel, thenReg), thenGraph) = graphFromBlock thenBlock (nextLabel, newReg + 1)
-          elseNumGraph = graphFromBlock <$> maybeElseBlock <*> pure (thenLabel, thenReg)
+          (thenNexts, thenGraph) = graphFromBlock thenBlock (nextLabel, newReg + 1)
+          elseNumGraph = graphFromBlock <$> maybeElseBlock <*> pure thenNexts
           ifThenGraph = appendIf <$> thenGraph
           appendIf = appendGraph (fromNode newNode) [initVertex]
           graphFromBlock block nextStuff = 
             stmtsToGraph (emptyNode $ createLabel $ label nextStuff) 
                 (getBlockStmts block) (label nextStuff + 1, reg nextStuff) baggage 
 
-linkGraphs :: ReturnBlock -> Maybe NumAndGraph -> ReturnBlock -> YesNo NodeGraph
-linkGraphs ifThenGraph Nothing nextGraph =
-        appendGraph <$> ifThenGraph <*> pure (initVertex:secVert) <*> nextGraph
+linkGraphs :: ReturnBlock -> Maybe NumAndGraph -> ReturnBlock -> LabelReg -> NumAndGraph
+linkGraphs ifThenGraph Nothing nextGraph nexts =
+        (nexts, appendGraph <$> ifThenGraph <*> pure (initVertex:secVert) <*> nextGraph)
     where secVert = yesNo (const []) (\g -> [graphEnd $ pure g]) ifThenGraph 
-linkGraphs ifThenGraph (Just (elseNum, elseGraph)) nextGraph =
-        yesNo Yes (\g -> appendGraph g ifVertices <$> nextGraph) ifGraph
+linkGraphs ifThenGraph (Just (elseNexts, elseGraph)) nextGraph _ =
+        (elseNexts, yesNo Yes (\g -> appendGraph g ifVertices <$> nextGraph) ifGraph)
     where ifGraph = appendGraph <$> ifThenGraph <*> pure [initVertex] <*> elseGraph
           thenVertex = [graphEnd ifThenGraph | isNo ifThenGraph]
           elseVertex = [graphEnd ifGraph | isNo elseGraph]
@@ -200,14 +199,14 @@ createLoopGraph (Loop _ guard body) node (nexts, nextGraph) baggage =
         (bodyNum, if isNo trueGraph
             then appendGraph <$> cyclicTG <*> pure [initVertex, graphEnd cyclicTG] <*> nextGraph
             else appendGraph <$> trueGraph <*> pure [initVertex] <*> nextGraph)
-    where newNode = node `addToNode` [] -- guard iloc
+    where newNode = node `addToNode` guardInsns -- guard iloc
+          (guardInsns, newReg) = evalExpr guard baggage $ reg nexts
           nextLabel = label nexts
-          nextReg = reg nexts
           startGraph = fromNode newNode
           startNode = emptyNode $ createLabel nextLabel
           -- Update bodyGraph's endNode to include guard
           (bodyNum, bodyGraph) = 
-            stmtsToGraph startNode (getBlockStmts body) (nextLabel + 1, nextReg) baggage
+            stmtsToGraph startNode (getBlockStmts body) (nextLabel + 1, newReg + 1) baggage
           trueGraph = appendGraph startGraph [initVertex] <$> bodyGraph
           trueChild = snd $ head $ filter ((==initVertex) . fst) $ 
             edges $ fst $ fromYesNo trueGraph
