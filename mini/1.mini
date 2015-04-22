@@ -32,7 +32,7 @@ fun foo(int n) int
    }
 }
 
-fun g(int i, struct B j) int
+fun g(int i, struct B j) bool
 {
    int g, m, k;
    return 3;
@@ -64,7 +64,7 @@ fun main() int
           if (true) {
               print 9;
           } else {
-              return false;
+              return 1;
           }
          print 7;
       }

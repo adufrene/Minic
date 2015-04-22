@@ -237,17 +237,15 @@ validateReturn line expectRet nextStmts global local = do
                    Just t2 -> if t1 /= t2
                                   then createError line $ "Function returns " ++ t1 ++ " and " ++ t2
                                   else Right $ No ret
-                   Nothing -> Right $ No Nothing
+                   Nothing -> Right $ No (Just t1)
 
 -- Return: 
 -- Nothing means needs return after stmt, 
 -- Just means function returns within conditional
 checkCond :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
-checkCond (Cond _ condGuard thenBlock Nothing:rest) global local = do
+checkCond (stmt@(Cond _ condGuard thenBlock Nothing):rest) global local = do
         thenType <- validateGuard condGuard thenBlock global local
-        if isNo thenType
-            then checkStatements rest global local
-            else Right thenType
+        validateReturn stmt (fromYesNo thenType) rest global local
 checkCond (stmt@(Cond _ condGuard thenBlock (Just elseBlock)):rest) global local = do
         thenType <- validateGuard condGuard thenBlock global local
         elseType <- checkStatements (getBlockStmts elseBlock) global local
@@ -300,7 +298,7 @@ checkDelete (Delete _ expr:rest) global local = do
             else checkStatements rest global local
 
 checkBlock :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
-checkBlock (Block stmts:rest) = checkStatements (stmts ++ rest) 
+checkBlock (Block stmts:rest) = checkStatements (stmts ++ rest)
 
 checkFunctionBody :: Function -> GlobalEnv -> LocalEnv -> Either ErrType Type
 checkFunctionBody fun global local = do
