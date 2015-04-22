@@ -61,11 +61,10 @@ fun main() int
       }
       while (true)
       {
-
           if (true) {
               print 9;
           } else {
-              return 10;
+              print 10;
           }
          print 7;
       }

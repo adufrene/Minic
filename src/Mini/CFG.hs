@@ -53,9 +53,6 @@ instance Applicative YesNo where
         pure = return
         (<*>) = ap
 
--- Node will keep statements/iloc in reverse order
--- i.e. elements will be prepended to given node
--- MUCH more efficient
 data Node = Node { getLabel :: Label
                  , getIloc :: [Iloc]
                  } deriving (Show)
@@ -90,7 +87,7 @@ emptyNode :: Label -> Node
 emptyNode name = Node name []
 
 addToNode :: Node -> [Iloc] -> Node
-addToNode (Node name iloc) insns = Node name (insns ++ iloc)
+addToNode (Node name iloc) insns = Node name (iloc ++ insns)
 
 defaultBounds :: Bounds
 defaultBounds = (exitVertex, initVertex)
@@ -103,16 +100,18 @@ createGraphs global = snd . foldl' foldFun (1,[]) . getFunctions
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
 functionToGraph func nextLabel global = (label *** fromYesNo) numGraph
-    where argNode = emptyNode $ getFunId func-- Start node by storing args in regs
+    where argNode = (emptyNode $ getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
             foldl' localFoldFun argsHashes $ getFunDeclarations func
           localFoldFun (reg,rHash,lHash) (Declaration _ dType dId) =
               (reg+1, insert dId reg rHash, insert dId dType lHash)
           -- Assumes registers start over between functions
-          argsHashes = foldl' argFoldFun (1, empty, empty) $  
+          (argsHashes, argIloc) = foldl' argFoldFun ((1, empty, empty), []) $  
             getFunParameters func
-          argFoldFun (reg,rHash,lHash) (Field _ fType fId) =
-              (reg+1, insert fId reg rHash, insert fId fType lHash)
+          argFoldFun ((reg,rHash,lHash),iloc) (Field _ fType fId) =
+              ((reg+1, insert fId reg rHash, insert fId fType lHash), 
+                iloc ++ [loadArg reg])
+          loadArg reg = Loadinargument (getFunId func) (reg - 1) reg
           numGraph = stmtsToGraph argNode (getFunBody func) 
             (nextLabel, nextNum) (global, locals, regHash)
 
@@ -153,7 +152,7 @@ stmtsToGraph node (stmt:rest) nexts baggage =
             Ret _ expr -> (nexts, Yes pointToExit)
             _ -> stmtsToGraph newNode rest nexts baggage
     where successorGraph = 
-            stmtsToGraph startNode rest (nextLabel + 1, newReg) baggage
+            stmtsToGraph startNode rest (nextLabel + 1, reg nexts) baggage
           nextLabel = label nexts
           startNode = emptyNode $ createLabel nextLabel
           pointToExit = 
@@ -169,7 +168,9 @@ stmtsToGraph node (stmt:rest) nexts baggage =
 createCondGraph :: Statement -> Node -> NumAndGraph -> Baggage -> NumAndGraph
 createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (nexts, nextG) baggage = 
         linkGraphs ifThenGraph elseNumGraph nextG thenNexts
-    where newNode = node `addToNode` guardInsns --(exprToIloc guard baggage) -- finish node with guard
+    where newNode = node `addToNode` guardInsns `addToNode` [brInsn]
+          brInsn = Brz newReg falseLabel (getGraphLabel thenGraph) 
+          falseLabel = getGraphLabel (maybe nextG snd elseNumGraph)
           (guardInsns, newReg) = evalExpr guard baggage $ reg nexts
           nextLabel = label nexts
           (thenNexts, thenGraph) = graphFromBlock thenBlock (nextLabel, newReg + 1)
@@ -196,21 +197,40 @@ graphEnd g = snd $ bounds $ fst $ fromYesNo g
 
 createLoopGraph :: Statement -> Node -> NumAndGraph -> Baggage -> NumAndGraph
 createLoopGraph (Loop _ guard body) node (nexts, nextGraph) baggage = 
-        (bodyNum, if isNo trueGraph
+        ((label bodyNext, guard2Reg + 1), if isNo trueGraph
             then appendGraph <$> cyclicTG <*> pure [initVertex, graphEnd cyclicTG] <*> nextGraph
             else appendGraph <$> trueGraph <*> pure [initVertex] <*> nextGraph)
-    where newNode = node `addToNode` guardInsns -- guard iloc
+    where newNode = node `addToNode` guardInsns `addToNode` [brInsn] 
           (guardInsns, newReg) = evalExpr guard baggage $ reg nexts
+          brInsn = Brz newReg contLabel bodyLabel
+          bodyLabel = getGraphLabel unGuarded
+          contLabel = getGraphLabel nextGraph
           nextLabel = label nexts
           startGraph = fromNode newNode
           startNode = emptyNode $ createLabel nextLabel
           -- Update bodyGraph's endNode to include guard
-          (bodyNum, bodyGraph) = 
+          (bodyNext, unGuarded) = 
             stmtsToGraph startNode (getBlockStmts body) (nextLabel + 1, newReg + 1) baggage
+          (guard2Insns, guard2Reg) = evalExpr guard baggage $ reg bodyNext
+          bodyGraph = 
+            addGuard <$> unGuarded <*> pure guard2Insns <*> 
+                pure guard2Reg <*> pure bodyLabel <*> pure contLabel
           trueGraph = appendGraph startGraph [initVertex] <$> bodyGraph
-          trueChild = snd $ head $ filter ((==initVertex) . fst) $ 
-            edges $ fst $ fromYesNo trueGraph
+          trueChild = getChild initVertex trueGraph 
           cyclicTG = addEdge <$> trueGraph <*> pure (graphEnd trueGraph, trueChild)
+
+addGuard :: NodeGraph -> [Iloc] -> Reg -> Label -> Label -> NodeGraph
+addGuard (graph, hash) newIloc reg trueLabel falseLabel = 
+        (graph, adjust adjustFun endVertex hash) 
+    where endVertex = graphEnd $ pure (graph, hash)
+          brIloc = Brz reg falseLabel trueLabel
+          adjustFun (Node label iloc) = Node label $ iloc ++ newIloc ++ [brIloc]
+
+getGraphLabel :: ReturnBlock -> Label
+getGraphLabel graph = getLabel $ snd (fromYesNo graph) ! getChild entryVertex graph
+
+getChild:: Vertex -> ReturnBlock -> Vertex
+getChild v = snd . head . filter ((==v) . fst) . edges . fst . fromYesNo
 
 fromNode :: Node -> NodeGraph
 fromNode node = (buildG defaultBounds [(entryVertex,initVertex)], 

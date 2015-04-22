@@ -24,7 +24,7 @@ stmtToIloc stmt@InvocSt{} = invocStToIloc stmt
 
 retToIloc :: Statement -> Baggage -> Reg -> IlocRet
 retToIloc (Ret _ expr) baggage nextReg  = 
-        (RetILOC : retInsn ++ exprInsns, reg)
+        (exprInsns ++ retInsn ++ [RetILOC], reg)
     where (exprInsns, reg) = 
             maybe ([], nextReg) (\e -> evalExpr e baggage nextReg) expr
           retInsn = if null exprInsns then [] else [Storeret reg]
