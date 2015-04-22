@@ -42,8 +42,8 @@ lValToIloc (LValue _ name (Just lval)) baggage expReg =
 loadLeft :: LValue -> Baggage -> Reg -> (Reg, [Field], [Iloc])
 loadLeft (LValue _ newName Nothing) (global, local, regHash) newReg =
         if newName `member` regHash
-            then (newReg, (localFindFields newName local), [Mov (regHash ! newName) newReg]) 
-            else (newReg, (localFindFields newName $ getDecsHash global),
+            then (newReg, localFindFields newName local, [Mov (regHash ! newName) newReg]) 
+            else (newReg, localFindFields newName $ getDecsHash global,
                               [Loadglobal newName newReg])
     where localFindFields name hash = findFields name hash global
 loadLeft (LValue _ newName (Just val)) bag@(global, local, regHash) newReg =

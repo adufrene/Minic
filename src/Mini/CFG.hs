@@ -44,10 +44,10 @@ data Node = Node { getLabel :: Label
 
 instance Show Node where
   show (Node label iloc) = 
-    concatMap (++ "\n") strs
+    unlines strs
     where
       labelStr = label ++ ":"
-      strs = labelStr : (Prelude.map (\x -> "\t" ++ (show x)) iloc)
+      strs = labelStr : fmap (\x -> "\t" ++ show x) iloc
 
 -- Entry point will be Vertex 0
 -- Exit point will be Vertex -1
@@ -99,7 +99,7 @@ createGraphs global = snd . foldl' foldFun (1,[]) . getFunctions
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
 functionToGraph func nextLabel global = (label *** fromYesNo) numGraph
-    where argNode = (emptyNode $ getFunId func) `addToNode` argIloc
+    where argNode = emptyNode (getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
             foldl' localFoldFun argsHashes $ getFunDeclarations func
           localFoldFun (reg,rHash,lHash) (Declaration _ dType dId) =
