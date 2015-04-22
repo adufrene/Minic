@@ -64,7 +64,7 @@ fun main() int
           if (true) {
               print 9;
           } else {
-              print 10;
+              return false;
           }
          print 7;
       }

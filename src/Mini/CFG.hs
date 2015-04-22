@@ -38,21 +38,6 @@ import Mini.Iloc.Stmt
 import Mini.Types
 import Mini.TypeCheck
 
-data YesNo a = Yes a | No a deriving (Show)
-
-instance Functor YesNo where
-        fmap f (Yes a) = Yes $ f a
-        fmap f (No a) = No $ f a
-
-instance Monad YesNo where
-        return = Yes
-        (Yes x) >>= f = f x
-        (No x) >>= f = No $ fromYesNo $ f x
-
-instance Applicative YesNo where
-        pure = return
-        (<*>) = ap
-
 data Node = Node { getLabel :: Label
                  , getIloc :: [Iloc]
                  }
@@ -253,19 +238,3 @@ fromNode node = (buildG defaultBounds [(entryVertex,initVertex)],
 addEdge :: NodeGraph -> Edge -> NodeGraph
 addEdge (graph, hash) edge = (buildG (bounds graph) (edge:edges graph), hash)
 
--- If 3rd arg is yes, run 1st function
--- else run 2nd function
-yesNo :: (a -> b) -> (a -> b) -> YesNo a -> b
-yesNo f _ (Yes a) = f a
-yesNo _ f (No a) = f a
-
-isYes :: YesNo a -> Bool
-isYes (Yes _) = True
-isYes (No _) = False
-
-isNo :: YesNo a -> Bool
-isNo = not . isYes
-
-fromYesNo :: YesNo a -> a
-fromYesNo (Yes x) = x
-fromYesNo (No x) = x

@@ -7,7 +7,7 @@ import Data.Maybe
 import Data.List (find)
 
 type ErrType = String
-type StatementRet = Either ErrType (Maybe Type)
+type StatementRet = Either ErrType (YesNo (Maybe Type))
 
 arithBinops :: [String]
 arithBinops      = ["+", "-", "*", "/"]
@@ -227,17 +227,17 @@ validateReturn :: HasLines l => l -> Maybe Type -> [Statement] -> GlobalEnv -> L
 validateReturn line expectRet nextStmts global local = do
         nextRet <- checkStatements nextStmts global local
         compareReturns expectRet nextRet
-    where compareReturns Nothing (Just t) = Right $ Just t
-          compareReturns Nothing Nothing = Right Nothing
-          compareReturns (Just t1) (Just t2) = 
-               if t1 == t2
-                then Right $ Just t1
-                else createError line $ "Function returns " ++ t1 ++ " and " ++ t2
-          compareReturns (Just t) Nothing = 
-               if t == voidType
-                then Right $ Just voidType
-                else createError line "Function missing final return"
-    
+    where compareReturns Nothing ret = Right ret 
+          compareReturns (Just t1) (Yes ret) =
+               if t1 == fromJust ret
+                then Right $ Yes $ Just t1
+                else createError line $ "Function returns " ++ t1 ++ " and " ++ fromJust ret
+          compareReturns (Just t1) (No ret) = 
+               case ret of
+                   Just t2 -> if t1 /= t2
+                                  then createError line $ "Function returns " ++ t1 ++ " and " ++ t2
+                                  else Right $ No ret
+                   Nothing -> Right $ No Nothing
 
 -- Return: 
 -- Nothing means needs return after stmt, 
@@ -245,26 +245,25 @@ validateReturn line expectRet nextStmts global local = do
 checkCond :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
 checkCond (Cond _ condGuard thenBlock Nothing:rest) global local = do
         thenType <- validateGuard condGuard thenBlock global local
-        if isNothing thenType
+        if isNo thenType
             then checkStatements rest global local
             else Right thenType
 checkCond (stmt@(Cond _ condGuard thenBlock (Just elseBlock)):rest) global local = do
         thenType <- validateGuard condGuard thenBlock global local
         elseType <- checkStatements (getBlockStmts elseBlock) global local
         compareTypes thenType elseType 
-    where compareTypes (Just t) Nothing = validateReturn stmt (Just t) rest global local
-          compareTypes Nothing (Just t) = validateReturn stmt (Just t) rest global local
-          compareTypes Nothing Nothing = validateReturn stmt Nothing rest global local
-          compareTypes (Just t1) (Just t2) = 
+    where compareTypes (Yes (Just t)) (No _) = validateReturn stmt (Just t) rest global local
+          compareTypes (No _) (Yes (Just t)) = validateReturn stmt (Just t) rest global local
+          compareTypes (No _) (No _) = validateReturn stmt Nothing rest global local
+          compareTypes (Yes (Just t1)) (Yes (Just t2)) = 
             if t1 == t2
-              then Right $ Just t1
+              then Right $ Yes $ Just t1
               else createError stmt $ "Function returns " ++ t1 ++ " and " ++ t2
 
--- Loop may never run, check post-code
 checkLoop :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
 checkLoop (stmt@(Loop _ loopGuard body):rest) global local = do
         expectRet <- validateGuard loopGuard body global local
-        validateReturn stmt expectRet rest global local
+        validateReturn stmt (fromYesNo expectRet) rest global local
 
 checkAsgn :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
 checkAsgn (stmt@(Asgn _ lval expr):rest) global local = do
@@ -301,25 +300,23 @@ checkDelete (Delete _ expr:rest) global local = do
             else checkStatements rest global local
 
 checkBlock :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
-checkBlock (Block stmts:rest) global local = do
-        bodyRet <- checkStatements stmts global local
-        if isJust bodyRet
-            then Right bodyRet
-            else checkStatements rest global local 
+checkBlock (Block stmts:rest) = checkStatements (stmts ++ rest) 
 
 checkFunctionBody :: Function -> GlobalEnv -> LocalEnv -> Either ErrType Type
 checkFunctionBody fun global local = do
         funType <- checkStatements (getFunBody fun) global local
-        Right $ getTypeString funType
+        if isNo funType && fromYesNo funType /= (Just voidType)
+            then Left $ "Function " ++ getFunId fun ++ " is missing return at end"
+            else Right $ getTypeString $ fromYesNo funType
 
 -- takes an environment and a list of statments and returns the type that the statements will return
 -- returns Nothing is the statments don't return and does type checking along the way
 checkStatements :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
-checkStatements [] _ _ = Right Nothing
+checkStatements [] _ _ = Right $ No Nothing
 checkStatements stmts@(stmt:_) global local = delegateStmt stmt stmts global local
 
 delegateStmt :: Statement -> [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
-delegateStmt stmt@Ret{} = \x y z -> checkReturn x y z >>= Right . Just
+delegateStmt stmt@Ret{} = \x y z -> checkReturn x y z >>= Right . Yes . Just
 delegateStmt stmt@Cond{} = checkCond 
 delegateStmt stmt@Loop{} = checkLoop 
 delegateStmt stmt@Asgn{} = checkAsgn 
