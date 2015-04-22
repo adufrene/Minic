@@ -109,7 +109,10 @@ getExprTypeOrDieTrying expr global local = extractTypeFromEither $ getExprType e
     extractTypeFromEither (Right t) = t
 
 evalInvocExpr :: Expression -> Baggage -> Reg -> IlocRet
-evalInvocExpr (InvocExp _ invocId args) baggage nextReg =
+evalInvocExpr (InvocExp _ invocId args) = evalInvoc invocId args
+
+evalInvoc :: Id -> Arguments -> Baggage -> Reg -> IlocRet
+evalInvoc invocId args baggage nextReg =
   (argsIloc ++ outArgIloc ++ callIloc, retReg)
   where
     (argsIloc, argsRegs) = evalInvocArgs args [] [] baggage nextReg

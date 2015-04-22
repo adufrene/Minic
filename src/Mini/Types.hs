@@ -15,7 +15,7 @@ type Id = String
 
 type DecHash = HashMap Id Type
 type FunHash = HashMap Id ([Type], Type)
-type StructHash = HashMap Id [Field]
+type StructHash = HashMap Type [Field]
 
 type LocalEnv = DecHash
 data GlobalEnv = GlobalEnv { getStructHash :: StructHash
