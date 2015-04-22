@@ -62,7 +62,9 @@ showNodeGraph (graph, vertToNodeHM) =
   concat strs
   where
     sortedVerts = topSort graph
-    strs = fmap (\x -> show (vertToNodeHM ! x)) sortedVerts
+    strs = fmap (\x -> if x `notElem` [0, -1]
+                        then show (vertToNodeHM ! x)
+                        else []) sortedVerts
 
 label :: LabelReg -> LabelNum
 label = fst
