@@ -116,7 +116,7 @@ evalInvoc invocId args baggage nextReg =
     outArgIloc = [Storeoutargument (argsRegs !! idx) idx | idx <- [0..(length argsRegs - 1)]]
     callIloc = [ Call invocId
                , Loadret retReg ]
-    retReg = 1 + last argsRegs
+    retReg = if Data.List.null argsRegs then nextReg else last argsRegs
 
 evalInvocArgs :: Arguments -> [Iloc] -> [Reg] -> Baggage -> Reg -> ([Iloc], [Reg])
 evalInvocArgs (arg:rest) currIloc currRegs baggage nextReg =
