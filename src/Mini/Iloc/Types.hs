@@ -143,6 +143,7 @@ instance Show Iloc where
    show (ReadILOC r1) = showIlocHelper "read" [showReg r1]
 
    show (Mov r1 r2) = showIlocHelper "mov" [showReg r1, showReg r2]
+   show (Movi i1 r1) = showIlocHelper "mov" [show i1, showReg r1]
    show (Moveq i1 r1) = showIlocHelper "moveq" [show i1, showReg r1]
    show (Movge i1 r1) = showIlocHelper "movge" [show i1, showReg r1]
    show (Movgt i1 r1) = showIlocHelper "movgt" [show i1, showReg r1]
