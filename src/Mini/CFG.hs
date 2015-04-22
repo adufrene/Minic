@@ -55,7 +55,14 @@ instance Applicative YesNo where
 
 data Node = Node { getLabel :: Label
                  , getIloc :: [Iloc]
-                 } deriving (Show)
+                 }
+
+instance Show Node where
+  show (Node label iloc) = 
+    concatMap (++ "\n") strs
+    where
+      labelStr = label ++ ":"
+      strs = labelStr : (Prelude.map (\x -> "\t" ++ (show x)) iloc)
 
 -- Entry point will be Vertex 0
 -- Exit point will be Vertex -1
@@ -64,6 +71,13 @@ type ReturnBlock = YesNo NodeGraph
 type LabelNum = Int
 type LabelReg = (LabelNum, Reg)
 type NumAndGraph = (LabelReg, ReturnBlock)
+
+showNodeGraph :: NodeGraph -> String
+showNodeGraph (graph, vertToNodeHM) =
+  concat strs
+  where
+    sortedVerts = topSort graph
+    strs = Prelude.map (\x -> show (vertToNodeHM ! x)) sortedVerts
 
 label :: LabelReg -> LabelNum
 label = fst
