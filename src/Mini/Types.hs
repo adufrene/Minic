@@ -3,6 +3,7 @@
 module Mini.Types where
 
 import Control.Applicative
+import Control.Monad
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Text
@@ -25,6 +26,37 @@ data GlobalEnv = GlobalEnv { getStructHash :: StructHash
 class HasLines a where
         getLineString :: a -> String
 
+data YesNo a = Yes a | No a deriving (Show)
+
+instance Functor YesNo where
+        fmap f (Yes a) = Yes $ f a
+        fmap f (No a) = No $ f a
+
+instance Monad YesNo where
+        return = Yes
+        (Yes x) >>= f = f x
+        (No x) >>= f = No $ fromYesNo $ f x
+
+instance Applicative YesNo where
+        pure = return
+        (<*>) = ap
+
+-- If 3rd arg is yes, run 1st function
+-- else run 2nd function
+yesNo :: (a -> b) -> (a -> b) -> YesNo a -> b
+yesNo f _ (Yes a) = f a
+yesNo _ f (No a) = f a
+
+isYes :: YesNo a -> Bool
+isYes (Yes _) = True
+isYes (No _) = False
+
+isNo :: YesNo a -> Bool
+isNo = not . isYes
+
+fromYesNo :: YesNo a -> a
+fromYesNo (Yes x) = x
+fromYesNo (No x) = x
 -- Data Constructors --
 
 data Program = Program { getTypes :: [TypeDef]
