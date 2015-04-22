@@ -61,11 +61,6 @@ fun main() int
       }
       while (true)
       {
-          if (true) {
-              print 9;
-          } else {
-              return 1;
-          }
          print 7;
       }
       f(g(1,new B),new B);

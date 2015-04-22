@@ -117,7 +117,6 @@ replaceRets (g, hash) fun = (g, insert exitVertex retNode newHash)
               retNode = Node retLabel [RetILOC]
               retNodes = fmap fst $ filter ((==exitVertex) . snd) $ edges g
 
-
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
 functionToGraph func nextLabel global = (resLabel, replaceRets resGraph func)
     where (resLabel, resGraph) = (label *** fromYesNo) numGraph
@@ -171,7 +170,7 @@ stmtsToGraph node (stmt:rest) nexts baggage =
             Cond{} -> createGraph createCondGraph
             Loop{} -> createGraph createLoopGraph
             Ret _ expr -> (nexts, Yes pointToExit)
-            _ -> stmtsToGraph newNode rest nexts baggage
+            _ -> stmtsToGraph newNode rest (label nexts, newReg) baggage
     where successorGraph = 
             stmtsToGraph startNode rest (nextLabel + 1, reg nexts) baggage
           nextLabel = label nexts
