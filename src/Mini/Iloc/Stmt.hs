@@ -32,7 +32,7 @@ retToIloc (Ret _ expr) baggage nextReg  =
 lValToIloc :: LValue -> Baggage -> Reg -> IlocRet
 lValToIloc (LValue _ name Nothing) (_, _, regHash) expReg = 
         ([if name `member` regHash
-            then Storeai expReg (regHash ! name) 0
+            then Mov expReg (regHash ! name)
             else Storeglobal expReg name], expReg + 1)
 lValToIloc (LValue _ name (Just lval)) baggage expReg =
         (loads ++ [store], nextReg + 1)
