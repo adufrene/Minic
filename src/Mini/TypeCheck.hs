@@ -303,7 +303,8 @@ checkBlock (Block stmts:rest) = checkStatements (stmts ++ rest)
 checkFunctionBody :: Function -> GlobalEnv -> LocalEnv -> Either ErrType Type
 checkFunctionBody fun global local = do
         funType <- checkStatements (getFunBody fun) global local
-        if isNo funType && fromYesNo funType /= (Just voidType)
+        if isNo funType && fromYesNo funType /= (Just voidType) && 
+                fromYesNo funType /= Nothing
             then Left $ "Function " ++ getFunId fun ++ " is missing return at end"
             else Right $ getTypeString $ fromYesNo funType
 

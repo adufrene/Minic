@@ -32,7 +32,7 @@ fun foo(int n) int
    }
 }
 
-fun g(int i, struct B j) bool
+fun g(int i, struct B j) int
 {
    int g, m, k;
    return 3;

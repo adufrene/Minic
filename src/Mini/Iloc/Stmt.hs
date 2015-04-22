@@ -34,15 +34,23 @@ lValToIloc (LValue _ name Nothing) (_, _, regHash) expReg =
         ([if name `member` regHash
             then Storeai expReg (regHash ! name) 0
             else Storeglobal expReg name], expReg + 1)
-lValToIloc (LValue _ name (Just lval)) (global, local, regHash) expReg
-    | name `member` regHash = Mov (regHash ! name) (expReg + 1) `preIloc` rest local
-    | otherwise = Loadglobal name (expReg + 1) `preIloc` rest (getDecsHash global)
-    where rest hash = loadOffsets (findFields name hash global) lval (expReg + 1)
-          loadOffsets fields (LValue _ newName nextVal) newReg =
-              case nextVal of
-                  Just val -> Loadai newReg (getOffset newName fields) (newReg + 1)
-                    `preIloc` loadOffsets (getFields newName fields global) val (newReg + 1)
-                  Nothing -> ([Storeai expReg newReg (getOffset newName fields)], newReg + 1)
+lValToIloc (LValue _ name (Just lval)) baggage expReg =
+        (loads ++ [store], nextReg + 1)
+    where store = Storeai expReg nextReg (getOffset name fields)
+          (nextReg, fields, loads) = loadLeft lval baggage $ expReg + 1
+
+loadLeft :: LValue -> Baggage -> Reg -> (Reg, [Field], [Iloc])
+loadLeft (LValue _ newName Nothing) (global, local, regHash) newReg =
+        if newName `member` regHash
+            then (newReg, (localFindFields newName local), [Mov (regHash ! newName) newReg]) 
+            else (newReg, (localFindFields newName $ getDecsHash global),
+                              [Loadglobal newName newReg])
+    where localFindFields name hash = findFields name hash global
+loadLeft (LValue _ newName (Just val)) bag@(global, local, regHash) newReg =
+        (resReg, getFields newName lFields global, leftInsns ++ [load])
+    where (lReg, lFields, leftInsns) = loadLeft val bag newReg
+          load = Loadai lReg (getOffset newName lFields) resReg
+          resReg = lReg + 1
 
 findFields :: Id -> DecHash -> GlobalEnv -> [Field]
 findFields name hash global = getStructHash global ! nameType

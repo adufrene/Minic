@@ -176,7 +176,9 @@ createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (nexts, nextG) bagg
           elseNumGraph = graphFromBlock <$> maybeElseBlock <*> pure thenNexts
           ifThenGraph = appendIf <$> thenGraph
           appendIf = appendGraph (fromNode newNode) [initVertex]
-          graphFromBlock block nextStuff = 
+          graphFromBlock block next = 
+            addJump (newGraph block next) (getGraphLabel nextG)
+          newGraph block nextStuff =
             stmtsToGraph (emptyNode $ createLabel $ label nextStuff) 
                 (getBlockStmts block) (label nextStuff + 1, reg nextStuff) baggage 
 
@@ -190,9 +192,6 @@ linkGraphs ifThenGraph (Just (elseNexts, elseGraph)) nextGraph _ =
           thenVertex = [graphEnd ifThenGraph | isNo ifThenGraph]
           elseVertex = [graphEnd ifGraph | isNo elseGraph]
           ifVertices = elseVertex ++ thenVertex
-
-graphEnd :: ReturnBlock -> Vertex
-graphEnd g = snd $ bounds $ fst $ fromYesNo g
 
 createLoopGraph :: Statement -> Node -> NumAndGraph -> Baggage -> NumAndGraph
 createLoopGraph (Loop _ guard body) node (nexts, nextGraph) baggage = 
@@ -230,6 +229,18 @@ getGraphLabel graph = getLabel $ snd (fromYesNo graph) ! getChild entryVertex gr
 
 getChild:: Vertex -> ReturnBlock -> Vertex
 getChild v = snd . head . filter ((==v) . fst) . edges . fst . fromYesNo
+
+addJump :: NumAndGraph -> Label -> NumAndGraph
+addJump ret@(_, Yes _) _ = ret
+addJump (lr, No (graph, hash)) label = (lr, No (graph, adjusted))
+    where adjusted = adjust adjustFun endVertex hash
+          endVertex = graphEnd $ pure (graph, hash)
+          brIloc = Jumpi label
+          adjustFun (Node label iloc) = Node label $ iloc ++ [brIloc]
+
+
+graphEnd :: ReturnBlock -> Vertex
+graphEnd g = snd $ bounds $ fst $ fromYesNo g
 
 fromNode :: Node -> NodeGraph
 fromNode node = (buildG defaultBounds [(entryVertex,initVertex)], 
