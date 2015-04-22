@@ -62,7 +62,7 @@ showNodeGraph (graph, vertToNodeHM) =
   concat strs
   where
     sortedVerts = topSort graph
-    strs = fmap (\x -> if x `notElem` [0, -1]
+    strs = fmap (\x -> if x /= 0
                         then show (vertToNodeHM ! x)
                         else []) sortedVerts
 
@@ -105,9 +105,23 @@ createGraphs global = snd . foldl' foldFun (1,[]) . getFunctions
             ngs `app` functionToGraph fun nextLabel global
           app xs (label, x) = (label, x:xs)
 
+replaceRets :: NodeGraph -> Function -> NodeGraph
+replaceRets (g, hash) fun = (g, insert exitVertex retNode newHash)
+        where retLabel = getFunId fun ++ "_ret"
+              newHash = fromList $ fmap mapFun $ toList hash
+              mapFun (k,v) = (k, if k `elem` retNodes
+                                  then transformNode v
+                                  else v)
+              transformNode (Node label iloc) = Node label $ init iloc ++ [jmpIloc]
+              jmpIloc = Jumpi retLabel
+              retNode = Node retLabel [RetILOC]
+              retNodes = fmap fst $ filter ((==exitVertex) . snd) $ edges g
+
+
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
-functionToGraph func nextLabel global = (label *** fromYesNo) numGraph
-    where argNode = emptyNode (getFunId func) `addToNode` argIloc
+functionToGraph func nextLabel global = (resLabel, replaceRets resGraph func)
+    where (resLabel, resGraph) = (label *** fromYesNo) numGraph
+          argNode = emptyNode (getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
             foldl' localFoldFun argsHashes $ getFunDeclarations func
           localFoldFun (reg,rHash,lHash) (Declaration _ dType dId) =
