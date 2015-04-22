@@ -66,6 +66,12 @@ showNodeGraph (graph, vertToNodeHM) =
                         then show (vertToNodeHM ! x)
                         else []) sortedVerts
 
+showNodeGraphs :: [NodeGraph] -> String
+showNodeGraphs graphs =
+  concat strs
+  where
+    strs = fmap showNodeGraph graphs
+
 label :: LabelReg -> LabelNum
 label = fst
 
