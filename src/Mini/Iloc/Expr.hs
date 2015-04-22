@@ -93,15 +93,12 @@ evalDotExpr :: Expression -> Baggage -> Reg -> IlocRet
 evalDotExpr (DotExp _ leftExpr dotId) bag@(globals, locals, regHash) nextReg =
   (recurIloc ++ currIloc, resultReg)
   where
-    (recurIloc, leftReg) = evalLeft leftExpr
+    (recurIloc, leftReg) = evalExpr leftExpr bag nextReg
     currIloc = [Loadai leftReg fieldIdx resultReg]
     structType = getExprTypeOrDieTrying leftExpr globals locals
     structFields = getStructHash globals ! structType
     fieldIdx = fromJust $ elemIndex dotId $ fmap getFieldId structFields
     resultReg = leftReg + 1
-
-    evalLeft leftExpr@(IdExp _ theId) = evalIdExpr leftExpr regHash nextReg
-    evalLeft dotExpr = evalDotExpr dotExpr bag nextReg
 
 getExprTypeOrDieTrying :: Expression -> GlobalEnv -> LocalEnv -> Type
 getExprTypeOrDieTrying expr global local = extractTypeFromEither $ getExprType expr global local
