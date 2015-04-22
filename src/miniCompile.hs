@@ -3,7 +3,7 @@ module Main where
 import Control.Monad
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BS 
-import Data.List (foldl', isPrefixOf)
+import Data.List
 import Data.Maybe
 import System.Environment
 
@@ -29,7 +29,8 @@ dumpIL = "--dumpIL"
 main :: IO ()
 main = do
         args <- getArgs
-        file <- readFile $ head $ filter (not . (isPrefixOf "--")) args
+        let fileName = head $ filter (not . (isPrefixOf "--")) args
+        file <- readFile $ fileName
         let parsedJSON = decode . BS.pack $ file :: Maybe Program
             program = fromMaybe (error "Invalid JSON input") parsedJSON
         when (testJSON `elem` args) $ 
@@ -39,14 +40,26 @@ main = do
         when (printEnv `elem` args) $ print env
         when (not $ shouldPrint args) $ envReport env
         let graphs = fmap (`createGraphs` program) env
-        when (dumpIL `elem` args) $ print graphs
---         return ()
+        when (dumpIL `elem` args) $ writeIloc graphs $
+            fileNameToIL fileName
 
 
 shouldPrint :: [String] -> Bool
 shouldPrint = any (\x -> x `elem` [testJSON, printProg, printEnv])
 
-
 envReport :: Either ErrType GlobalEnv -> IO ()
 envReport (Left msg) = error msg
 envReport _ = return ()
+
+fileNameToIL :: String -> String
+fileNameToIL oldFile = localName ++ ".il"
+    where reverseNdx = maybe 0 id $ '.' `elemIndex` reverse oldFile
+          localNdx = maybe 0 id $ '/' `elemIndex` reverse newName
+          newName = reverse $ drop reverseNdx $ reverse oldFile
+          localName = reverse $ drop localNdx $ reverse newName
+
+writeIloc :: Either ErrType [NodeGraph] -> String -> IO ()
+writeIloc (Left msg) _ = error msg
+writeIloc (Right graphs) fileName = do
+        writeFile fileName "" -- Truncate file
+        foldl' (\_ ng -> appendFile fileName $ showNodeGraph ng) (return ()) graphs

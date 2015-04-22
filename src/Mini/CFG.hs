@@ -62,7 +62,7 @@ showNodeGraph (graph, vertToNodeHM) =
   concat strs
   where
     sortedVerts = topSort graph
-    strs = Prelude.map (\x -> show (vertToNodeHM ! x)) sortedVerts
+    strs = fmap (\x -> show (vertToNodeHM ! x)) sortedVerts
 
 label :: LabelReg -> LabelNum
 label = fst
