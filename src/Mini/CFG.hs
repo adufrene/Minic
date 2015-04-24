@@ -62,7 +62,7 @@ showNodeGraph (graph, vertToNodeHM) =
   concat strs
   where
     sortedVerts = topSort graph
-    strs = fmap (\x -> if x /= 0
+    strs = fmap (\x -> if x `notElem` [0,-1]
                         then show (vertToNodeHM ! x)
                         else []) sortedVerts
 
@@ -117,15 +117,22 @@ replaceRets (g, hash) fun = (g, insert exitVertex retNode newHash)
               retNode = Node retLabel [RetILOC]
               retNodes = fmap fst $ filter ((==exitVertex) . snd) $ edges g
 
+addRet :: NodeGraph -> NodeGraph
+addRet (graph, hash) =  if functionReturns
+                           then (graph, hash) 
+                           else (graph, adjust adjustFun endVert hash) 
+                                    `addEdge` (endVert, exitVertex)
+    where adjustFun (Node label iloc) = Node label $ iloc ++ [RetILOC]
+          endVert = snd $ bounds graph
+          functionReturns = (last $ getIloc $ hash ! endVert) == RetILOC
+
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
-functionToGraph func nextLabel global = (resLabel, replaceRets resGraph func)
-    where (resLabel, resGraph) = (label *** fromYesNo) numGraph
-          argNode = emptyNode (getFunId func) `addToNode` argIloc
+functionToGraph func nextLabel global = (label *** addRet . fromYesNo) numGraph
+    where argNode = emptyNode (getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
             foldl' localFoldFun argsHashes $ getFunDeclarations func
           localFoldFun (reg,rHash,lHash) (Declaration _ dType dId) =
               (reg+1, insert dId reg rHash, insert dId dType lHash)
-          -- Assumes registers start over between functions
           (argsHashes, argIloc) = foldl' argFoldFun ((1, empty, empty), []) $  
             getFunParameters func
           argFoldFun ((reg,rHash,lHash),iloc) (Field _ fType fId) =
@@ -258,7 +265,6 @@ addJump (lr, No (graph, hash)) label = (lr, No (graph, adjusted))
           endVertex = graphEnd $ pure (graph, hash)
           brIloc = Jumpi label
           adjustFun (Node label iloc) = Node label $ iloc ++ [brIloc]
-
 
 graphEnd :: ReturnBlock -> Vertex
 graphEnd g = snd $ bounds $ fst $ fromYesNo g

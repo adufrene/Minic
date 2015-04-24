@@ -82,7 +82,7 @@ data Iloc =
            | Movgt Immed Reg
            | Movle Immed Reg
            | Movlt Immed Reg
-           | Movne Immed Reg
+           | Movne Immed Reg deriving (Eq)
 
 condCodeReg :: String
 condCodeReg = "ccr"
