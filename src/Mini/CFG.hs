@@ -108,7 +108,7 @@ createGraphs global = snd . foldl' foldFun (1,[]) . getFunctions
 replaceRets :: NodeGraph -> Function -> NodeGraph
 replaceRets (g, hash) fun = (g, insert exitVertex retNode newHash)
         where retLabel = getFunId fun ++ "_ret"
-              newHash = fromList $ fmap mapFun $ toList hash
+              newHash = fromList (mapFun <$> toList hash)
               mapFun (k,v) = (k, if k `elem` retNodes
                                   then transformNode v
                                   else v)
@@ -124,7 +124,7 @@ addRet (graph, hash) =  if functionReturns
                                     `addEdge` (endVert, exitVertex)
     where adjustFun (Node label iloc) = Node label $ iloc ++ [RetILOC]
           endVert = snd $ bounds graph
-          functionReturns = (last $ getIloc $ hash ! endVert) == RetILOC
+          functionReturns = last (getIloc $ hash ! endVert) == RetILOC
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
 functionToGraph func nextLabel global = (label *** addRet . fromYesNo) numGraph

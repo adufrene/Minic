@@ -29,8 +29,8 @@ dumpIL = "--dumpIL"
 main :: IO ()
 main = do
         args <- getArgs
-        let fileName = head $ filter (not . (isPrefixOf "--")) args
-        file <- readFile $ fileName
+        let fileName = head $ filter (not . isPrefixOf "--") args
+        file <- readFile fileName
         let parsedJSON = decode . BS.pack $ file :: Maybe Program
             program = fromMaybe (error "Invalid JSON input") parsedJSON
         when (testJSON `elem` args) $ 
@@ -38,7 +38,7 @@ main = do
         when (printProg `elem` args) $ print program
         let env = checkTypes program
         when (printEnv `elem` args) $ print env
-        when (not $ shouldPrint args) $ envReport env
+        unless (shouldPrint args) $ envReport env
         let graphs = fmap (`createGraphs` program) env
         when (dumpIL `elem` args) $ writeIloc graphs $
             fileNameToIL fileName
@@ -53,8 +53,8 @@ envReport _ = return ()
 
 fileNameToIL :: String -> String
 fileNameToIL oldFile = localName ++ ".il"
-    where reverseNdx = 1 + (maybe (-1) id $ '.' `elemIndex` reverse oldFile)
-          localNdx = maybe 0 id $ '/' `elemIndex` reverse newName
+    where reverseNdx = 1 + fromMaybe (-1) ('.' `elemIndex` reverse oldFile)
+          localNdx = fromMaybe 0 $ '/' `elemIndex` reverse newName
           newName = reverse $ drop reverseNdx $ reverse oldFile
           localName = reverse $ take localNdx $ reverse newName
 
