@@ -183,13 +183,13 @@ Selector :: Expression
 
 Factor :: Expression
     : '(' Expression ')'                { $2 }
-    | id                                { 
-    | id Arguments
-    | num
-    | true
-    | false
-    | new id
-    | null
+    | id                                { IdExp 0 $1 }
+    | id Arguments                      { InvocExp 0 $1 $2 }
+    | num                               { IntExp 0 $1 }
+    | true                              { TrueExp 0 }
+    | false                             { FalseExp 0 }
+    | new id                            { NewExp 0 $2 }
+    | null                              { NullExp 0 }
 
 Arguments :: [Expression]
     : Expression                        { [$1] }
