@@ -30,6 +30,10 @@
     eof         { TokenEOF }
     id          { TokenId $$ }
     struct      { TokenStruct }
+    boolOp      { TokenBoolOp $$ }
+    cmpOp       { TokenCmpOp $$ }
+    mathOp      { TokenMathOp $$ }
+    num         { TokenNum $$ }
     '='         { TokenEq }
     '+'         { TokenPlus }
     '-'         { TokenMinus }
@@ -41,6 +45,7 @@
     '}'         { TokenRBrace }
     ';'         { TokenSemi }
     ','         { TokenComma }
+    '.'         { TokenDot }
 
 %%
 
@@ -116,3 +121,76 @@ Block :: Statement
 StatementList :: [Statement]
     : {- empty -}                       { [] }
     | StatementList Statement           { $2 : $1 }
+
+Assignment :: Statement
+    : LValue '=' Expression ';'         { Asgn 0 $1 $3 }
+
+Print :: Statement
+    : print Expression ';'              { Print 0 $2 False }
+    | print Expression endl ';'         { Print 0 $2 True }
+
+Read :: Statement
+    : read LValue ';'                   { Read 0 $2 }
+
+Conditional :: Statement
+    : if '(' Expression ')' Block       { Cond 0 $3 $5 Nothing }
+    | if '(' Expression ')' Block 
+        else Block                      { Cond 0 $3 $5 (Just $7) }
+
+Loop :: Statement
+    : while '(' Expression ')' Block    { Loop 0 $3 $5 }
+
+Delete :: Statement
+    : delete Expression ';'             { Delete 0 $2 }
+
+Ret :: Statement
+    : return ';'                        { Ret 0 Nothing }
+    | return Expression ';'             { Ret 0 (Just $2)}
+
+Invocation :: Statement
+    : id Arguments ';'                  { InvocSt 0 $1 $2 }
+
+LValue :: LValue
+    : id                                { LValue 0 $1 Nothing }
+    | LValue '.' id                     { LValue 0 $3 (Just $1)} 
+
+Expression :: Expression
+    : Boolterm                          { $1 }
+    | Boolterm boolOp Boolterm          { BinExp 0 $2 $1 $3 }
+
+Boolterm :: Expression
+    : Simple                            { $1 }
+    | Simple cmpOp Simple               { BinExp 0 $2 $1 $3 }
+
+Simple :: Expression
+    : Term                              { $1 }
+    | Term '+' Term                     { BinExp 0 "+" $1 $3 }
+    | Term '-' Term                     { BinExp 0 "-" $1 $3 }
+
+Term :: Expression
+    : Unary                             { $1 }
+    | Unary '*'                         { BinExp 0 "*" $1 $3 }
+    | Unary '/'                         { BinExp 0 "/" $1 $3 }
+
+Unary :: Expression
+    : Selector                          { $1 }
+    | '!' Selector                      { UExp 0 "!" $2 }
+    | '-' Selector                      { UExp 0 "-" $2 }
+
+Selector :: Expression
+    : Factor                            { $1 }
+    | Selector '.' id                   { DotExp 0 $1 $3 }
+
+Factor :: Expression
+    : '(' Expression ')'                { $2 }
+    | id                                { 
+    | id Arguments
+    | num
+    | true
+    | false
+    | new id
+    | null
+
+Arguments :: [Expression]
+    : Expression                        { [$1] }
+    | Arguments ',' Expression          { $2 : $1 }
