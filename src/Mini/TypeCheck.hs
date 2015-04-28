@@ -34,18 +34,6 @@ boolUOps  = ["!"]
 intUops :: [String]
 intUops = arithUops
 
-intType :: String
-intType = "int"
-
-boolType :: String
-boolType = "bool"
-
-nullType :: String
-nullType = "null"
-
-voidType :: String
-voidType = "void"
-
 mainId :: String
 mainId = "main"
 

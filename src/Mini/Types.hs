@@ -59,6 +59,18 @@ fromYesNo (Yes x) = x
 fromYesNo (No x) = x
 -- Data Constructors --
 
+intType :: String
+intType = "int"
+
+boolType :: String
+boolType = "bool"
+
+nullType :: String
+nullType = "null"
+
+voidType :: String
+voidType = "void"
+
 data Program = Program { getTypes :: [TypeDef]
                        , getDeclarations :: [Declaration]
                        , getFunctions :: [Function]
