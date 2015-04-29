@@ -57,7 +57,6 @@ isNo = not . isYes
 fromYesNo :: YesNo a -> a
 fromYesNo (Yes x) = x
 fromYesNo (No x) = x
--- Data Constructors --
 
 intType :: String
 intType = "int"
@@ -70,6 +69,8 @@ nullType = "null"
 
 voidType :: String
 voidType = "void"
+
+-- Data Constructors --
 
 data Program = Program { getTypes :: [TypeDef]
                        , getDeclarations :: [Declaration]

@@ -9,6 +9,7 @@ import System.Environment
 
 import Mini.Asm.Types
 import Mini.CFG
+import Mini.Parser
 import Mini.Iloc.Types
 import Mini.Types
 import Mini.TypeCheck

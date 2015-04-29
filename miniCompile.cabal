@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 
 executable miniCompile
   main-is:             miniCompile.hs
-  other-modules:       Mini.Types, Mini.TypeCheck, Mini.CFG, Mini.Iloc.Types, Mini.Iloc.Expr, Mini.Iloc.Stmt, Mini.Asm.Types
+  other-modules:       Mini.Types, Mini.TypeCheck, Mini.CFG, Mini.Iloc.Types, Mini.Iloc.Expr, Mini.Iloc.Stmt, Mini.Parser, Mini.Asm.Types
   other-extensions:    OverloadedStrings, DeriveDataTypeable
   build-depends:       base >=4.5 && <4.9, aeson >=0.8 && <0.9, text >=1.2 && <1.3, unordered-containers >=0.2 && <0.3, bytestring >=0.10 && <0.11, containers >= 0.2, array >= 0.5
   hs-source-dirs:      src
