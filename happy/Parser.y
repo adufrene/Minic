@@ -53,6 +53,12 @@ import Mini.Types
     '.'         { TokenDot }
     '!'         { TokenBang }
 
+%right '='
+%left '+' '-'
+%left '*' '/'
+%left NEG
+%left '.'
+
 %%
 
 Program :: { Program }
@@ -63,7 +69,7 @@ Types :: { [TypeDef] }
     | Types TypeSub                             { $2 : $1 }
 
 TypeSub :: { TypeDef }
-    : Lineno struct id '{' NestedDecl '}' ';'   { TypeDef $1 $3 $5 }
+    : struct Lineno id '{' NestedDecl '}' ';'   { TypeDef $2 $3 $5 }
 
 NestedDecl :: { [Field] }
     : {- empty -}                               { [] }
@@ -79,14 +85,14 @@ Type :: { Type }
 
 Declarations :: { [Declaration] }
     : {- empty -}                               { [] }
+-- This rule matches empty on empty and on Lineno
     | Declarations Declaration                  { $2 ++ $1 }
 
 Declaration :: { [Declaration] }
     : Lineno Type IdList ';'                    { map (Declaration $1 $2) $3 }
 
 IdList :: { [Id] }
-    : {- empty -}                               { [] }
-    | id                                        { [$1] }
+    : id                                        { [$1] }
     | IdList ',' id                             { $3 : $1 }
 
 Functions :: { [Function] }
@@ -165,7 +171,6 @@ MaybeExpr :: { Maybe Expression }
 Invocation :: { Statement }
     : Lineno id Arguments ';'                   { InvocSt $1 $2 $3 }
 
-{- Correct? -}
 LValue :: { LValue }
     : Lineno id                                 { LValue $1 $2 Nothing }
     | Lineno LValue '.' id                      { LValue $1 $4 (Just $2)} 
@@ -191,7 +196,7 @@ Term :: { Expression }
 Unary :: { Expression }
     : Selector                                  { $1 }
     | Lineno '!' Selector                       { UExp $1 "!" $3 }
-    | Lineno '-' Selector                       { UExp $1 "-" $3 }
+    | '-' Lineno Selector %prec NEG             { UExp $2 "-" $3 }
 
 Selector :: { Expression }
     : Factor                                    { $1 }
