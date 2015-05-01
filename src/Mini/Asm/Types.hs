@@ -1,12 +1,13 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Mini.Asm.Types where
+module Mini.Asm.Types (Asm, programToAsm) where
 
 import Data.Char
 import Data.Data
 import Data.List (intercalate)
 
 import Mini.Iloc.Types
+import Mini.CFG
 
 data AsmArg = AsmReg AsmReg
             | AsmImmed Immed
@@ -63,6 +64,12 @@ data Asm = AsmAdd
          | AsmCmovlq Immed AsmReg
          | AsmCmovneq Immed AsmReg
          deriving (Eq)
+
+programToAsm :: [NodeGraph] -> [Asm]
+programToAsm graphs = undefined
+
+functionToAsm :: NodeGraph -> [Asm]
+functionToAsm (graph, hash) = undefined
 
 wordSize :: Int
 wordSize = 8
