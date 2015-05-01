@@ -7,6 +7,11 @@ import Data.Data
 
 import Mini.Iloc.Types
 
+data AsmArg = AsmReg Reg
+            | AsmImmed Immed
+            | AsmLabel Label
+            deriving (Eq, Show)
+
 data AsmReg = Rax
             | Rbx
             | Rcx
