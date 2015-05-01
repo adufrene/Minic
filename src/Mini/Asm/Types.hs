@@ -18,6 +18,10 @@ data AsmDest = AsmDReg OffsetReg
              | AsmDLabel Label
              deriving (Eq)
 
+data CompArg = CompReg AsmReg
+             | CompImm Immed 
+             deriving (Eq)
+
 data AsmReg = Rax
             | Rbx
             | Rcx
@@ -57,15 +61,9 @@ data Asm = AsmAdd
          | AsmComp
          | AsmCompi
          | AsmBrz
-         | AsmLoadai
-         | AsmLoadGlobal
-         | AsmLoadInArg
-         | AsmLoadRet
-         | AsmStoreai
-         | AsmStoreGlobal
-         | AsmStoreInArg
-         | AsmStoreOutArg
-         | AsmStoreRet
+         | AsmCmp AsmReg CompArg
+         | AsmJe Label
+         | AsmJmp Label
          | AsmCall Label
          | AsmRet
          | AsmMov AsmSrc AsmDest
@@ -146,11 +144,18 @@ labStr l = " $" ++ l
 immStr :: Immed -> String
 immStr i = " $" ++ show i
 
+compArgStr :: CompArg -> String
+compArgStr (CompReg r) = asmRegStr r
+compArgStr (CompImm i) = immStr i
+
 showAsm :: String -> [String] -> String
 showAsm name args = name ++ " " ++ intercalate ", " args
 
 instance Show Asm where
-        show (AsmCall l) = showAsm "call " [l]
+        show (AsmCmp r arg) = showAsm "cmp" [asmRegStr r, compArgStr arg]
+        show (AsmJe l) = showAsm "je" [l]
+        show (AsmJmp l) = showAsm "jmp" [l]
+        show (AsmCall l) = showAsm "call" [l]
         show AsmRet = showAsm "ret" []
         show (AsmMov r1 r2) = showAsm "movq" [srcStr r1, destStr r2]
         show (AsmCmoveq i r) = showAsm "cmoveq" [immStr i, asmRegStr r]
@@ -161,6 +166,13 @@ instance Show Asm where
         show (AsmCmovneq i r) = showAsm "cmovneq" [immStr i, asmRegStr r]
 
 ilocToAsm :: Iloc -> [Asm]
+ilocToAsm (Comp r1 r2) = [AsmCmp (RegNum r1) (CompReg $ RegNum r2)]
+ilocToAsm (Compi r i) = [AsmCmp (RegNum r) (CompImm i)]
+ilocToAsm (Brz r l1 l2) = brz r l1 l2
+ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSReg $ OffsetReg (RegNum r1) i) (asmDReg $ RegNum r2)]
+ilocToAsm (Loadglobal l r) = [AsmMov (AsmSLabel l) (asmDReg $ RegNum r)]
+ilocToAsm (Loadinargument l i r) = loadArg i r
+ilocToAsm (Loadret r) = [AsmMov (asmSReg Rax) (asmDReg $ RegNum r)]
 ilocToAsm (Storeai r1 r2 i) = [AsmMov (asmSReg $ RegNum r1) (AsmDReg $ OffsetReg (RegNum r2) i)] 
 ilocToAsm (Storeglobal r l) = [AsmMov (asmSReg $ RegNum r) (AsmDLabel l)]
 ilocToAsm (Storeoutargument r i) = storeArg r i
@@ -181,6 +193,16 @@ ilocToAsm (Movle i r) = [AsmCmovleq i $ RegNum r]
 ilocToAsm (Movlt i r) = [AsmCmovlq i $ RegNum r]
 ilocToAsm (Movne i r) = [AsmCmovneq i $ RegNum r]
 ilocToAsm iloc = error $ "No Asm translation for " ++ show iloc
+
+brz :: Reg -> Label -> Label -> [Asm]
+brz r l1 l2 = [ AsmCmp (RegNum r) (CompImm 0)
+              , AsmJe l1
+              , AsmJmp l2 ]
+
+loadArg :: Immed -> Reg -> [Asm]
+loadArg i r
+    | i < numArgRegs = [AsmMov (asmSReg $ argRegs !! i) (asmDReg $ RegNum r)]
+    | otherwise = undefined
 
 storeArg :: Reg -> Immed -> [Asm]
 storeArg r i
