@@ -1,4 +1,4 @@
-module Mini.Iloc.Expr where
+module Mini.Iloc.Expr (evalExpr, evalInvoc) where
     
 import Data.HashMap.Strict
 import Data.Maybe

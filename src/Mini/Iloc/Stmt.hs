@@ -1,4 +1,4 @@
-module Mini.Iloc.Stmt where
+module Mini.Iloc.Stmt (stmtToIloc) where
 
 import Data.Maybe 
 import Data.List -- (findIndex, elemIndex, find)

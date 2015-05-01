@@ -1,4 +1,8 @@
-module Mini.TypeCheck where
+module Mini.TypeCheck 
+    ( checkTypes
+    , getExprType
+    , ErrType
+    ) where
 
 import Mini.Types
 import Control.Monad

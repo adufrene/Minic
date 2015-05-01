@@ -1,4 +1,8 @@
-module Mini.CFG where
+module Mini.CFG 
+    ( showNodeGraph
+    , NodeGraph
+    , createGraphs
+    ) where
 
 {-
 - Functions for converting a function/list of statements into a Control
@@ -65,12 +69,6 @@ showNodeGraph (graph, vertToNodeHM) =
     strs = fmap (\x -> if x `notElem` [0,-1]
                         then show (vertToNodeHM ! x)
                         else []) sortedVerts
-
-showNodeGraphs :: [NodeGraph] -> String
-showNodeGraphs graphs =
-  concat strs
-  where
-    strs = fmap showNodeGraph graphs
 
 label :: LabelReg -> LabelNum
 label = fst

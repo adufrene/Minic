@@ -27,19 +27,19 @@ ccReg :: Reg
 ccReg = -1
 
 data Iloc = 
-                  Add Reg Reg Reg
+                  Add Reg Reg Reg       -- Used
                 | Addi Reg Immed Reg
-                | Div Reg Reg Reg
-                | Mult Reg Reg Reg
-                | Multi Reg Immed Reg
-                | Sub Reg Reg Reg
+                | Div Reg Reg Reg       -- Used
+                | Mult Reg Reg Reg      -- Used
+                | Multi Reg Immed Reg   -- Used
+                | Sub Reg Reg Reg       -- Used
                 | Rsubi Reg Immed Reg
 
              | And Reg Reg Reg
              | Or Reg Reg Reg
              | Xori Reg Immed Reg
 
-                | Comp Reg Reg
+                | Comp Reg Reg          -- Used
                 | Compi Reg Immed
 
                | Cbreq Label Label
@@ -49,40 +49,41 @@ data Iloc =
                | Cbrlt Label Label
                | Cbrne Label Label
                | Jumpi Label
-               | Brz Reg Label Label
+               | Brz Reg Label Label    -- Used
 
-           | Loadai Reg Immed Reg
-           | Loadglobal Id Reg
-           | Loadinargument Id Immed Reg
-           | Loadret Reg
+           | Loadai Reg Immed Reg       -- Used
+           | Loadglobal Id Reg          -- Used
+           | Loadinargument Id Immed Reg --Used
+           | Loadret Reg                -- Used
            | Computeformaladdress Id Immed Reg
            | Restoreformal Id Immed
            | Computeglobaladdress Id Reg
 
-            | Storeai Reg Reg Immed
-            | Storeglobal Reg Id
-            | Storeinargument Reg Id Immed
-            | Storeoutargument Reg Immed
-            | Storeret Reg
+            | Storeai Reg Reg Immed         -- Used
+            | Storeglobal Reg Id            -- Used
+            | Storeinargument Reg Id Immed  -- Used
+            | Storeoutargument Reg Immed    -- Used
+            | Storeret Reg                  -- Used
 
-                | Call Label
-                | RetILOC
+                | Call Label                -- Used
+                | RetILOC                   -- Used
 
-                | New Immed Reg
-                | Del Reg
+                | New Immed Reg             -- Used
+                | Del Reg                   -- Used
 
-             | PrintILOC Reg
-             | Println Reg
-             | ReadILOC Reg
+             | PrintILOC Reg                -- Used
+             | Println Reg                  -- Used
+             | ReadILOC Reg                 -- Used
 
-           | Mov Reg Reg
-           | Movi Immed Reg
-           | Moveq Immed Reg
-           | Movge Immed Reg
-           | Movgt Immed Reg
-           | Movle Immed Reg
-           | Movlt Immed Reg
-           | Movne Immed Reg deriving (Eq)
+           | Mov Reg Reg                    -- Used
+           | Movi Immed Reg     -- Used
+           | Moveq Immed Reg    -- Used
+           | Movge Immed Reg    -- Used
+           | Movgt Immed Reg    -- Used
+           | Movle Immed Reg    -- Used
+           | Movlt Immed Reg    -- Used
+           | Movne Immed Reg    -- Used
+           deriving (Eq)
 
 condCodeReg :: String
 condCodeReg = "ccr"
