@@ -1109,7 +1109,7 @@ happyReduction_18 (_ `HappyStk`
 	_ `HappyStk`
 	happyRest)
 	 = HappyAbsSyn14
-		 (Function 0 happy_var_2 (reverse happy_var_3) happy_var_6 happy_var_7 happy_var_4
+		 (Function 0 happy_var_2 (reverse happy_var_3) (reverse happy_var_6) (reverse happy_var_7) happy_var_4
 	) `HappyStk` happyRest
 
 happyReduce_19 = happySpecReduce_2  15 happyReduction_19

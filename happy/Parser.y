@@ -102,7 +102,7 @@ Functions :: { [Function] }
 Function :: { Function }
     : fun id Parameters RetType '{' 
         Declarations StatementList 
-      '}'                                       { Function 0 $2 (reverse $3) $6 $7 $4 }
+      '}'                                       { Function 0 $2 (reverse $3) (reverse $6) (reverse $7) $4 }
 
 Parameters :: { [Field] }
     : '('')'                                    { [] }
