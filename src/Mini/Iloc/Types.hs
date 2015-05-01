@@ -61,7 +61,7 @@ data Iloc =
 
             | Storeai Reg Reg Immed         -- Used
             | Storeglobal Reg Id            -- Used
-            | Storeinargument Reg Id Immed  -- Used
+            | Storeinargument Reg Id Immed
             | Storeoutargument Reg Immed    -- Used
             | Storeret Reg                  -- Used
 
