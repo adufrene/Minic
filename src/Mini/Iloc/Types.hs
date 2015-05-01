@@ -40,7 +40,7 @@ data Iloc =
              | Xori Reg Immed Reg
 
                 | Comp Reg Reg          -- Used
-                | Compi Reg Immed
+                | Compi Reg Immed       -- Used
 
                | Cbreq Label Label
                | Cbrge Label Label

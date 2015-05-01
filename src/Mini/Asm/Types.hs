@@ -75,9 +75,13 @@ data Asm = AsmAdd
          | AsmCmovneq Immed AsmReg
          deriving (Eq)
 
+{- Create initial global variables and other file-specific data -}
+{- Tail Recursion!!!! -}
 programToAsm :: [NodeGraph] -> [Asm]
 programToAsm graphs = undefined
 
+{- Create Function prologue to start -}
+{- http://users.csc.calpoly.edu/~akeen/courses/csc431/handouts/references/asm.pdf -}
 functionToAsm :: NodeGraph -> [Asm]
 functionToAsm (graph, hash) = undefined
 
@@ -169,11 +173,13 @@ ilocToAsm :: Iloc -> [Asm]
 ilocToAsm (Comp r1 r2) = [AsmCmp (RegNum r1) (CompReg $ RegNum r2)]
 ilocToAsm (Compi r i) = [AsmCmp (RegNum r) (CompImm i)]
 ilocToAsm (Brz r l1 l2) = brz r l1 l2
-ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSReg $ OffsetReg (RegNum r1) i) (asmDReg $ RegNum r2)]
+ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSReg $ OffsetReg (RegNum r1) i) 
+                                (asmDReg $ RegNum r2)]
 ilocToAsm (Loadglobal l r) = [AsmMov (AsmSLabel l) (asmDReg $ RegNum r)]
 ilocToAsm (Loadinargument l i r) = loadArg i r
 ilocToAsm (Loadret r) = [AsmMov (asmSReg Rax) (asmDReg $ RegNum r)]
-ilocToAsm (Storeai r1 r2 i) = [AsmMov (asmSReg $ RegNum r1) (AsmDReg $ OffsetReg (RegNum r2) i)] 
+ilocToAsm (Storeai r1 r2 i) = [AsmMov (asmSReg $ RegNum r1) 
+                                (AsmDReg $ OffsetReg (RegNum r2) i)] 
 ilocToAsm (Storeglobal r l) = [AsmMov (asmSReg $ RegNum r) (AsmDLabel l)]
 ilocToAsm (Storeoutargument r i) = storeArg r i
 ilocToAsm (Storeret r) = [AsmMov (asmSReg $ RegNum r) (asmDReg Rax)]
@@ -184,7 +190,8 @@ ilocToAsm (Del r) = createDelete r
 ilocToAsm (PrintILOC r) = createPrint r False
 ilocToAsm (Println r) = createPrint r True
 ilocToAsm (ReadILOC r) = createRead r
-ilocToAsm (Mov r1 r2) = [AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r2)]
+ilocToAsm (Mov r1 r2) = [AsmMov (asmSReg $ RegNum r1) 
+                            (asmDReg $ RegNum r2)]
 ilocToAsm (Movi i r) = [AsmMov (AsmImmed i) (asmDReg $ RegNum r)]
 ilocToAsm (Moveq i r) = [AsmCmoveq i $ RegNum r]
 ilocToAsm (Movge i r) = [AsmCmovgeq i $ RegNum r]
@@ -225,7 +232,6 @@ createPrint r endl = [ AsmMov (AsmSLabel printString) (asmDReg Rdi)
                      , AsmCall printf ]
     where printString = if endl then printlnLabel else printLabel
 
-{- store memory location in rsi, then copy from memory to reg -}
 createRead :: Reg -> [Asm]
 createRead r = [ AsmMov (AsmSLabel scanLabel) (asmDReg Rdi)
                , AsmMov (AsmSLabel scanVar) (asmDReg Rsi)
