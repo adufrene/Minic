@@ -15,11 +15,19 @@ data AsmReg = Rax
             | Rbp
             | Rsi
             | Rdi
+            | R8
+            | R9
+            | R10
+            | R11
+            | R12
+            | R13
+            | R14
+            | R15
             | RegNum Int
             deriving (Eq, Data, Typeable)
 
 instance Show RealReg where
-        show (RegNum i) = "%r" ++ show i
+        show (RegNum i) = "r" ++ show i
         show reg = "%" ++ map toLower (toConstr reg)
 
 data Asm = AsmAdd
