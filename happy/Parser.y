@@ -1,5 +1,5 @@
 {
-module Mini.Parser where
+module Mini.Parser (parse) where
 
 import Control.Applicative ((<$>))
 import Data.Char
@@ -9,7 +9,7 @@ import Data.Maybe
 import Mini.Types
 }
 
-%name parse
+%name calc
 %tokentype { Token }
 %error { parseError }
 
@@ -34,7 +34,7 @@ import Mini.Types
     false       { TokenFalse }
     new         { TokenNew }
     null        { TokenNull } 
-    eof         { TokenEOF }
+--    eof         { TokenEOF }
     id          { TokenId $$ }
     boolOp      { TokenBoolOp $$ }
     cmpOp       { TokenCmpOp $$ }
@@ -62,21 +62,21 @@ import Mini.Types
 %%
 
 Program :: { Program }
-    : Types Declarations Functions eof          { Program $1 $2 $3 }
+    : Types Declarations Functions {- eof -}         { Program (reverse $1) (reverse $2) (reverse $3) }
 
 Types :: { [TypeDef] }
     : {- empty -}                               { [] }
     | Types TypeSub                             { $2 : $1 }
 
 TypeSub :: { TypeDef }
-    : struct Lineno id '{' NestedDecl '}' ';'   { TypeDef $2 $3 $5 }
+    : struct id '{' NestedDecl '}' ';'   { TypeDef 0 $2 $ reverse $4 }
 
 NestedDecl :: { [Field] }
     : {- empty -}                               { [] }
     | NestedDecl Decl ';'                       { $2 : $1 }
 
 Decl :: { Field }
-    : Lineno Type id                            { Field $1 $2 $3 }
+    : Type id                            { Field 0 $1 $2 }
 
 Type :: { Type }
     : int                                       { intType }
@@ -89,7 +89,7 @@ Declarations :: { [Declaration] }
     | Declarations Declaration                  { $2 ++ $1 }
 
 Declaration :: { [Declaration] }
-    : Lineno Type IdList ';'                    { map (Declaration $1 $2) $3 }
+    : Type IdList ';'                    { map (Declaration 0 $1) $2 }
 
 IdList :: { [Id] }
     : id                                        { [$1] }
@@ -100,9 +100,9 @@ Functions :: { [Function] }
     | Functions Function                        { $2 : $1 }
 
 Function :: { Function }
-    : Lineno fun id Parameters RetType '{' 
+    : fun id Parameters RetType '{' 
         Declarations StatementList 
-      '}'                                       { Function $1 $3 $4 $7 $8 $5 }
+      '}'                                       { Function 0 $2 (reverse $3) $6 $7 $4 }
 
 Parameters :: { [Field] }
     : '('')'                                    { [] }
@@ -128,96 +128,101 @@ Statement :: { Statement }
     | Invocation                                { $1 }
 
 Block :: { Statement }
-    : '{' StatementList '}'                     { Block $2 }
+    : '{' StatementList '}'                     { Block (reverse $2) }
 
 StatementList :: { [Statement] }
     : {- empty -}                               { [] }
     | StatementList Statement                   { $2 : $1 }
 
 Assignment :: { Statement }
-    : Lineno LValue '=' Expression ';'          { Asgn $1 $2 $4 }
+    : LValue '=' Expression ';'          { Asgn 0 $1 $3 }
 
 Print :: { Statement }
-    : Lineno print Expression Endl ';'          { Print $1 $3 $4 }
+    : print Expression Endl ';'          { Print 0 $2 $3 }
 
 Endl :: { Bool }
     : {- empty -}                               { False }
     | endl                                      { True }
 
 Read :: { Statement }
-    : Lineno read LValue ';'                    { Read $1 $3 }
+    : read LValue ';'                    { Read 0 $2 }
 
 Conditional :: { Statement }
-    : Lineno if '(' Expression ')' 
-        Block ElseBlock                         { Cond $1 $4 $6 $7 }
+    : if '(' Expression ')' 
+        Block ElseBlock                         { Cond 0 $3 $5 $6 }
 
 ElseBlock :: { Maybe Statement }
     : {- empty -}                               { Nothing }
     | else Block                                { Just $2 }
 
 Loop :: { Statement }
-    : Lineno while '(' Expression ')' Block     { Loop $1 $4 $6 }
+    : while '(' Expression ')' Block     { Loop 0 $3 $5 }
 
 Delete :: { Statement }
-    : Lineno delete Expression ';'              { Delete $1 $3 }
+    : delete Expression ';'              { Delete 0 $2 }
 
 Ret :: { Statement }
-    : Lineno return MaybeExpr ';'               { Ret $1 $3 }
+    : return MaybeExpr ';'               { Ret 0 $2 }
 
 MaybeExpr :: { Maybe Expression }
     : {- empty -}                               { Nothing }
     | Expression                                { Just $1 }
 
 Invocation :: { Statement }
-    : Lineno id Arguments ';'                   { InvocSt $1 $2 $3 }
+    : id Arguments ';'                   { InvocSt 0 $1 $ reverse $2 }
 
 LValue :: { LValue }
-    : Lineno id                                 { LValue $1 $2 Nothing }
-    | Lineno LValue '.' id                      { LValue $1 $4 (Just $2)} 
+    : id                                 { LValue Nothing $1 Nothing }
+    | LValue '.' id                      { LValue (Just 0) $3 (Just $1)} 
 
 Expression :: { Expression }
     : Boolterm                                  { $1 }
-    | Lineno Boolterm boolOp Boolterm           { BinExp $1 $3 $2 $4 }
+    | Expression boolOp Boolterm           { BinExp 0 $2 $1 $3 }
 
 Boolterm :: { Expression }
     : Simple                                    { $1 }
-    | Lineno Simple cmpOp Simple                { BinExp $1 $3 $2 $4 }
+    | Boolterm cmpOp Simple                { BinExp 0 $2 $1 $3 }
 
 Simple :: { Expression }
     : Term                                      { $1 }
-    | Lineno Term '+' Term                      { BinExp $1 "+" $2 $4 }
-    | Lineno Term '-' Term                      { BinExp $1 "-" $2 $4 }
+    | Simple '+' Term                      { BinExp 0 "+" $1 $3 }
+    | Simple '-' Term                      { BinExp 0 "-" $1 $3 }
 
 Term :: { Expression }
     : Unary                                     { $1 }
-    | Lineno Unary '*' Unary                    { BinExp $1 "*" $2 $4 }
-    | Lineno Unary '/' Unary                    { BinExp $1 "/" $2 $4 }
+    | Term '*' Unary                    { BinExp 0 "*" $1 $3 }
+    | Term '/' Unary                    { BinExp 0 "/" $1 $3 }
 
 Unary :: { Expression }
     : Selector                                  { $1 }
-    | Lineno '!' Selector                       { UExp $1 "!" $3 }
-    | '-' Lineno Selector %prec NEG             { UExp $2 "-" $3 }
+    | '!' Unary                       { UExp 0 "!" $2 }
+    | '-' Unary %prec NEG             { UExp 0 "-" $2 }
 
 Selector :: { Expression }
     : Factor                                    { $1 }
-    | Lineno Selector '.' id                    { DotExp $1 $2 $4 }
+    | Selector '.' id                    { DotExp 0 $1 $3 }
 
 Factor :: { Expression }
     : '(' Expression ')'                        { $2 }
-    | Lineno id                                 { IdExp $1 $2 }
-    | Lineno id Arguments                       { InvocExp $1 $2 $3 }
-    | Lineno num                                { IntExp $1 $2 }
-    | Lineno true                               { TrueExp $1 }
-    | Lineno false                              { FalseExp $1 }
-    | Lineno new id                             { NewExp $1 $3 }
-    | Lineno null                               { NullExp $1 }
+    | id                                 { IdExp 0 $1 }
+    | id Arguments                       { InvocExp 0 $1 $ reverse $2 }
+    | num                                { IntExp 0 $1 }
+    | true                               { TrueExp 0 }
+    | false                              { FalseExp 0 }
+    | new id                             { NewExp 0 $2 }
+    | null                               { NullExp 0 }
 
 Arguments :: { [Expression] }
-    : Expression                                { [$1] }
-    | Arguments ',' Expression                  { $2 : $1 }
+    : '('')'                                    { [] }
+    | '(' ExprList ')'                          { $2}
 
-Lineno ::  { LineNumber }
+ExprList :: { [Expression] }
+    : Expression                                { [$1] }
+    | ExprList ',' Expression                  { $3 : $1 }
+
+{-Lineno ::  { LineNumber }
     : {- empty -}                               {% getLineNo }
+-}
 
 {
 data ParseResult a = Ok a | Failed String
@@ -278,7 +283,8 @@ keywords = [
     ("true", TokenTrue),
     ("false", TokenFalse),
     ("new", TokenNew),
-    ("null", TokenNull)
+    ("null", TokenNull),
+    ("endl", TokenEndl)
     ]
 
 charTks :: [(Char, Token)]
@@ -317,7 +323,7 @@ failP a = \s l -> Failed a
 
 parseError :: Token -> P a
 parseError tk = getLineNo `thenP` \line ->
-                        failP (show line ++ ": parse error at token"
+                        failP (show line ++ ": parse error at "
                                 ++ (show tk))
 
 lexer :: (Token -> P a) -> P a
@@ -346,8 +352,15 @@ lexNum cont s = cont (TokenNum (read num)) rest
 
 lexText :: (Token -> P a) -> P a
 lexText cont s = cont
-        (fromMaybe (TokenId s) (snd <$> find ((==) word . fst) keywords)) rest
-    where (word, rest) = span isAlpha s
+        (fromMaybe (TokenId word) (snd <$> find ((==) word . fst) keywords)) rest
+    where (word, rest) = span (\x -> isAlpha x || isDigit x) s
  
+fromParseResult :: ParseResult a -> a
+fromParseResult (Ok a) = a
+fromParseResult (Failed s) = error s
+
+parse :: String -> Program
+parse fileString = fromParseResult $ calc fileString 1
+
 }
 

@@ -26,17 +26,18 @@ printEnv = "--printEnv"
 dumpIL :: String
 dumpIL = "--dumpIL"
 
--- if "testParse" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
+-- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
 main :: IO ()
 main = do
         args <- getArgs
         let fileName = head $ filter (not . isPrefixOf "--") args
         file <- readFile fileName
-        let parsedJSON = decode . BS.pack $ file :: Maybe Program
-            program = fromMaybe (error "Invalid JSON input") parsedJSON
+--         let parsedJSON = decode . BS.pack $ file :: Maybe Program
+--             program = fromMaybe (error "Invalid JSON input") parsedJSON
+        let program = parse file
         when (testJSON `elem` args) $ 
-            putStrLn $ BS.unpack $ encode parsedJSON
+            putStrLn $ BS.unpack $ encode program
         when (printProg `elem` args) $ print program
         let env = checkTypes program
         when (printEnv `elem` args) $ print env
