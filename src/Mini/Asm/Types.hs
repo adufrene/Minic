@@ -7,8 +7,6 @@ import Data.Data
 
 import Mini.Iloc.Types
 
-type AsmReg = Reg
-
 data AsmReg = Rax
             | Rbx
             | Rcx
