@@ -7,6 +7,7 @@ import Data.List
 import Data.Maybe
 import System.Environment
 
+import Mini.Asm.Types
 import Mini.CFG
 import Mini.Iloc.Types
 import Mini.Types
