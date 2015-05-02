@@ -34,7 +34,6 @@ import Mini.Types
     false       { TokenFalse }
     new         { TokenNew }
     null        { TokenNull } 
---    eof         { TokenEOF }
     id          { TokenId $$ }
     boolOp      { TokenBoolOp $$ }
     cmpOp       { TokenCmpOp $$ }
@@ -61,8 +60,17 @@ import Mini.Types
 
 %%
 
+
+{-
+- Combine Types & Declarations in grammar into {TypeDecls}*, create data type
+- for TypeDecl with two data constructors, Type & Declaration. TypeDecl =
+- TypeSub | Declaration. When creating Program, split [TypeDecls] by type
+- constructor into type and Decls. 
+-}
+
+
 Program :: { Program }
-    : Types Declarations Functions {- eof -}         { Program (reverse $1) (reverse $2) (reverse $3) }
+    : Types Declarations Functions { Program (reverse $1) (reverse $2) (reverse $3) }
 
 Types :: { [TypeDef] }
     : {- empty -}                               { [] }
