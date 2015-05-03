@@ -76,6 +76,6 @@ fileNameToS oldFile = stripFile oldFile ++ ".s"
 writeAsm :: Either ErrType [NodeGraph] -> String -> IO ()
 writeAsm (Left msg) _ = error msg
 writeAsm (Right graphs) fileName = do
-        let print = foldl' (\msg insn -> msg ++ "\n" ++ show insn) ""
+        let print = foldl' (\msg insn -> msg ++ show insn ++ "\n") ""
                         $ programToAsm graphs
         writeFile fileName print  

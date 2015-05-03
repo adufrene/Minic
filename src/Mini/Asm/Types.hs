@@ -50,8 +50,8 @@ data OffsetArg = OffsetImm Immed
                deriving (Eq)
 
 instance Show OffsetArg where
-        show (OffsetLab l) = labStr l
-        show (OffsetImm i) = immStr i
+        show (OffsetLab l) = l
+        show (OffsetImm i) = show i
 
 data OffsetReg = OffsetReg AsmReg OffsetArg deriving (Eq)
 
@@ -62,8 +62,6 @@ instance Show AsmReg where
 instance Show OffsetReg where
         show (OffsetReg r (OffsetImm 0)) = show r
         show (OffsetReg r i) = show i ++ "(" ++ show r ++ ")"
-            
-            
 
 data Asm = AsmPush AsmReg
          | AsmPop AsmReg
@@ -76,13 +74,14 @@ data Asm = AsmPush AsmReg
          | AsmFunSize Label
          | AsmQuad Immed
          | AsmGlobal Label
+         | AsmFunGlobal Label
          | AsmType Label AsmType
          | AsmAdd AsmReg AsmReg
          | AsmDiv AsmReg
          | AsmMult AsmReg AsmReg
          | AsmMulti Immed AsmReg AsmReg
          | AsmSub AsmReg AsmReg
-         | AsmCmp AsmReg CompArg
+         | AsmCmp CompArg AsmReg
          | AsmJe Label
          | AsmJmp Label
          | AsmCall Label
@@ -105,17 +104,18 @@ instance Show Asm where
         show AsmData = "\t.data"
         show AsmAlign = "\t.align 8"
         show (AsmString s) = "\t.string\t\"" ++ s ++ "\""
-        show (AsmVarSize l i) = "\t.size\t" ++ l ++ ", " ++ show i
+        show (AsmVarSize l i) = showAsm ".size" [l, show i]
         show (AsmQuad i) = "\t.quad\t" ++ show i
         show (AsmGlobal l) = "\t.comm " ++ l ++ ",8,8"
-        show (AsmType l t) = "\t.type\t" ++ l ++ show t
-        show (AsmFunSize l) = "\t.size\t" ++ l ++ ", .-" ++ l
+        show (AsmFunGlobal l) = ".global " ++ l
+        show (AsmType l t) = showAsm ".type" [l, show t]
+        show (AsmFunSize l) = showAsm ".size" [l, ".-" ++ l]
         show (AsmAdd r1 r2) = showAsm "addq" [asmRegStr r1, asmRegStr r2]
         show (AsmDiv r) = showAsm "idivq" [asmRegStr r]
         show (AsmMult r1 r2) = showAsm "imulq" [asmRegStr r1, asmRegStr r2]
         show (AsmMulti i r1 r2) = showAsm "imulq" [immStr i, asmRegStr r1, asmRegStr r2]
         show (AsmSub r1 r2) = showAsm "subq" [asmRegStr r1, asmRegStr r2]
-        show (AsmCmp r arg) = showAsm "cmp" [asmRegStr r, compArgStr arg]
+        show (AsmCmp arg r) = showAsm "cmp" [compArgStr arg, asmRegStr r]
         show (AsmJe l) = showAsm "je" [l]
         show (AsmJmp l) = showAsm "jmp" [l]
         show (AsmCall l) = showAsm "call" [l]
@@ -140,9 +140,8 @@ instance Show AsmType where
 {- Create initial global variables and other file-specific data -}
 programToAsm :: [NodeGraph] -> [Asm]
 programToAsm graphs = createGlobals ++ bodyAsm
-    where createGlobals = concat [ globalString printLabel formatStr
+    where createGlobals = concat [ globalString formatLabel formatStr
                                  , globalString printlnLabel printlnStr
-                                 , globalString scanLabel formatStr
                                  , [AsmGlobal scanVar] ]
           bodyAsm = concat $ functionToAsm <$> graphs
 
@@ -168,7 +167,7 @@ functionToAsm nodeG@(graph, hash) = prologue ++ body ++ epilogue
 
 createPrologue :: NodeGraph -> [Asm]
 createPrologue (graph, hash) = [ AsmText
-                               , AsmGlobal funLabel
+                               , AsmFunGlobal funLabel
                                , AsmType funLabel FunctionType
                                , AsmLabel funLabel
                                , AsmPush Rbp
@@ -205,14 +204,14 @@ argRegs = [Rdi, Rsi, Rdx, Rcx, R8, R9]
 wordSize :: Int
 wordSize = 8
 
-printLabel :: Label
-printLabel = ".PRINT"
+formatLabel :: Label
+formatLabel = ".FORMAT"
 
 formatStr :: String
 formatStr = "%ld"
 
 printlnStr :: String
-printlnStr = "%ld\n"
+printlnStr = "%ld\\n"
 
 printlnLabel :: Label
 printlnLabel = ".PRINTLN"
@@ -222,9 +221,6 @@ printf = "printf"
 
 scanVar :: Label
 scanVar = ".SCANVAR"
-
-scanLabel :: Label
-scanLabel = ".SCAN"
 
 scanf :: Label
 scanf = "scanf"
@@ -272,8 +268,8 @@ ilocToAsm (Div r1 r2 r3) = createDiv r1 r2 r3
 ilocToAsm (Mult r1 r2 r3) = createMult r1 r2 r3
 ilocToAsm (Multi r1 i r2) = [ AsmMulti i (RegNum r1) (RegNum r2) ]
 ilocToAsm (Sub r1 r2 r3) = createSub r1 r2 r3
-ilocToAsm (Comp r1 r2) = [AsmCmp (RegNum r1) (CompReg $ RegNum r2)]
-ilocToAsm (Compi r i) = [AsmCmp (RegNum r) (CompImm i)]
+ilocToAsm (Comp r1 r2) = [AsmCmp (CompReg $ RegNum r2) (RegNum r1)]
+ilocToAsm (Compi r i) = [AsmCmp (CompImm i) (RegNum r)]
 ilocToAsm (Jumpi l) = [AsmJmp l]
 ilocToAsm (Brz r l1 l2) = brz r l1 l2
 ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSReg $ OffsetReg (RegNum r1) $ OffsetImm i) 
@@ -327,7 +323,7 @@ createSub r1 r2 r3 = [ AsmSub (RegNum r2) (RegNum r1)
                      , AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3) ]
 
 brz :: Reg -> Label -> Label -> [Asm]
-brz r l1 l2 = [ AsmCmp (RegNum r) (CompImm 0)
+brz r l1 l2 = [ AsmCmp (CompImm 0) (RegNum r)
               , AsmJe l1
               , AsmJmp l2 ]
 
@@ -355,10 +351,10 @@ createPrint r endl = [ AsmMov (AsmSLabel printString) (asmDReg Rdi)
                      , AsmMov (asmSReg $ RegNum r) (asmDReg Rsi)
                      , AsmMov (AsmImmed 0) (asmDReg Rax)
                      , AsmCall printf ]
-    where printString = if endl then printlnLabel else printLabel
+    where printString = if endl then printlnLabel else formatLabel
 
 createRead :: Reg -> [Asm]
-createRead r = [ AsmMov (AsmSLabel scanLabel) (asmDReg Rdi)
+createRead r = [ AsmMov (AsmSLabel formatLabel) (asmDReg Rdi)
                , AsmMov (AsmSReg $ OffsetReg Rip $ OffsetLab scanVar) 
                         (asmDReg Rsi)
                , AsmMov (AsmImmed 0) (asmDReg Rax)
