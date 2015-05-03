@@ -57,6 +57,7 @@ instance Show OffsetReg where
             where reg = show r
 
 data Asm = AsmPush AsmReg
+         | AsmPop AsmReg
          | AsmText
          | AsmGlobal Label
          | AsmType Label AsmType
@@ -83,6 +84,7 @@ data Asm = AsmPush AsmReg
 
 instance Show Asm where
         show (AsmPush r) = showAsm "pushq" [asmRegStr r]
+        show (AsmPop r) = showAsm "popq" [asmRegStr r]
         show AsmText = "\t.text"
         show (AsmGlobal l) = ".global " ++ l
         show (AsmType l t) = "\t.type\t" ++ l ++ show t
@@ -114,7 +116,9 @@ instance Show AsmType where
 
 {- Create initial global variables and other file-specific data -}
 programToAsm :: [NodeGraph] -> [Asm]
-programToAsm graphs = undefined
+programToAsm graphs = createGlobals ++ bodyAsm
+    where createGlobals = []
+          bodyAsm = concat $ functionToAsm <$> graphs
 
 {- Create Function prologue to start -}
 {- http://users.csc.calpoly.edu/~akeen/courses/csc431/handouts/references/asm.pdf -}
@@ -131,16 +135,18 @@ functionToAsm nodeG@(graph, hash) = prologue ++ body ++ epilogue
 
 createPrologue :: NodeGraph -> [Asm]
 createPrologue (graph, hash) = [ AsmText
-                               , AsmGlobal funName
-                               , AsmType funName FunctionType
-                               , AsmLabel funName
+                               , AsmGlobal funLabel
+                               , AsmType funLabel FunctionType
+                               , AsmLabel funLabel
                                , AsmPush Rbp
                                , AsmMov (asmSReg Rsp) (asmDReg Rbp) ]
-    where funName = getLabel $ hash ! startVert
-          startVert = snd $ head $ filter ((==initVertex) . fst) $ edges graph
+    where funLabel = funName (graph, hash) 
 
 createEpilogue :: NodeGraph -> [Asm]
-createEpilogue (graph, hash) = undefined
+createEpilogue (graph, hash) = [ AsmMov (asmSReg Rbp) (asmDReg Rsp)
+                               , AsmPop Rbp
+                               , AsmRet
+                               , AsmSize $ funName (graph, hash)]
 
 functionType :: String
 functionType = "@function"
@@ -186,6 +192,12 @@ free = "free"
 
 malloc :: Label
 malloc = "malloc"
+
+funName :: NodeGraph -> Label
+funName (graph, hash) = getLabel $ hash ! startVert 
+    where startVert = snd $ head $ 
+            filter ((==initVertex) . fst) $ edges graph
+          
 
 srcStr :: AsmSrc -> String
 srcStr (AsmSReg r) = regStr r
