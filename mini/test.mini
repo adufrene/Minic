@@ -1,8 +1,11 @@
 fun main() int {
+    int i;
     while (true) {
         if (false) {
             return true;
         }
     }
+    read(i);
+    print(i);
     return 0;
 }

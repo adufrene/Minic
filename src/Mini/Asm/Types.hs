@@ -41,20 +41,29 @@ data AsmReg = Rax
             | R13
             | R14
             | R15
+            | Rip
             | RegNum Reg
             deriving (Eq, Data, Typeable)
 
-data OffsetReg = OffsetReg AsmReg Int deriving (Eq)
+data OffsetArg = OffsetImm Immed
+               | OffsetLab Label
+               deriving (Eq)
+
+instance Show OffsetArg where
+        show (OffsetLab l) = labStr l
+        show (OffsetImm i) = immStr i
+
+data OffsetReg = OffsetReg AsmReg OffsetArg deriving (Eq)
 
 instance Show AsmReg where
         show (RegNum i) = "r" ++ show i
         show reg = "%" ++ map toLower (show $ toConstr reg)
 
 instance Show OffsetReg where
-        show (OffsetReg r i)
-            | i /= 0 = show i ++ "(" ++ reg ++ ")"
-            | otherwise = reg 
-            where reg = show r
+        show (OffsetReg r (OffsetImm 0)) = show r
+        show (OffsetReg r i) = show i ++ "(" ++ show r ++ ")"
+            
+            
 
 data Asm = AsmPush AsmReg
          | AsmPop AsmReg
@@ -179,7 +188,7 @@ objectType :: String
 objectType = "@object"
 
 asmReg :: AsmReg -> OffsetReg
-asmReg r = OffsetReg r 0
+asmReg r = OffsetReg r $ OffsetImm 0
 
 asmSReg :: AsmReg -> AsmSrc
 asmSReg = AsmSReg . asmReg
@@ -267,13 +276,13 @@ ilocToAsm (Comp r1 r2) = [AsmCmp (RegNum r1) (CompReg $ RegNum r2)]
 ilocToAsm (Compi r i) = [AsmCmp (RegNum r) (CompImm i)]
 ilocToAsm (Jumpi l) = [AsmJmp l]
 ilocToAsm (Brz r l1 l2) = brz r l1 l2
-ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSReg $ OffsetReg (RegNum r1) i) 
+ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSReg $ OffsetReg (RegNum r1) $ OffsetImm i) 
                                 (asmDReg $ RegNum r2)]
 ilocToAsm (Loadglobal l r) = [AsmMov (AsmSLabel l) (asmDReg $ RegNum r)]
 ilocToAsm (Loadinargument l i r) = loadArg i r
 ilocToAsm (Loadret r) = [AsmMov (asmSReg Rax) (asmDReg $ RegNum r)]
 ilocToAsm (Storeai r1 r2 i) = [AsmMov (asmSReg $ RegNum r1) 
-                                (AsmDReg $ OffsetReg (RegNum r2) i)] 
+                                (AsmDReg $ OffsetReg (RegNum r2) $ OffsetImm i)] 
 ilocToAsm (Storeglobal r l) = [AsmMov (asmSReg $ RegNum r) (AsmDLabel l)]
 ilocToAsm (Storeoutargument r i) = storeArg r i
 ilocToAsm (Storeret r) = [AsmMov (asmSReg $ RegNum r) (asmDReg Rax)]
@@ -350,7 +359,8 @@ createPrint r endl = [ AsmMov (AsmSLabel printString) (asmDReg Rdi)
 
 createRead :: Reg -> [Asm]
 createRead r = [ AsmMov (AsmSLabel scanLabel) (asmDReg Rdi)
-               , AsmMov (AsmSLabel scanVar) (asmDReg Rsi)
+               , AsmMov (AsmSReg $ OffsetReg Rip $ OffsetLab scanVar) 
+                        (asmDReg Rsi)
                , AsmMov (AsmImmed 0) (asmDReg Rax)
                , AsmCall scanf
                , AsmMov (asmSReg Rax) (asmDReg $ RegNum r) ]
