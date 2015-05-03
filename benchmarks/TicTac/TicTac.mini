@@ -1,0 +1,231 @@
+struct gameBoard { 
+   int a;
+   int b;
+   int c;
+   int d;
+   int e;
+   int f;
+   int g;
+   int h;
+   int i;
+};
+
+fun cleanBoard (struct gameBoard board) void{
+   board.a = 0;
+   board.b = 0;
+   board.c = 0;
+   board.d = 0;
+   board.e = 0;
+   board.f = 0;
+   board.g = 0;
+   board.h = 0;
+   board.i = 0;
+}
+
+fun printBoard (struct gameBoard board) void{
+   print board.a;
+   print board.b;
+   print board.c endl;
+   print board.d;
+   print board.e;
+   print board.f endl;
+   print board.g;
+   print board.h;
+   print board.i endl ;
+   
+}
+
+fun printMoveBoard () void{
+   print 123 endl;
+   print 456 endl;
+   print 789 endl;
+}
+
+#Adds move to the board if move is not between 1-9 the turn is lost
+
+fun placePiece (struct gameBoard board, int turn, int placement) void{
+   if(placement == 1){
+      board.a = turn;
+   }else{
+      if(placement == 2){
+         board.b = turn;
+      }else{
+         if(placement == 3){
+            board.c = turn;
+         }else{ 
+            if(placement == 4){
+               board.d = turn;
+            }else{
+               if(placement == 5){
+                  board.e = turn;
+               }else{
+                  if(placement == 6){
+                     board.f = turn;
+                  }else{
+                     if(placement == 7){
+                        board.g = turn;
+                     }else{
+                        if(placement == 8){
+                           board.h = turn;
+                        }else{
+                           if(placement == 9){
+                              board.i = turn;
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+          }
+       }
+    }
+}
+                  
+fun checkWinner (struct gameBoard board) int {
+   #Check row 1 for X
+   
+   #Check row 1 for X
+   if(board.a == 1) {
+      if(board.b == 1) {
+         if(board.c ==1) {
+            return 0;
+         }
+      }
+   }
+   # check row 1 for O
+   if(board.a == 2) {
+      if(board.b == 2) {
+         if(board.c ==2) {
+            return 1;
+         }
+      }
+   }
+
+   # check row 2 for X
+   if(board.d == 1) {
+      if(board.e == 1) {
+         if(board.f ==1) {
+            return 0;
+         }
+      }
+   }
+   # check row 2 for O
+   if(board.d == 2) {
+      if(board.e == 2) {
+         if(board.f ==2) {
+            return 1;
+         }
+      }
+   }
+
+  # check row 3 for X
+   if(board.g == 1) {
+      if(board.h == 1) {
+         if(board.i ==1) {
+            return 0;
+         }
+      }
+   }
+   # check row 3 for O
+   if(board.g == 2) {
+      if(board.h == 2) {
+         if(board.i ==2) {
+            return 1;
+         }
+      }
+   }
+
+   # check columns
+
+   # check column 1 for X
+   if(board.a == 1) {
+      if(board.d == 1) {
+         if(board.g ==1) {
+            return 0;
+         }
+      }
+   }
+   # check column 1 for O
+   if(board.a == 2) {
+      if(board.d == 2) {
+         if(board.g ==2) {
+            return 1;
+         }
+      }
+   }
+
+   # check column 2 for X
+   if(board.b == 1) {
+      if(board.e == 1) {
+         if(board.h ==1) {
+            return 0;
+         }
+      }
+   }
+   # check column 2 for O
+   if(board.b == 2) {
+      if(board.e == 2) {
+         if(board.h ==2) {
+            return 1;
+         }
+      }
+   }
+
+   # check column 2 for X
+   if(board.c == 1) {
+      if(board.f == 1) {
+         if(board.i ==1) {
+            return 0;
+         }
+      }
+   }
+   # check column 2 for O
+   if(board.c == 2) {
+      if(board.f == 2) {
+         if(board.i ==2) {
+            return 1;
+         }
+      }
+   }
+
+   return -1;
+      
+}
+
+fun main () int { 
+   int turn, space1, space2, winner, i;
+   struct gameBoard board;
+
+   i = 0;
+   turn = 0;
+   space1 = 0;
+   space2 = 0;
+   winner = -1;
+
+   board = new gameBoard;
+   
+   
+   cleanBoard(board);
+
+   while (winner < 0 && i!=8) {
+      printBoard(board);  
+      if(turn == 0) {
+         turn = turn +1;
+         read space1;
+         placePiece(board,  1,  space1);
+      } 
+      else {
+         turn = turn -1;
+         read space2;
+         placePiece(board, 2, space2);
+      } 
+    
+      winner = checkWinner(board);
+      i = i +1;
+   }
+   
+   print (winner +1) endl;
+
+   return 0;
+
+}

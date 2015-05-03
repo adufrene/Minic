@@ -1,0 +1,63 @@
+
+#A list of integers represented as the first entry (head) 
+#and all following entries (tail)
+struct IntList 
+{
+ int head;
+ struct IntList tail;
+};
+
+#This funtions reads integers from stdIn and returns them in an IntList
+fun getIntList () struct IntList
+{
+ struct IntList list;
+ int next;
+ list = new IntList;
+ read next;
+ if (next == -1) 
+ {
+  list.head = next;
+  list.tail = null;
+  return list;
+ }
+ else
+ {
+  list.head = next;
+  list.tail = getIntList ();
+  return list; 
+ }
+}
+
+#This function returns the biggest of the two integer arguments
+fun biggest (int num1, int num2) int
+{
+ if (num1 > num2)
+ {
+  return num1;
+ }
+ else
+ {
+  return num2;
+ }
+}
+
+fun biggestInList (struct IntList list) int
+{
+ int big;
+ big = list.head;
+ while (list.tail != null)
+ {
+  big = biggest (big, list.head);
+  list = list.tail;
+ }
+ return big;
+}
+
+fun main () int
+{
+ struct IntList list;
+ 
+ list = getIntList ();
+ print (biggestInList (list)) endl;
+ return 0;
+}

@@ -1,0 +1,139 @@
+struct LameStruct
+{
+    int one;
+    int two;
+    int three;
+    int four;
+    int five;
+    int six;
+    int seven;
+    int eight;
+    int nine; 
+};
+
+fun countTotal(struct LameStruct what) int
+{
+    int total;
+    total = 0;
+    total = what.one + what.two + what.three + what.four + what.five +
+        what.six + what.seven + what.eight + what.nine;
+
+    return total;
+}
+
+fun printRecursive(int num, int rec) int
+{
+    if (rec == 0)
+   {
+        return num;
+   }
+    else
+    {
+        print num endl;
+	rec = rec - 1;
+        return printRecursive(num, rec);
+    }
+}
+
+fun convertBinary(int number) int
+{
+    if (number == 0) {
+        return 0;
+    }
+    else {if (number == 1) {
+        return 1;
+    }
+    else {if (number == 2) {
+        return 10;
+    }
+    else {if (number == 3) {
+        return 11;
+    }
+    else {if (number == 4) {
+        return 100;
+    }
+    else {if (number == 5) {
+        return 101;
+    }
+    else {if (number == 6) {
+        return 110;
+    }
+    else {if (number == 7) {
+        return 111;
+    }
+    else {if (number == 8) {
+        return 1000;
+    }
+    else {
+        return 1001;
+    }}}}}}}}}
+}
+
+fun main() int
+{
+    int current;
+    int count;
+    int total;
+    struct LameStruct digits;
+    digits = new LameStruct;
+    count = 0;
+    digits.one = 0;
+    digits.two = 0;
+    digits.three = 0;
+    digits.four = 0;
+    digits.five = 0;
+    digits.six = 0;
+    digits.seven = 0;
+    digits.eight = 0;
+    digits.nine = 0;
+
+    read current;   
+ 
+    while (current != 0) {
+        if (current == 1)
+{
+            digits.one = digits.one + 1;
+}
+        else {if (current == 2){
+            digits.two = digits.two + 1;
+}
+        else {if (current == 3){
+            digits.three = digits.three + 1;
+}
+        else {if (current == 4){
+            digits.four = digits.four + 1;
+}
+        else {if (current == 5){
+            digits.five = digits.five + 1;
+}
+        else {if (current == 6){
+            digits.six = digits.six + 1;
+}
+        else {if (current == 7){
+            digits.seven = digits.seven + 1;
+}
+        else {if (current == 8){
+            digits.eight = digits.eight + 1;
+}
+        else 
+{
+            digits.nine = digits.nine + 1;
+}}}}}}}}
+   
+	read current; 
+    }
+
+    print countTotal(digits) endl;
+
+    printRecursive(convertBinary(1), digits.one);
+    printRecursive(convertBinary(2), digits.two);
+    printRecursive(convertBinary(3), digits.three);
+    printRecursive(convertBinary(4), digits.four);
+    printRecursive(convertBinary(5), digits.five);
+    printRecursive(convertBinary(6), digits.six);
+    printRecursive(convertBinary(7), digits.seven);
+    printRecursive(convertBinary(8), digits.eight);
+    printRecursive(convertBinary(9), digits.nine);
+
+    return 0;
+}

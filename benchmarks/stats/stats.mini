@@ -1,0 +1,127 @@
+struct linkedNums {
+   int num;
+   struct linkedNums next;
+};
+
+fun getRands (int seed, int num) struct linkedNums {
+   int cur,prev;
+   struct linkedNums curNode,prevNode; 
+
+   cur = seed * seed;
+   prevNode = new linkedNums;
+
+   prevNode.num = cur;
+   prevNode.next = null;
+
+   num = num - 1;
+   prev = cur;
+   
+   while (num > 0){
+      cur = (prev * prev) / seed * (seed / 2) + 1;
+      
+      curNode = new linkedNums;
+      curNode.num = cur;
+      curNode.next = prevNode;
+
+      prevNode = curNode;
+
+      num = num - 1;
+      prev = cur;
+   }
+
+   return curNode;
+}
+
+fun calcMean (struct linkedNums nums) int {
+   int sum,num,mean;
+   sum = 0;
+   num = 0;
+   mean = 0; 
+
+   while (nums != null) {
+     num = num + 1;
+     sum = sum + nums.num;
+     nums = nums.next;
+   }
+
+   if (num != 0){
+      mean = sum / num;
+   }
+
+   return mean;
+}
+
+fun approxSqrt (int num) int {
+    int guess,result,prev;
+    guess = 1;
+    prev = guess;
+    result = 0;
+
+    while (result < num) {
+       result = guess * guess;
+       prev = guess;
+       guess = guess + 1;
+    }
+
+    return prev;
+}
+
+fun approxSqrtAll (struct linkedNums nums) void {
+   while (nums != null) {
+      print approxSqrt (nums.num) endl;
+      nums = nums.next;
+   }
+}
+
+#find the range amongst the list of given numbers
+fun range (struct linkedNums nums) void {
+   int min;
+   int max;
+   bool first;
+   min = 0;
+   max = 0;
+   first = true;
+
+   while(nums != null) {
+      if(first) {
+         min = nums.num;
+	 max = nums.num;
+	 first = false;
+      } else {
+	 if(nums.num < min) {
+            min = nums.num;
+	 } else {
+            if(nums.num > max) {
+               max = nums.num;
+	    }
+	 }
+      }
+      nums = nums.next; 
+   }
+ 
+   print min endl;
+   print max endl;
+}
+
+fun main () int {
+   int seed,num,mean;
+   struct linkedNums nums;
+
+   read seed;
+   read num;
+
+   #get a list of random numbers
+   nums = getRands(seed, num);
+
+   #calculate and print the mean amongst the list of numbers
+   mean = calcMean(nums);
+   print mean endl;
+
+   #print the range amongst the list of random numbers  
+   range(nums);
+
+   #print the square root of each number in the list
+   approxSqrtAll(nums);
+
+   return 0;
+}

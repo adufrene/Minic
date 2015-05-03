@@ -1,0 +1,26 @@
+fun function (int n) int
+{
+  int i; int j;
+  if (n<=0)
+  {
+    return 0;
+  }
+  i=0;
+  while (i<n*n)
+  {
+    j=i+n;
+    print j;
+    i=i+1;
+  }
+  return function(n-1);
+}
+
+fun main () int
+{
+  int num;
+  read num;
+  function(num);
+
+  print 0 endl;
+  return 0;
+}

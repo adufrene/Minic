@@ -1,0 +1,417 @@
+# -------------- The how well do you optimize benchmark ------------------ #
+
+### Globals Variables ###
+
+int global1;
+int global2;
+int global3;
+
+### Constant Folding ###
+
+# Calculate value of constant expression and replace expression with that value
+
+fun constantFolding () int {
+	int a;
+	a = 8 * 9 / 4 + 2 - 5 * 8 + 9 - 12 + 6 - 9 - 18 + 23 * 3 / 23 * 90;
+	
+	return a;
+}
+
+### Constant Propagation ###
+
+# Propagate constants so we know value of z ahead of time
+
+fun constantPropagation () int {
+	int a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z;
+	
+	a = 4;
+	b = 7;
+	c = 8;
+	d = 5;
+	e = 11;
+	f = 21;
+	g = a + b;
+	h = c + d;
+	i = e + f;
+	j = g + h;
+	k = i * j;
+	l = e + h * i - k;
+	m = h - i * j + k / l;
+	n = e + f + g + h + i - j;
+	o = n - m + h  - a - b;
+	p = k + l - g - h;
+	q = ( b - a ) * d - i;
+	r = l * c * d + o;
+	s = b * a * c / e - o;
+	t = i + k + c - p;
+	u = n + o - f * a;
+	v = a * b - k - l;
+	w = v - s - r * d;
+	x = o - w - v - n;
+	y = p * x * t - w;
+	z = w - x * y + k;
+
+	return z;
+}
+
+### Dead Code Elimination ###
+
+# Remove unused initializations and code after return statements
+
+fun deadCodeElimination () int {
+	int a, b, c, d, e;
+	
+	a = 4;
+	a = 5;
+	a = 7;
+	a = 8;
+	b = 6;
+	b = 9;
+	b = 12;
+	b = 8;
+	c = 10;
+	c = 13;
+	c = 9;
+	d = 45;
+	d = 12;
+	d = 3;
+	e = 23;
+	e = 10;
+	
+	global1 = 11;
+	global1 = 5;
+	global1 = 9;
+	
+	return a + b + c + d + e;
+	
+}
+
+### Inter-Procedural Optimization ###
+
+# If function does not change globals, if statement can be eliminated
+
+fun sum (int number) int {
+	int total;
+	total = 0;
+	while (number > 0) {
+		total = total + number;
+		number = number - 1;
+	}
+	
+	return total;
+}
+
+
+fun doesntModifyGlobals () int {
+	int a, b;
+	
+	a = 1;
+	b = 2;
+	
+	return a + b;
+}
+
+fun interProceduralOptimization () int {
+	int a;
+	global1 = 1;
+	global2 = 0;
+	global3 = 0;
+	a = sum(100);
+	
+	if (global1 == 1) {
+		a = sum(10000);
+	} else {
+		if (global2 == 2) {
+			a = sum(20000);
+		}
+		if (global3 == 3) {
+			a = sum(30000);
+		}
+	}
+	
+	return a;
+}
+
+
+### Local Common Sub-Expression Elimination ###
+
+# The same expression does not need to be evaluated multiple times
+
+fun commonSubexpressionElimination () int {
+	int a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z;
+	
+	a = 11;
+	b = 22;
+	c = 33;
+	d = 44;
+	e = 55;
+	f = 66;
+	g = 77;
+	
+	h = a * b;
+	i = c / d;
+	j = e * f;
+	k = a * b + c / d - e * f + g;
+	l = a * b + c / d - e * f + g;
+	m = a * b + c / d - e * f + g;
+	n = a * b + c / d - e * f + g;
+	o = a * b + c / d - e * f + g;
+	p = a * b + c / d - e * f + g;
+	q = a * b + c / d - e * f + g;
+	r = a * b + c / d - e * f + g;
+	s = a * b + c / d - e * f + g;
+	t = a * b + c / d - e * f + g;
+	u = a * b + c / d - e * f + g;
+	v = b * a + c / d - e * f + g;
+	w = a * b + c / d - f * e + g;
+	x = g + a * b + c / d - e * f;
+	y = (a * b) + (c / d) - (e * f) + g;
+	z = (c / d) + (a * b) - (e * f) + g;
+	
+	return a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p+q+r+s+t+u+v+w+x+y+z;
+}
+
+
+### Hoisting Optimization ###
+
+# Hoist e, g, and h outside of the while loop
+
+fun hoisting () int {
+	int a, b, c, d, e, f, g, h, i;
+
+	a = 1;
+	b = 2;
+	c = 3;
+	d = 4;
+	i = 0;
+	
+	while (i < 1000000) {
+		e = 5;
+		g = a + b + c;
+		h = c + d + g;
+		i = i + 1;
+	}
+
+	return b;
+}
+
+
+### Double If Optimization ###
+
+# The second if will always be true and can be eliminated
+
+fun doubleIf () int {
+	int a, b, c, d;
+	a = 1;
+	b = 2;
+	c = 3;
+	
+	if (a == 1) {
+		b = 20;
+		if (a == 1) {
+			b = 200;
+			c = 300;
+		} else {
+			a = 1;
+			b = 2;
+			c = 3;
+		}
+		d = 50;
+	}
+	
+	return d;		
+}
+
+
+### Integer Divide Optimization ###
+
+# Turn multiplicative functions by factors of two into shifts
+
+fun integerDivide () int {
+	int a;
+	a = 3000;
+	
+	a = a / 2;
+	a = a * 4;
+	a = a / 8;
+	a = a / 16;
+	a = a * 32;
+	a = a / 64;
+	a = a * 128;
+	a = a / 4;
+	
+	return a;
+}
+
+### Association Optimization ###
+
+# Recognize/eliminate unneeded statements by using properties of associatively
+
+fun association () int {
+	int a;
+	a = 10;
+	
+	a = a * 2;
+	a = a / 2;
+	a = 3 * a;
+	a = a / 3;
+	a = a * 4;
+	a = a / 4;
+	a = a + 4;
+	a = a - 4;
+	a = a * 50;
+	a = a / 50;
+	
+	return a;
+}
+
+### Tail Recursion ###
+
+# Don't need to clutter stack if recursive return value is not used
+
+fun tailRecursionHelper (int value, int sum) int {
+	if (value == 0) {
+		return sum;
+	} else {
+		return tailRecursionHelper(value-1, sum+value);
+	}
+}
+
+
+fun tailRecursion (int value) int {
+	return tailRecursionHelper(value, 0);
+}
+
+
+### Unswitching ###
+
+# If statement can be moved outside of the loop
+
+fun unswitching () int {
+	int a, b;
+	a = 1;
+	b = 2;
+	
+	while (a < 1000000) {
+		if (b == 2) {
+			a = a + 1;
+		} else {
+			a = a + 2;
+		}
+	}
+	
+	return a;
+}
+
+
+### Random Calculation ###
+
+# A random calculation
+
+fun randomCalculation (int number) int {
+	int a, b, c, d, e;
+	int i;
+	int sum;
+	
+	i = 0;
+	sum = 0;
+	
+	while (i < number) {
+		a = 4;
+		b = 7;
+		c = 8;
+		d = a + b;
+		e = d + c;
+		sum = sum + e;
+		i = i * 2;
+		i = i / 2;
+		i = 3 * i;
+		i = i / 3;
+		i = i * 4;
+		i = i / 4;
+		i = i + 1;
+	}
+	
+	return sum;
+}
+
+### Iterative Fibonacci ###
+
+fun iterativeFibonacci (int number) int {
+	int previous;
+	int result;
+	int count;
+	int i;
+        int sum;
+	
+	previous = -1;
+	result = 1;
+	i = 0;
+	
+	while (i < number) {
+		sum = result + previous;
+		previous = result;
+		result = sum;
+                i = i + 1;
+	}
+		
+	return result;
+}
+
+### Recursive Fibonacci ###
+
+fun recursiveFibonacci (int number) int {
+	if (number <= 0 || number == 1) {
+		return number;
+	} else {
+		return recursiveFibonacci(number-1) + recursiveFibonacci(number-2);
+	}
+}
+
+
+### Main Function - Program Entry Point - Start of Program Execution ###
+
+fun main () int {
+	int input;
+	int result;
+	int i;
+
+	read input;
+	i = 1;
+	
+	while (i < input) {
+		result = constantFolding();
+		print result endl;
+		result = constantPropagation();
+		print result endl;
+		result = deadCodeElimination();
+		print result endl;
+		result = interProceduralOptimization();
+		print result endl;
+		result = commonSubexpressionElimination();
+		print result endl;
+		result = hoisting();
+		print result endl;
+		result = doubleIf();
+		print result endl;
+		result = integerDivide();
+		print result endl;
+		result = association();
+		print result endl;
+		result = tailRecursion(input / 1000);
+		print result endl;
+		result = unswitching();
+		print result endl;
+		result = randomCalculation(input);
+		print result endl;
+		result = iterativeFibonacci(input / 5);
+		print result endl;
+		result = recursiveFibonacci(input / 1000);
+		print result endl;
+		i = i + 1;
+	}
+
+print 9999 endl;
+	return 0;
+}
+

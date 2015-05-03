@@ -1,0 +1,43 @@
+#This program will hopefully break your compiler
+
+int GLOBAL, count;
+
+#comment in the middle of code!
+fun fun2 (int x, int y) int {
+   if (x == 0) {
+      return y;
+   } else {
+      return fun2(x - 1, y);
+   }
+}
+
+fun fun1 (int x, int y, int z) int {
+   int retVal;
+   retVal = 5 + 6 - x * 2 + 4 / y + z;
+
+   if (retVal > y) {
+      return fun2(retVal, x);
+   } else { 
+      if (5 < 6 && retVal <= y) {
+         return fun2(retVal, y);
+      }
+   }
+   
+   return retVal;
+}
+
+fun main () int {
+   int i;
+
+   i = 0;
+   read i;
+
+   while ( i < 10000 ) {
+      print fun1(3, i, 5) endl;
+
+      i = i + 1;
+
+   }
+
+   return 0;
+}

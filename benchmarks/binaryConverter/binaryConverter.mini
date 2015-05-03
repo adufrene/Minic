@@ -1,0 +1,76 @@
+fun wait(int waitTime) int
+{
+   while (waitTime > 0)
+   {
+      waitTime = waitTime - 1;
+   }
+
+   return 0;
+}
+
+fun power(int base, int exponent) int
+{
+   int product;
+
+   product = 1;
+   while (exponent > 0)
+   {
+      product = product * base;
+      exponent = exponent - 1;
+   }
+
+   return product;
+}
+
+fun recursiveDecimalSum (int binaryNum, int decimalSum, int recursiveDepth) int
+{
+   int tempNum, base, remainder;
+
+   if (binaryNum > 0)
+   {
+      base = 2;
+
+      tempNum = binaryNum / 10;
+      tempNum = tempNum * 10;
+      tempNum = binaryNum - tempNum;
+
+      if (tempNum == 1)
+      {
+         decimalSum = decimalSum + power(base, recursiveDepth);
+      }
+
+      return recursiveDecimalSum(binaryNum / 10, decimalSum, recursiveDepth + 1);
+   }
+
+   return decimalSum;
+}
+
+fun convertToDecimal(int binaryNum) int
+{
+   int recursiveDepth, decimalSum;
+
+   recursiveDepth = 0;
+   decimalSum = 0;
+
+   return recursiveDecimalSum(binaryNum, decimalSum, recursiveDepth);
+}
+
+fun main() int
+{
+   int number, waitTime;
+
+   read number;
+
+   number = convertToDecimal(number);
+   waitTime = number * number;
+
+   while (waitTime > 0)
+   {
+      wait(waitTime);
+      waitTime = waitTime - 1;
+   }
+
+   print number endl;
+
+   return 0;
+}

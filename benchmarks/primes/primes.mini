@@ -1,0 +1,52 @@
+fun isqrt(int a) int
+{
+	int square, delta;
+	square = 1;
+	delta = 3;
+	while (square <= a)
+	{
+		square = square + delta;
+		delta = delta + 2;
+	}
+	return (delta/2 - 1);
+}
+
+fun prime(int a) bool
+{
+	int max, divisor, remainder;
+	if (a < 2)
+	{
+		return false;
+	}
+	else
+	{
+		max = isqrt(a);
+		divisor = 2;
+		while (divisor <= max)
+		{
+			remainder = a - ((a / divisor) * divisor);
+			if (remainder == 0)
+			{
+				return false;
+			}
+			divisor = divisor + 1;
+		}
+		return true;
+	}
+}
+
+fun main() int
+{
+	int limit, a;
+	read limit;
+	a = 0;
+	while (a <= limit)
+	{
+		if (prime(a))
+		{
+			print a endl;
+		}
+		a = a + 1;
+	}
+	return 0;
+}

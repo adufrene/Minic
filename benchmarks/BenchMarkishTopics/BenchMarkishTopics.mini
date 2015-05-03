@@ -1,0 +1,69 @@
+struct intList {
+   int data;
+   struct intList rest;
+};
+
+int intList;
+
+fun length(struct intList list) int {
+   if(list == null) {
+      return 0;
+   }
+
+   return 1 + length(list.rest);   
+}
+
+fun addToFront(struct intList list, int element) struct intList {
+   struct intList front;
+   if(list == null) {
+      list = new intList;
+      list.data = element;
+      list.rest = null;
+      return list;
+   }
+ 
+   front = new intList;
+   front.data = element;
+   front.rest = list;
+   return front;
+}
+
+fun deleteFirst(struct intList list) struct intList {
+   struct intList first;   
+
+   if(list == null) {
+      return null;
+   }
+
+   first = list;
+   list = list.rest;
+   delete first;
+   return list;
+}
+
+fun main() int {
+   struct intList list;
+   int sum;
+   
+   read intList;
+   sum = 0;
+   list = null;
+
+   while(intList > 0) {
+      list = addToFront(list, intList);
+      print list.data;
+      intList = intList - 1;
+   }
+   
+   print length(list);
+
+   while(length(list) > 0) {
+      sum = sum + list.data;
+      print length(list);
+      list = deleteFirst(list);
+   }
+
+   print sum endl;
+
+   return 0;
+}

@@ -1,0 +1,107 @@
+struct Node
+{
+   int val;
+   struct Node prev;
+   struct Node next;
+};
+
+int swapped;
+
+fun compare(struct Node a, struct Node b) int
+{
+   return a.val - b.val;
+}
+
+fun deathSort(struct Node head) void
+{
+   int swapped;
+   int swap;
+   struct Node currNode;
+   swapped = 1;
+   
+   while (swapped == 1)
+   {
+   
+      swapped = 0;
+      currNode = head;
+   
+      while (currNode.next != head)
+      {         
+         if (compare(currNode, currNode.next) > 0)
+         {
+            swap = currNode.val;
+            currNode.val = currNode.next.val;
+            currNode.next.val = swap;
+            swapped = 1;
+         }
+         
+         currNode = currNode.next;
+      }
+   }
+}
+
+fun printEVILList(struct Node head) void
+{
+   struct Node currNode;
+   struct Node toFree;
+
+   currNode = head.next;
+   
+   print head.val endl;
+   delete head;
+   
+   while (currNode != head)
+   {
+      toFree = currNode;
+      print currNode.val endl;
+      currNode = currNode.next;
+      delete toFree;
+   }
+}
+
+fun main() int
+{
+   int numNodes, counter;
+   struct Node currNode;
+   struct Node head;
+   struct Node previous;
+
+   swapped = 666;
+   
+   read numNodes;
+   
+   if (numNodes <= 0)
+   {
+      # Must have at least 1 node
+      print -1 endl;
+      return -1;
+   }
+   
+   numNodes = numNodes * 1000;
+   counter = numNodes;
+      
+   head = new Node;
+   head.val = counter;
+   head.prev = head;
+   head.next = head;
+   counter = counter - 1;
+   previous = head;
+   
+   while(counter > 0)
+   {
+      currNode = new Node;
+      currNode.val = counter;
+      currNode.prev = previous;
+      currNode.next = head;
+      previous.next = currNode;
+      
+      previous = currNode;
+      
+      counter = counter - 1;
+   }
+   
+   deathSort(head);
+   printEVILList(head);
+   
+   return 0;
+}

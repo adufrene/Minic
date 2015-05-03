@@ -1,0 +1,114 @@
+# Milestone 1
+# CPE 431 Spring 2010
+
+
+struct node {
+   int value;
+   struct node next;
+};
+
+fun buildList() struct node {
+   int input, i;
+   struct node n0, n1, n2, n3, n4, n5;
+
+   n0 = new node;
+   n1 = new node;
+   n2 = new node;
+   n3 = new node;
+   n4 = new node;
+   n5 = new node;
+
+   read n0.value;
+   read n1.value;
+   read n2.value;
+   read n3.value;
+   read n4.value;
+   read n5.value;
+
+   n0.next = n1;
+   n1.next = n2;
+   n2.next = n3;
+   n3.next = n4;
+   n4.next = n5;
+   n5.next = null;
+   
+   return n0;
+}
+
+fun multiple(struct node list) int {
+   int i, product;
+   struct node cur;
+   i = 0;
+
+   cur = list;
+   product = cur.value;
+   cur = cur.next;
+
+   while (i < 5) {
+      product = product * cur.value;
+      cur = cur.next;
+      print product endl;
+      i = i + 1;
+   }
+
+   return product;
+}
+
+fun add(struct node list) int {
+   int i, sum;
+   struct node cur;
+   i = 0;
+
+   cur = list;
+   sum = cur.value;
+   cur = cur.next;
+
+   while (i < 5) {
+      sum = sum + cur.value;
+      cur = cur.next;
+      print sum endl;
+      i = i + 1;
+   }
+
+   return sum;
+}
+
+fun recurseList (struct node list) int {
+   if (list.next == null) {
+      return list.value;
+   }
+   else {
+      return list.value * recurseList(list.next);
+   }
+}
+
+fun main() int {
+   struct node list;
+   int product, sum, result;
+   int bigProduct;
+   int i;
+
+   i = 0;
+   bigProduct = 0;
+   
+   list = buildList();
+   product = multiple(list);
+   sum = add(list);
+   result = product - sum / 2;
+
+   while (i < 10) {
+      bigProduct = bigProduct + recurseList(list);
+      i = i + 1;
+   }
+
+   print bigProduct endl;
+
+   while (bigProduct != 0) {
+      bigProduct = bigProduct - 1;
+   }
+
+   print result endl;
+   print bigProduct endl;
+
+   return 0;
+}

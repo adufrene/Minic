@@ -1,0 +1,89 @@
+# Milestone 1: General Functionality and Optimizations Benchmark
+
+struct IntHolder{
+   int num;
+};
+
+int interval, end;
+
+# A function to test recursion
+fun multBy4xTimes(struct IntHolder num, int timesLeft) int
+{
+  if(timesLeft <= 0){
+     return num.num;
+  }
+
+  # This should be turned into shifts by the compiler
+  num.num = 4 * num.num; 
+  multBy4xTimes(num, timesLeft-1);
+
+  return num.num;
+}
+
+fun divideBy8(struct IntHolder num) void
+{
+  # This could also be turned into shifts
+  num.num = num.num / 2; 
+  num.num = num.num / 2; 
+  num.num = num.num / 2; 
+}
+
+
+fun main() int
+{
+   int start, countOuter, countInner, calc;
+   int tempAnswer, tempInterval;
+   struct IntHolder x;
+   
+   # Perhaps this variable could be analyzed and found to have no purpose.
+   bool uselessVar, uselessVar2;
+
+   x = new IntHolder;
+   
+   end = 1000000;
+
+
+   read start;
+   read interval;
+
+   # Make sure the read worked correctly
+   print start endl;
+   print interval endl;
+
+   countOuter = 0;
+
+   # Test of inner loops
+   while(countOuter < 50){
+
+      countInner = 0;
+      while(countInner <= end){
+         # This should be turned into a constant load.
+         calc = 1*2*3*4*5*6*7*8*9*10*11;
+
+         countInner = countInner + 1;
+         x.num = countInner;
+         tempAnswer = x.num;
+
+         # Function call
+         multBy4xTimes(x,2);
+         divideBy8(x);
+
+         tempInterval = interval-1;
+         uselessVar = tempInterval <= 0;
+
+         if(tempInterval <= 0){
+            tempInterval = 1;
+         }
+
+         countInner = countInner + tempInterval;
+      }
+
+      countOuter = countOuter + 1;
+   }
+
+   print countInner endl;
+   print calc endl;
+
+   return 0;
+}
+

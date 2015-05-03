@@ -1,0 +1,49 @@
+#
+# Milestone #1 Benchmarks
+# keeps adding two numbers' factorials  until -1 is encountered
+#
+
+
+
+# adds both inputs
+fun sum (int a, int b) int
+{
+    return (a + b);
+
+}
+
+# get factorial of positive int
+fun fact (int n) int
+{
+    int t;
+    if (n == 1 || n == 0) {
+      return 1;
+    }
+    if (n <= 1)
+    {
+        return fact(-1 * n);
+    }
+    t = n * fact(n - 1);
+    return t;
+}
+
+fun main () int 
+{
+    int num1;
+    int num2;
+    int flag;
+    flag = 0;
+
+    while (flag != -1)
+    {
+        read num1;
+        read num2;
+        num1 = (fact (num1));
+        num2 = (fact (num2));
+        
+        print (sum (num1, num2)) endl;
+        read flag;
+    }
+
+   return 0;
+}

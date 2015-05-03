@@ -1,0 +1,399 @@
+struct node
+{
+   int data;
+   struct node next;
+};
+
+struct tnode
+{
+   int data;
+   struct tnode left;
+   struct tnode right;
+};
+
+struct i
+{
+   int i;
+};
+
+struct myCopy
+{
+   bool b;
+};
+
+int a,b;
+struct i i;
+
+fun concatLists(struct node first, struct node second) struct node
+{
+   struct node temp;
+
+   temp = first;
+
+   if (first == null)
+   {
+      return second;
+   }
+
+   while (temp.next != null)
+   {
+      temp = temp.next;
+   }
+
+   temp.next = second;
+
+   return first;
+}
+
+fun add(struct node list, int toAdd) struct node
+{
+   struct node newNode;
+
+   newNode = new node;
+   newNode.data = toAdd;
+   newNode.next = list;
+
+   return newNode;
+}
+
+fun size(struct node list) int
+{
+   if (list == null)
+   {
+      return 0;
+   }
+
+   return 1 + (size(list.next));
+}
+
+fun get(struct node list, int index) int
+{
+   if (index == 0)
+   {
+      return list.data;
+   }
+   
+   return get(list.next, (index - 1));
+}
+
+fun pop(struct node list) struct node
+{
+   list = list.next;
+
+   return list;
+}
+
+fun printList(struct node list) void
+{
+   if (list != null)
+   {
+      print list.data endl;
+      printList(list.next);
+   }
+}
+
+#in order print
+fun treeprint(struct tnode root) void
+{
+   if (root != null)
+   {
+      treeprint(root.left);
+      print root.data endl;
+      treeprint(root.right);
+   }
+}
+
+fun freeList(struct node list) void
+{
+   if (list != null)
+   {
+      freeList(list.next);
+      delete list;
+   }
+}
+
+fun freeTree(struct tnode root) void
+{
+   if (!(root == null))
+   {
+      freeTree(root.left);
+      freeTree(root.right);
+      delete root;
+   }
+}
+
+fun postOrder(struct tnode root) struct node
+{
+   struct node temp;
+
+   if (root != null)
+   {
+      temp = new node;
+      temp.data = root.data;
+      temp.next = null;
+      return concatLists( concatLists(postOrder(root.left), postOrder(root.right)), temp);
+   }
+
+   return null;
+}
+
+fun treeadd(struct tnode root, int toAdd) struct tnode
+{
+   struct tnode temp;
+
+   if(root == null)
+   {
+      temp = new tnode;
+      temp.data = toAdd;
+      temp.left = null;
+      temp.right = null;
+      return temp;
+   }
+
+   if (toAdd < root.data)
+   {
+      root.left = treeadd(root.left, toAdd);
+   }
+   else
+   {
+      root.right = treeadd(root.right, toAdd);
+   }
+
+   return root;
+}
+
+
+
+fun quickSort(struct node list) struct node
+{
+   int pivot, i;
+   struct node less, greater, temp;
+
+   less = null;
+   greater = null;
+
+   if (size(list) <= 1)
+   {
+      return list;
+   }
+
+   pivot = (get(list, 0) + get(list, (size(list) - 1))) / 2;
+
+   temp = list;
+   i = 0;
+
+   while (temp != null)
+   {
+      if (get(list, i) > pivot)
+      {
+         greater = add(greater, get(list, i));
+      }
+      else
+      {
+         less = add(less, get(list, i));
+      }
+
+      temp = temp.next;
+      i = i + 1;
+   }
+
+   freeList(list);
+   return concatLists( (quickSort(less)), quickSort(greater));
+}
+
+fun quickSortMain(struct node list) struct node
+{
+   #unsorted
+   printList(list);
+   print -999 endl;
+   
+   #sort plz
+   #list = quickSort(list);
+
+   #sorted
+   printList(list);
+   print -999 endl;
+   
+   #sort plz
+   #list = quickSort(list);
+
+   #sorted
+   printList(list);
+   print -999 endl;
+
+   return null;
+}
+
+fun treesearch(struct tnode root, int target) int
+{
+   print -1 endl;
+
+   if (root != null)
+   {
+      if (root.data == target)
+      {
+         return 1;
+      }
+
+      if (treesearch(root.left, target) == 1)
+      {
+         return 1;
+      }
+      if (treesearch(root.right, target) == 1)
+      {
+         return 1;
+      }
+      else
+      {
+         return 0;
+      }
+   }
+
+   return 0;
+}
+
+fun inOrder(struct tnode root) struct node
+{
+   struct node temp;
+
+   if (root != null)
+   {
+      temp = new node;
+      temp.data = root.data;
+      temp.next = null;
+      return concatLists( inOrder(root.left), (concatLists(temp, inOrder(root.right))));
+   }
+   else
+   {
+      return null;
+   }
+}
+
+fun bintreesearch(struct tnode root, int target) int
+{
+   print -1 endl;
+
+   if (root != null)
+   {
+      if (root.data == target)
+      {
+         return 1;
+      }
+
+      if (target < root.data)
+      {
+         return bintreesearch(root.left, target);
+      }
+      else
+      {
+         return bintreesearch(root.right, target);
+      }
+   }
+
+   return 0;
+}
+
+fun buildTree(struct node list) struct tnode
+{
+   int i;
+   struct tnode root;
+
+   root = null;
+   i = 0;
+
+   while (i < size(list))
+   {
+      root = treeadd(root, get(list, i));
+
+      i = i + 1;
+   }
+
+   return root;
+}
+
+fun treeMain(struct node list) void
+{
+   struct tnode root;
+   struct node inList;
+   struct node postList;
+
+   root = buildTree(list);
+  
+   treeprint(root);
+   print -999 endl;
+
+   inList = inOrder(root);
+   printList(inList);
+   print -999 endl;
+   freeList(inList);
+
+   postList = postOrder(root);
+   printList(postList);
+   print -999 endl;
+   freeList(postList);
+
+   print treesearch(root, 0) endl;
+   print -999 endl;
+   print treesearch(root, 10) endl;
+   print -999 endl;
+   print treesearch(root, -2) endl;
+   print -999 endl;
+   print treesearch(root, 2) endl;
+   print -999 endl;
+   print treesearch(root, 3) endl;
+   print -999 endl;
+   print treesearch(root, 9) endl;
+   print -999 endl;
+   print treesearch(root, 1) endl;
+   print -999 endl;
+  
+   print bintreesearch(root, 0) endl;
+   print -999 endl;
+   print bintreesearch(root, 10) endl;
+   print -999 endl;
+   print bintreesearch(root, -2) endl;
+   print -999 endl;
+   print bintreesearch(root, 2) endl;
+   print -999 endl;
+   print bintreesearch(root, 3) endl;
+   print -999 endl;
+   print bintreesearch(root, 9) endl;
+   print -999 endl;
+   print bintreesearch(root, 1) endl;
+   print -999 endl;
+
+   freeTree(root);
+}
+
+fun myCopy(struct node src) struct node
+{
+   if(src == null)
+   {
+      return null;
+   }
+   return concatLists(add(null, src.data), myCopy(src.next));
+}
+
+fun main() int
+{
+   int i, element;
+   struct node myList, copyList1, copyList2, sortedList;
+   myList = null;
+
+   i = 0;
+   while(i < 10)
+   {
+      read element;
+      myList = add(myList, element);
+      copyList1 = myCopy(myList);
+      copyList2 = myCopy(myList);
+      sortedList = quickSortMain(copyList1);
+      freeList(sortedList);
+      treeMain(copyList2);
+      i = i + 1;
+   }
+   freeList(myList);
+   freeList(copyList1);
+   freeList(copyList2);
+   return 0;
+}

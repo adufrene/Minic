@@ -1,0 +1,107 @@
+struct simple
+{
+    int one;
+};
+
+struct foo
+{
+    int bar;
+    bool cool;
+    struct simple simp;
+};
+
+struct foo globalfoo;
+
+fun tailrecursive(int num) void
+{
+    struct foo unused;
+    if(num <= 0)
+    {
+        return;
+    }
+    unused = new foo;
+    tailrecursive(num-1);
+}
+
+fun add(int x, int y) int
+{
+    return x + y;
+}
+
+fun domath(int num) void
+{
+    struct foo math1;
+    struct foo math2;
+    int tmp;
+
+    math1 = new foo;
+    math1.simp = new simple;
+    math2 = new foo;
+    math2.simp = new simple;
+
+    math1.bar = num;
+    math2.bar = 3;
+    math1.simp.one = math1.bar;
+    math2.simp.one = math2.bar;
+
+    while(num > 0)
+    {
+        tmp = math1.bar * math2.bar;
+        tmp = (tmp * math1.simp.one) / math2.bar;
+        tmp = add(math2.simp.one, math1.bar);
+        tmp = math2.bar - math1.bar;
+        num = num - 1;
+    }
+
+      delete math1;
+      delete math2;
+}
+
+fun objinstantiation(int num) void
+{
+    struct foo tmp;
+    while(num > 0)
+    {
+        tmp = new foo;
+        delete tmp;
+        num = num - 1;
+    }
+}
+
+fun ackermann(int m, int n) int
+{
+    if(m==0)
+    {
+        return n+1;
+    }
+
+    if(n==0)
+    {
+        return ackermann(m-1, 1);
+    }
+    else
+    {
+        return ackermann(m-1, ackermann(m, n-1));
+    }
+}
+
+fun main() int
+{
+    int a,b,c,d,e;
+
+    read a;
+    read b;
+    read c;
+    read d;
+    read e;
+
+    tailrecursive(a);
+    print a endl;
+    domath(b);
+    print b endl;
+    objinstantiation(c);
+    print c endl;
+    print ackermann(d,e) endl;
+
+    return 0;
+}

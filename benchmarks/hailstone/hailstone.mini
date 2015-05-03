@@ -1,0 +1,36 @@
+# compute a % b
+fun mod(int a, int b) int
+{
+	return (a - ((a / b) * b));
+}
+
+# print out the hailstone sequence for a number n
+fun hailstone(int n) void
+{
+	while (true) 
+	{
+		print n;
+		if (mod(n, 2) == 1) 
+		{
+			n = (3 * n) + 1;
+		}
+		else
+		{
+			n = n / 2;
+		}
+		if (n <= 1)
+		{
+			print n endl;
+			return;
+		}
+	}
+}
+
+fun main() int
+{
+	int num;
+	read num;
+	hailstone(num);
+	return 0;
+}
+
