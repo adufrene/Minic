@@ -39,29 +39,43 @@ main = do
         when (printProg `elem` args) $ print program
         let env = checkTypes program
         when (printEnv `elem` args) $ print env
-        unless (shouldPrint args) $ envReport env
-        let graphs = fmap (`createGraphs` program) env
-        when (dumpIL `elem` args) $ writeIloc graphs $
-            fileNameToIL fileName
-
+        if not $ shouldPrint args
+            then return ()
+            else do 
+                    envReport env
+                    let graphs = fmap (`createGraphs` program) env
+                    if (dumpIL `elem` args) 
+                       then writeIloc graphs $ fileNameToIL fileName
+                       else writeAsm graphs $ fileNameToS fileName 
 
 shouldPrint :: [String] -> Bool
-shouldPrint = any (\x -> x `elem` [testJSON, printProg, printEnv])
+shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv])
 
 envReport :: Either ErrType GlobalEnv -> IO ()
 envReport (Left msg) = error msg
 envReport _ = return ()
 
-fileNameToIL :: String -> String
-fileNameToIL oldFile = localName ++ ".il"
-    where reverseNdx = 1 + fromMaybe (-1) ('.' `elemIndex` reverse oldFile)
+stripFile :: String -> String
+stripFile file = reverse $ take localNdx $ reverse newName
+    where reverseNdx = 1 + fromMaybe (-1) ('.' `elemIndex` reverse file)
           localNdx = fromMaybe 0 $ '/' `elemIndex` reverse newName
-          newName = reverse $ drop reverseNdx $ reverse oldFile
-          localName = reverse $ take localNdx $ reverse newName
+          newName = reverse $ drop reverseNdx $ reverse file
+
+fileNameToIL :: String -> String
+fileNameToIL oldFile = stripFile oldFile ++ ".il"
 
 writeIloc :: Either ErrType [NodeGraph] -> String -> IO ()
 writeIloc (Left msg) _ = error msg
 writeIloc (Right graphs) fileName = do
-        writeFile fileName "" -- Truncate
         let print = foldl' (\msg ng -> msg ++ "\n" ++ showNodeGraph ng) "" graphs
-        appendFile fileName print
+        writeFile fileName print
+
+fileNameToS :: String -> String
+fileNameToS oldFile = stripFile oldFile ++ ".s"
+
+writeAsm :: Either ErrType [NodeGraph] -> String -> IO ()
+writeAsm (Left msg) _ = error msg
+writeAsm (Right graphs) fileName = do
+        let print = foldl' (\msg insn -> msg ++ "\n" ++ show insn) ""
+                        $ programToAsm graphs
+        writeFile fileName print  

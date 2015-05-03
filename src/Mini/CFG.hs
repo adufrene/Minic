@@ -2,7 +2,7 @@ module Mini.CFG
     ( showNodeGraph
     , NodeGraph
     , createGraphs
-    , initVertex
+    , entryVertex
     , exitVertex
     , getIloc
     , getLabel

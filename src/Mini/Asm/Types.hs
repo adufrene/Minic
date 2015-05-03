@@ -58,10 +58,16 @@ instance Show OffsetReg where
 
 data Asm = AsmPush AsmReg
          | AsmPop AsmReg
+         | AsmSection
          | AsmText
+         | AsmData
+         | AsmAlign
+         | AsmString String
+         | AsmVarSize Label Immed
+         | AsmFunSize Label
+         | AsmQuad Immed
          | AsmGlobal Label
          | AsmType Label AsmType
-         | AsmSize Label
          | AsmAdd AsmReg AsmReg
          | AsmDiv AsmReg
          | AsmMult AsmReg AsmReg
@@ -85,10 +91,16 @@ data Asm = AsmPush AsmReg
 instance Show Asm where
         show (AsmPush r) = showAsm "pushq" [asmRegStr r]
         show (AsmPop r) = showAsm "popq" [asmRegStr r]
+        show AsmSection = "\t.section\t\t.rodata"
         show AsmText = "\t.text"
-        show (AsmGlobal l) = ".global " ++ l
+        show AsmData = "\t.data"
+        show AsmAlign = "\t.align 8"
+        show (AsmString s) = "\t.string\t\"" ++ s ++ "\""
+        show (AsmVarSize l i) = "\t.size\t" ++ l ++ ", " ++ show i
+        show (AsmQuad i) = "\t.quad\t" ++ show i
+        show (AsmGlobal l) = "\t.comm " ++ l ++ ",8,8"
         show (AsmType l t) = "\t.type\t" ++ l ++ show t
-        show (AsmSize l) = ".size\t" ++ l ++ ", .-" ++ l
+        show (AsmFunSize l) = "\t.size\t" ++ l ++ ", .-" ++ l
         show (AsmAdd r1 r2) = showAsm "addq" [asmRegStr r1, asmRegStr r2]
         show (AsmDiv r) = showAsm "idivq" [asmRegStr r]
         show (AsmMult r1 r2) = showAsm "imulq" [asmRegStr r1, asmRegStr r2]
@@ -109,29 +121,41 @@ instance Show Asm where
         show (AsmLabel l) = l ++ ":"
 
 data AsmType = FunctionType 
+             | ObjectType
              deriving (Eq,Enum)
 
 instance Show AsmType where
         show FunctionType = functionType
+        show ObjectType = objectType
 
 {- Create initial global variables and other file-specific data -}
 programToAsm :: [NodeGraph] -> [Asm]
 programToAsm graphs = createGlobals ++ bodyAsm
-    where createGlobals = []
+    where createGlobals = concat [ globalString printLabel formatStr
+                                 , globalString printlnLabel printlnStr
+                                 , globalString scanLabel formatStr
+                                 , [AsmGlobal scanVar] ]
           bodyAsm = concat $ functionToAsm <$> graphs
+
+globalString :: Label -> String -> [Asm]
+globalString l s = [ AsmSection
+                   , AsmLabel l
+                   , AsmString s ]
 
 {- Create Function prologue to start -}
 {- http://users.csc.calpoly.edu/~akeen/courses/csc431/handouts/references/asm.pdf -}
 functionToAsm :: NodeGraph -> [Asm]
 functionToAsm nodeG@(graph, hash) = prologue ++ body ++ epilogue
     where prologue = createPrologue nodeG
-          body = tail $ concat $ fmap mapFun sortedVerts -- Strip off label
+          body = concat $ mapFun <$> sortedVerts -- Strip off label
           epilogue = createEpilogue nodeG
           sortedVerts = topSort graph
+          sv = startVert nodeG
           mapFun x = if x `elem` [0,-1]
                          then []
-                         else concat $ ilocToAsm <$> getIloc node
+                         else labelInsn ++ concat (ilocToAsm <$> getIloc node)
             where node = hash ! x
+                  labelInsn = if x == sv then [] else [AsmLabel $ getLabel node]
 
 createPrologue :: NodeGraph -> [Asm]
 createPrologue (graph, hash) = [ AsmText
@@ -146,10 +170,13 @@ createEpilogue :: NodeGraph -> [Asm]
 createEpilogue (graph, hash) = [ AsmMov (asmSReg Rbp) (asmDReg Rsp)
                                , AsmPop Rbp
                                , AsmRet
-                               , AsmSize $ funName (graph, hash)]
+                               , AsmFunSize $ funName (graph, hash)]
 
 functionType :: String
 functionType = "@function"
+
+objectType :: String
+objectType = "@object"
 
 asmReg :: AsmReg -> OffsetReg
 asmReg r = OffsetReg r 0
@@ -171,6 +198,12 @@ wordSize = 8
 
 printLabel :: Label
 printLabel = ".PRINT"
+
+formatStr :: String
+formatStr = "%ld"
+
+printlnStr :: String
+printlnStr = "%ld\n"
 
 printlnLabel :: Label
 printlnLabel = ".PRINTLN"
@@ -194,38 +227,35 @@ malloc :: Label
 malloc = "malloc"
 
 funName :: NodeGraph -> Label
-funName (graph, hash) = getLabel $ hash ! startVert 
-    where startVert = snd $ head $ 
-            filter ((==initVertex) . fst) $ edges graph
-          
+funName ng@(_, hash) = getLabel $ hash ! startVert ng
+
+startVert :: NodeGraph -> Vertex
+startVert = snd . head . filter ((==entryVertex) . fst) . edges . fst
 
 srcStr :: AsmSrc -> String
-srcStr (AsmSReg r) = regStr r
+srcStr (AsmSReg r) = show r
 srcStr (AsmImmed i) = immStr i
 srcStr (AsmSLabel l) = labStr l
 
 destStr :: AsmDest -> String
-destStr (AsmDReg r) = regStr r
+destStr (AsmDReg r) = show r
 destStr (AsmDLabel l) = labStr l
 
-regStr :: OffsetReg -> String
-regStr r = " " ++ show r
-
 asmRegStr :: AsmReg -> String
-asmRegStr = regStr . asmReg
+asmRegStr = show . asmReg
 
 labStr :: Label -> String
-labStr l = " $" ++ l
+labStr l = "$" ++ l
 
 immStr :: Immed -> String
-immStr i = " $" ++ show i
+immStr i = "$" ++ show i
 
 compArgStr :: CompArg -> String
 compArgStr (CompReg r) = asmRegStr r
 compArgStr (CompImm i) = immStr i
 
 showAsm :: String -> [String] -> String
-showAsm name args = "\t" ++ name ++ " " ++ intercalate ", " args
+showAsm name args = "\t" ++ name ++ "\t" ++ intercalate ", " args
 
 ilocToAsm :: Iloc -> [Asm]
 ilocToAsm (Add r1 r2 r3) = createAdd r1 r2 r3
@@ -235,6 +265,7 @@ ilocToAsm (Multi r1 i r2) = [ AsmMulti i (RegNum r1) (RegNum r2) ]
 ilocToAsm (Sub r1 r2 r3) = createSub r1 r2 r3
 ilocToAsm (Comp r1 r2) = [AsmCmp (RegNum r1) (CompReg $ RegNum r2)]
 ilocToAsm (Compi r i) = [AsmCmp (RegNum r) (CompImm i)]
+ilocToAsm (Jumpi l) = [AsmJmp l]
 ilocToAsm (Brz r l1 l2) = brz r l1 l2
 ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSReg $ OffsetReg (RegNum r1) i) 
                                 (asmDReg $ RegNum r2)]
