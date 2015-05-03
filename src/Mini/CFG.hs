@@ -2,6 +2,10 @@ module Mini.CFG
     ( showNodeGraph
     , NodeGraph
     , createGraphs
+    , initVertex
+    , exitVertex
+    , getIloc
+    , getLabel
     ) where
 
 {-

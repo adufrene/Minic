@@ -2,9 +2,12 @@
 
 module Mini.Asm.Types (Asm, programToAsm) where
 
+import Control.Applicative
 import Data.Char
 import Data.Data
-import Data.List (intercalate)
+import Data.Graph
+import Data.HashMap.Strict ((!))
+import Data.List (intercalate, elem)
 
 import Mini.Iloc.Types
 import Mini.CFG
@@ -53,14 +56,16 @@ instance Show OffsetReg where
             | otherwise = reg 
             where reg = show r
 
-data Asm = AsmAdd
-         | AsmDiv
-         | AsmMult
-         | AsmMulti
-         | AsmSub
-         | AsmComp
-         | AsmCompi
-         | AsmBrz
+data Asm = AsmPush AsmReg
+         | AsmText
+         | AsmGlobal Label
+         | AsmType Label AsmType
+         | AsmSize Label
+         | AsmAdd AsmReg AsmReg
+         | AsmDiv AsmReg
+         | AsmMult AsmReg AsmReg
+         | AsmMulti Immed AsmReg AsmReg
+         | AsmSub AsmReg AsmReg
          | AsmCmp AsmReg CompArg
          | AsmJe Label
          | AsmJmp Label
@@ -73,17 +78,72 @@ data Asm = AsmAdd
          | AsmCmovleq Immed AsmReg
          | AsmCmovlq Immed AsmReg
          | AsmCmovneq Immed AsmReg
+         | AsmLabel Label
          deriving (Eq)
 
+instance Show Asm where
+        show (AsmPush r) = showAsm "pushq" [asmRegStr r]
+        show AsmText = "\t.text"
+        show (AsmGlobal l) = ".global " ++ l
+        show (AsmType l t) = "\t.type\t" ++ l ++ show t
+        show (AsmSize l) = ".size\t" ++ l ++ ", .-" ++ l
+        show (AsmAdd r1 r2) = showAsm "addq" [asmRegStr r1, asmRegStr r2]
+        show (AsmDiv r) = showAsm "idivq" [asmRegStr r]
+        show (AsmMult r1 r2) = showAsm "imulq" [asmRegStr r1, asmRegStr r2]
+        show (AsmMulti i r1 r2) = showAsm "imulq" [immStr i, asmRegStr r1, asmRegStr r2]
+        show (AsmSub r1 r2) = showAsm "subq" [asmRegStr r1, asmRegStr r2]
+        show (AsmCmp r arg) = showAsm "cmp" [asmRegStr r, compArgStr arg]
+        show (AsmJe l) = showAsm "je" [l]
+        show (AsmJmp l) = showAsm "jmp" [l]
+        show (AsmCall l) = showAsm "call" [l]
+        show AsmRet = showAsm "ret" []
+        show (AsmMov r1 r2) = showAsm "movq" [srcStr r1, destStr r2]
+        show (AsmCmoveq i r) = showAsm "cmoveq" [immStr i, asmRegStr r]
+        show (AsmCmovgeq i r) = showAsm "cmovgeq" [immStr i, asmRegStr r]
+        show (AsmCmovgq i r) = showAsm "cmovgq" [immStr i, asmRegStr r]
+        show (AsmCmovleq i r) = showAsm "cmovleq" [immStr i, asmRegStr r]
+        show (AsmCmovlq i r) = showAsm "cmovlq" [immStr i, asmRegStr r]
+        show (AsmCmovneq i r) = showAsm "cmovneq" [immStr i, asmRegStr r]
+        show (AsmLabel l) = l ++ ":"
+
+data AsmType = FunctionType 
+             deriving (Eq,Enum)
+
+instance Show AsmType where
+        show FunctionType = functionType
+
 {- Create initial global variables and other file-specific data -}
-{- Tail Recursion!!!! -}
 programToAsm :: [NodeGraph] -> [Asm]
 programToAsm graphs = undefined
 
 {- Create Function prologue to start -}
 {- http://users.csc.calpoly.edu/~akeen/courses/csc431/handouts/references/asm.pdf -}
 functionToAsm :: NodeGraph -> [Asm]
-functionToAsm (graph, hash) = undefined
+functionToAsm nodeG@(graph, hash) = prologue ++ body ++ epilogue
+    where prologue = createPrologue nodeG
+          body = tail $ concat $ fmap mapFun sortedVerts -- Strip off label
+          epilogue = createEpilogue nodeG
+          sortedVerts = topSort graph
+          mapFun x = if x `elem` [0,-1]
+                         then []
+                         else concat $ ilocToAsm <$> getIloc node
+            where node = hash ! x
+
+createPrologue :: NodeGraph -> [Asm]
+createPrologue (graph, hash) = [ AsmText
+                               , AsmGlobal funName
+                               , AsmType funName FunctionType
+                               , AsmLabel funName
+                               , AsmPush Rbp
+                               , AsmMov (asmSReg Rsp) (asmDReg Rbp) ]
+    where funName = getLabel $ hash ! startVert
+          startVert = snd $ head $ filter ((==initVertex) . fst) $ edges graph
+
+createEpilogue :: NodeGraph -> [Asm]
+createEpilogue (graph, hash) = undefined
+
+functionType :: String
+functionType = "@function"
 
 asmReg :: AsmReg -> OffsetReg
 asmReg r = OffsetReg r 0
@@ -153,23 +213,14 @@ compArgStr (CompReg r) = asmRegStr r
 compArgStr (CompImm i) = immStr i
 
 showAsm :: String -> [String] -> String
-showAsm name args = name ++ " " ++ intercalate ", " args
-
-instance Show Asm where
-        show (AsmCmp r arg) = showAsm "cmp" [asmRegStr r, compArgStr arg]
-        show (AsmJe l) = showAsm "je" [l]
-        show (AsmJmp l) = showAsm "jmp" [l]
-        show (AsmCall l) = showAsm "call" [l]
-        show AsmRet = showAsm "ret" []
-        show (AsmMov r1 r2) = showAsm "movq" [srcStr r1, destStr r2]
-        show (AsmCmoveq i r) = showAsm "cmoveq" [immStr i, asmRegStr r]
-        show (AsmCmovgeq i r) = showAsm "cmovgeq" [immStr i, asmRegStr r]
-        show (AsmCmovgq i r) = showAsm "cmovgq" [immStr i, asmRegStr r]
-        show (AsmCmovleq i r) = showAsm "cmovleq" [immStr i, asmRegStr r]
-        show (AsmCmovlq i r) = showAsm "cmovlq" [immStr i, asmRegStr r]
-        show (AsmCmovneq i r) = showAsm "cmovneq" [immStr i, asmRegStr r]
+showAsm name args = "\t" ++ name ++ " " ++ intercalate ", " args
 
 ilocToAsm :: Iloc -> [Asm]
+ilocToAsm (Add r1 r2 r3) = createAdd r1 r2 r3
+ilocToAsm (Div r1 r2 r3) = createDiv r1 r2 r3
+ilocToAsm (Mult r1 r2 r3) = createMult r1 r2 r3
+ilocToAsm (Multi r1 i r2) = [ AsmMulti i (RegNum r1) (RegNum r2) ]
+ilocToAsm (Sub r1 r2 r3) = createSub r1 r2 r3
 ilocToAsm (Comp r1 r2) = [AsmCmp (RegNum r1) (CompReg $ RegNum r2)]
 ilocToAsm (Compi r i) = [AsmCmp (RegNum r) (CompImm i)]
 ilocToAsm (Brz r l1 l2) = brz r l1 l2
@@ -200,6 +251,28 @@ ilocToAsm (Movle i r) = [AsmCmovleq i $ RegNum r]
 ilocToAsm (Movlt i r) = [AsmCmovlq i $ RegNum r]
 ilocToAsm (Movne i r) = [AsmCmovneq i $ RegNum r]
 ilocToAsm iloc = error $ "No Asm translation for " ++ show iloc
+
+ilocToAsm (Add r1 r2 r3) = createAdd r1 r2 r3
+ilocToAsm (Div r1 r2 r3) = createDiv r1 r2 r3
+ilocToAsm (Mult r1 r2 r3) = createMult r1 r2 r3
+
+createAdd :: Reg -> Reg -> Reg -> [Asm]
+createAdd r1 r2 r3 = [ AsmAdd (RegNum r2) (RegNum r1)
+                     , AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3) ]
+
+createDiv :: Reg -> Reg -> Reg -> [Asm]
+createDiv r1 r2 r3 = [ AsmMov (AsmImmed 0) (asmDReg Rdx)
+                     , AsmMov (asmSReg $ RegNum r1) (asmDReg Rax)
+                     , AsmDiv (RegNum r2)
+                     , AsmMov (asmSReg Rax) (asmDReg $ RegNum r3) ]
+
+createMult :: Reg -> Reg -> Reg -> [Asm]
+createMult r1 r2 r3 = [ AsmMult (RegNum r2) (RegNum r1)
+                      , AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3) ]
+
+createSub :: Reg -> Reg -> Reg -> [Asm]
+createSub r1 r2 r3 = [ AsmSub (RegNum r2) (RegNum r1)
+                     , AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3) ]
 
 brz :: Reg -> Label -> Label -> [Asm]
 brz r l1 l2 = [ AsmCmp (RegNum r) (CompImm 0)
