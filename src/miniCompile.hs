@@ -39,14 +39,13 @@ main = do
         when (printProg `elem` args) $ print program
         let env = checkTypes program
         when (printEnv `elem` args) $ print env
-        if not $ shouldPrint args
-            then return ()
-            else do 
-                    envReport env
-                    let graphs = fmap (`createGraphs` program) env
-                    if (dumpIL `elem` args) 
-                       then writeIloc graphs $ fileNameToIL fileName
-                       else writeAsm graphs $ fileNameToS fileName 
+        when (shouldPrint args) $
+            do 
+               envReport env
+               if dumpIL `elem` args
+                  then writeIloc (fmap (`createGraphs` program) env)
+                           $ fileNameToIL fileName
+                  else writeAsm env program $ fileNameToS fileName 
 
 shouldPrint :: [String] -> Bool
 shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv])
@@ -73,9 +72,9 @@ writeIloc (Right graphs) fileName = do
 fileNameToS :: String -> String
 fileNameToS oldFile = stripFile oldFile ++ ".s"
 
-writeAsm :: Either ErrType [NodeGraph] -> String -> IO ()
-writeAsm (Left msg) _ = error msg
-writeAsm (Right graphs) fileName = do
+writeAsm :: Either ErrType GlobalEnv -> Program -> String -> IO ()
+writeAsm (Left msg) _ _= error msg
+writeAsm (Right env) prog fileName = do
         let print = foldl' (\msg insn -> msg ++ show insn ++ "\n") ""
-                        $ programToAsm graphs
+                        $ programToAsm env prog
         writeFile fileName print  

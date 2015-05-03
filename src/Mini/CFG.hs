@@ -70,7 +70,7 @@ showNodeGraph (graph, vertToNodeHM) =
   concat strs
   where
     sortedVerts = topSort graph
-    strs = fmap (\x -> if x `notElem` [0,-1]
+    strs = fmap (\x -> if x /= 0
                         then show (vertToNodeHM ! x)
                         else []) sortedVerts
 
@@ -129,8 +129,9 @@ addRet (graph, hash) =  if functionReturns
           functionReturns = last (getIloc $ hash ! endVert) == RetILOC
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
-functionToGraph func nextLabel global = (label *** addRet . fromYesNo) numGraph
-    where argNode = emptyNode (getFunId func) `addToNode` argIloc
+functionToGraph func nextLabel global = (resLabel, replaceRets resGraph func)
+    where (resLabel, resGraph) = (label *** addRet . fromYesNo) numGraph
+          argNode = emptyNode (getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
             foldl' localFoldFun argsHashes $ getFunDeclarations func
           localFoldFun (reg,rHash,lHash) (Declaration _ dType dId) =

@@ -9,8 +9,9 @@ import Data.Graph
 import Data.HashMap.Strict ((!))
 import Data.List (intercalate, elem)
 
-import Mini.Iloc.Types
 import Mini.CFG
+import Mini.Iloc.Types
+import Mini.Types
 
 data AsmSrc = AsmSReg OffsetReg
             | AsmImmed Immed
@@ -138,12 +139,15 @@ instance Show AsmType where
         show ObjectType = objectType
 
 {- Create initial global variables and other file-specific data -}
-programToAsm :: [NodeGraph] -> [Asm]
-programToAsm graphs = createGlobals ++ bodyAsm
-    where createGlobals = concat [ globalString formatLabel formatStr
+programToAsm :: GlobalEnv -> Program -> [Asm]
+programToAsm env prog = createGlobals ++ bodyAsm
+    where graphs = createGraphs env prog
+          createGlobals = concat [ globalString formatLabel formatStr
                                  , globalString printlnLabel printlnStr
-                                 , [AsmGlobal scanVar] ]
+                                 , [AsmGlobal scanVar]
+                                 , createGlobal <$> getDeclarations prog]
           bodyAsm = concat $ functionToAsm <$> graphs
+          createGlobal = AsmGlobal . getDecId 
 
 globalString :: Label -> String -> [Asm]
 globalString l s = [ AsmSection
