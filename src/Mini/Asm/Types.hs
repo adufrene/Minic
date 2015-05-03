@@ -355,8 +355,9 @@ createPrint r endl = [ AsmMov (AsmSLabel printString) (asmDReg Rdi)
 
 createRead :: Reg -> [Asm]
 createRead r = [ AsmMov (AsmSLabel formatLabel) (asmDReg Rdi)
-               , AsmMov (AsmSReg $ OffsetReg Rip $ OffsetLab scanVar) 
-                        (asmDReg Rsi)
+               , AsmMov (AsmSLabel scanVar) (asmDReg Rsi)
                , AsmMov (AsmImmed 0) (asmDReg Rax)
                , AsmCall scanf
-               , AsmMov (asmSReg Rax) (asmDReg $ RegNum r) ]
+               , AsmMov (AsmSReg $ OffsetReg Rip $ OffsetLab scanVar) 
+                        (asmDReg $ RegNum r) ]
+--                , AsmMov (asmSReg Rax) (asmDReg $ RegNum r) ]

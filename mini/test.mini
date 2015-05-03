@@ -1,11 +1,12 @@
 fun main() int {
     int i;
+    i = 3;
 #    while (false) {
 #        if (false) {
 #            return 1;
 #        }
 #    }
     read i;
-    print i;
+    print i endl;
     return 0;
 }
