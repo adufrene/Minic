@@ -163,9 +163,10 @@ functionToAsm nodeG@(graph, hash) = prologue ++ body ++ epilogue
           epilogue = createEpilogue nodeG
           sortedVerts = topSort graph
           sv = startVert nodeG
-          mapFun x = if x `elem` [0,-1]
-                         then []
-                         else labelInsn ++ concat (ilocToAsm <$> getIloc node)
+          mapFun x
+            | x == entryVertex = []
+            | x == exitVertex = labelInsn
+            | otherwise = labelInsn ++ concat (ilocToAsm <$> getIloc node)
             where node = hash ! x
                   labelInsn = if x == sv then [] else [AsmLabel $ getLabel node]
 
