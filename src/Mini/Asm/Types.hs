@@ -57,7 +57,7 @@ instance Show OffsetArg where
 data OffsetReg = OffsetReg AsmReg OffsetArg deriving (Eq)
 
 instance Show AsmReg where
-        show (RegNum i) = "%r" ++ show i
+        show (RegNum i) = "r" ++ show i
         show reg = "%" ++ map toLower (show $ toConstr reg)
 
 instance Show OffsetReg where
