@@ -62,7 +62,8 @@ instance Show AsmReg where
 
 instance Show OffsetReg where
         show (OffsetReg r (OffsetImm 0)) = show r
-        show (OffsetReg r i) = show i ++ "(" ++ show r ++ ")"
+        show (OffsetReg r (OffsetImm i)) = show (wordSize * i) ++ "(" ++ show r ++ ")"
+        show (OffsetReg r (OffsetLab l)) = show l ++ "(" ++ show r ++ ")"
 
 data Asm = AsmPush AsmReg
          | AsmPop AsmReg
