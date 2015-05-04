@@ -311,8 +311,8 @@ ilocToAsm (Div r1 r2 r3) = createDiv r1 r2 r3
 ilocToAsm (Mult r1 r2 r3) = createMult r1 r2 r3
 
 createAdd :: Reg -> Reg -> Reg -> [Asm]
-createAdd r1 r2 r3 = [ AsmAdd (RegNum r2) (RegNum r1)
-                     , AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3) ]
+createAdd r1 r2 r3 = [ AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3)
+                     , AsmAdd (RegNum r2) (RegNum r3) ]
 
 createDiv :: Reg -> Reg -> Reg -> [Asm]
 createDiv r1 r2 r3 = [ AsmMov (AsmImmed 0) (asmDReg Rdx)
@@ -321,12 +321,12 @@ createDiv r1 r2 r3 = [ AsmMov (AsmImmed 0) (asmDReg Rdx)
                      , AsmMov (asmSReg Rax) (asmDReg $ RegNum r3) ]
 
 createMult :: Reg -> Reg -> Reg -> [Asm]
-createMult r1 r2 r3 = [ AsmMult (RegNum r2) (RegNum r1)
-                      , AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3) ]
+createMult r1 r2 r3 = [ AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3)
+                      , AsmMult (RegNum r2) (RegNum r3) ]
 
 createSub :: Reg -> Reg -> Reg -> [Asm]
-createSub r1 r2 r3 = [ AsmSub (RegNum r2) (RegNum r1)
-                     , AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3) ]
+createSub r1 r2 r3 = [ AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3)
+                     , AsmSub (RegNum r2) (RegNum r3) ]
 
 brz :: Reg -> Label -> Label -> [Asm]
 brz r l1 l2 = [ AsmCmp (CompImm 0) (RegNum r)
