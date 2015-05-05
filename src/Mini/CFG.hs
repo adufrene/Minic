@@ -130,7 +130,7 @@ addRet (graph, hash) =  if functionReturns
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
 functionToGraph func nextLabel global = (resLabel, replaceRets resGraph func)
-    where (resLabel, resGraph) = (label *** addRet . fromYesNo) numGraph
+    where (resLabel, resGraph) = (label *** fromYesNo) numGraph
           argNode = emptyNode (getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
             foldl' localFoldFun argsHashes $ getFunDeclarations func
