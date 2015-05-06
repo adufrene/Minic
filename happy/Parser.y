@@ -99,7 +99,7 @@ DecType :: { Type }
     | bool                                      { boolType }
 
 TypeOrDec :: { Id -> [TypeDecl] }
-    : '{' NestedDecl '}' ';'                    { \x -> [TDef 0 x $2] }
+    : '{' NestedDecl '}' ';'                    { \x -> [TDef 0 x $ reverse $2] }
     | IdList ';'                                { \x -> fmap (Decl 0 x) $1 }
 
 Declarations :: { [Declaration] }

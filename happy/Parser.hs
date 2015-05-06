@@ -1104,7 +1104,7 @@ happyReduction_14 (_ `HappyStk`
 	_ `HappyStk`
 	happyRest)
 	 = HappyAbsSyn11
-		 (\x -> [TDef 0 x happy_var_2]
+		 (\x -> [TDef 0 x $ reverse happy_var_2]
 	) `HappyStk` happyRest
 
 happyReduce_15 = happySpecReduce_2  11 happyReduction_15
