@@ -13,12 +13,14 @@ import Mini.CFG
 import Mini.Iloc.Types
 import Mini.Types
 
-data AsmSrc = AsmSReg OffsetReg
+data AsmSrc = AsmSOReg OffsetReg
+            | AsmSReg AsmReg
             | AsmImmed Immed
             | AsmSLabel Label
             deriving (Eq)
 
-data AsmDest = AsmDReg OffsetReg
+data AsmDest = AsmDOReg OffsetReg
+             | AsmDReg AsmReg
              | AsmDLabel Label
              deriving (Eq)
 
@@ -61,12 +63,13 @@ instance Show AsmReg where
         show reg = "%" ++ map toLower (show $ toConstr reg)
 
 instance Show OffsetReg where
-        show (OffsetReg r (OffsetImm 0)) = show r
+        show (OffsetReg r (OffsetImm 0)) = "(" ++ show r ++ ")"
         show (OffsetReg r (OffsetImm i)) = show (wordSize * i) ++ "(" ++ show r ++ ")"
         show (OffsetReg r (OffsetLab l)) = l ++ "(" ++ show r ++ ")"
 
 data Asm = AsmPush AsmReg
          | AsmPop AsmReg
+         | AsmShift Immed AsmReg
          | AsmSection
          | AsmText
          | AsmData
@@ -99,8 +102,9 @@ data Asm = AsmPush AsmReg
          deriving (Eq)
 
 instance Show Asm where
-        show (AsmPush r) = showAsm "pushq" [asmRegStr r]
-        show (AsmPop r) = showAsm "popq" [asmRegStr r]
+        show (AsmPush r) = showAsm "pushq" [show r]
+        show (AsmPop r) = showAsm "popq" [show r]
+        show (AsmShift i r) = showAsm "sarq" [immStr i, show r]
         show AsmSection = "\t.section\t\t.rodata"
         show AsmText = "\t.text"
         show AsmData = "\t.data"
@@ -112,23 +116,23 @@ instance Show Asm where
         show (AsmFunGlobal l) = ".global " ++ l
         show (AsmType l t) = showAsm ".type" [l, show t]
         show (AsmFunSize l) = showAsm ".size" [l, ".-" ++ l]
-        show (AsmAdd r1 r2) = showAsm "addq" [asmRegStr r1, asmRegStr r2]
-        show (AsmDiv r) = showAsm "idivq" [asmRegStr r]
-        show (AsmMult r1 r2) = showAsm "imulq" [asmRegStr r1, asmRegStr r2]
-        show (AsmMulti i r1 r2) = showAsm "imulq" [immStr i, asmRegStr r1, asmRegStr r2]
-        show (AsmSub r1 r2) = showAsm "subq" [asmRegStr r1, asmRegStr r2]
-        show (AsmCmp arg r) = showAsm "cmp" [compArgStr arg, asmRegStr r]
-        show (AsmJe l) = showAsm "je" [l]
-        show (AsmJmp l) = showAsm "jmp" [l]
+        show (AsmAdd r1 r2) = showAsm "addq" [show r1, show r2]
+        show (AsmDiv r) = showAsm "idivq" [show r]
+        show (AsmMult r1 r2) = showAsm "imulq" [show r1, show r2]
+        show (AsmMulti i r1 r2) = showAsm "imulq" [immStr i, show r1, show r2]
+        show (AsmSub r1 r2) = showAsm "subq" [show r1, show r2]
+        show (AsmCmp arg r) = showAsm "cmp " [compArgStr arg, show r]
+        show (AsmJe l) = showAsm "je  " [l]
+        show (AsmJmp l) = showAsm "jmp " [l]
         show (AsmCall l) = showAsm "call" [l]
-        show AsmRet = showAsm "ret" []
+        show AsmRet = showAsm "ret " []
         show (AsmMov r1 r2) = showAsm "movq" [srcStr r1, destStr r2]
-        show (AsmCmoveq i r) = showAsm "cmoveq" [immStr i, asmRegStr r]
-        show (AsmCmovgeq i r) = showAsm "cmovgeq" [immStr i, asmRegStr r]
-        show (AsmCmovgq i r) = showAsm "cmovgq" [immStr i, asmRegStr r]
-        show (AsmCmovleq i r) = showAsm "cmovleq" [immStr i, asmRegStr r]
-        show (AsmCmovlq i r) = showAsm "cmovlq" [immStr i, asmRegStr r]
-        show (AsmCmovneq i r) = showAsm "cmovneq" [immStr i, asmRegStr r]
+        show (AsmCmoveq i r) = showAsm "cmoveq" [immStr i, show r]
+        show (AsmCmovgeq i r) = showAsm "cmovgeq" [immStr i, show r]
+        show (AsmCmovgq i r) = showAsm "cmovgq" [immStr i, show r]
+        show (AsmCmovleq i r) = showAsm "cmovleq" [immStr i, show r]
+        show (AsmCmovlq i r) = showAsm "cmovlq" [immStr i, show r]
+        show (AsmCmovneq i r) = showAsm "cmovneq" [immStr i, show r]
         show (AsmLabel l) = l ++ ":"
 
 data AsmType = FunctionType 
@@ -177,11 +181,11 @@ createPrologue (graph, hash) = [ AsmText
                                , AsmType funLabel FunctionType
                                , AsmLabel funLabel
                                , AsmPush Rbp
-                               , AsmMov (asmSReg Rsp) (asmDReg Rbp) ]
+                               , AsmMov (AsmSReg Rsp) (AsmDReg Rbp) ]
     where funLabel = funName (graph, hash) 
 
 createEpilogue :: NodeGraph -> [Asm]
-createEpilogue (graph, hash) = [ AsmMov (asmSReg Rbp) (asmDReg Rsp)
+createEpilogue (graph, hash) = [ AsmMov (AsmSReg Rbp) (AsmDReg Rsp)
                                , AsmPop Rbp
                                , AsmRet
                                , AsmFunSize $ funName (graph, hash)]
@@ -191,15 +195,6 @@ functionType = "@function"
 
 objectType :: String
 objectType = "@object"
-
-asmReg :: AsmReg -> OffsetReg
-asmReg r = OffsetReg r $ OffsetImm 0
-
-asmSReg :: AsmReg -> AsmSrc
-asmSReg = AsmSReg . asmReg
-
-asmDReg :: AsmReg -> AsmDest
-asmDReg = AsmDReg . asmReg
 
 numArgRegs :: Int
 numArgRegs = length argRegs
@@ -244,16 +239,15 @@ startVert :: NodeGraph -> Vertex
 startVert = snd . head . filter ((==entryVertex) . fst) . edges . fst
 
 srcStr :: AsmSrc -> String
-srcStr (AsmSReg r) = show r
+srcStr (AsmSOReg r) = show r
 srcStr (AsmImmed i) = immStr i
 srcStr (AsmSLabel l) = labStr l
+srcStr (AsmSReg r) = show r
 
 destStr :: AsmDest -> String
-destStr (AsmDReg r) = show r
+destStr (AsmDOReg r) = show r
 destStr (AsmDLabel l) = labStr l
-
-asmRegStr :: AsmReg -> String
-asmRegStr = show . asmReg
+destStr (AsmDReg r) = show r
 
 labStr :: Label -> String
 labStr l = "$" ++ l
@@ -262,7 +256,7 @@ immStr :: Immed -> String
 immStr i = "$" ++ show i
 
 compArgStr :: CompArg -> String
-compArgStr (CompReg r) = asmRegStr r
+compArgStr (CompReg r) = show r
 compArgStr (CompImm i) = immStr i
 
 showAsm :: String -> [String] -> String
@@ -278,16 +272,16 @@ ilocToAsm (Comp r1 r2) = [AsmCmp (CompReg $ RegNum r2) (RegNum r1)]
 ilocToAsm (Compi r i) = [AsmCmp (CompImm i) (RegNum r)]
 ilocToAsm (Jumpi l) = [AsmJmp l]
 ilocToAsm (Brz r l1 l2) = brz r l1 l2
-ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSReg $ OffsetReg (RegNum r1) $ OffsetImm i) 
-                                (asmDReg $ RegNum r2)]
-ilocToAsm (Loadglobal l r) = [AsmMov (AsmSLabel l) (asmDReg $ RegNum r)]
+ilocToAsm (Loadai r1 i r2) = [AsmMov (AsmSOReg $ OffsetReg (RegNum r1) $ OffsetImm i) 
+                                (AsmDReg $ RegNum r2)]
+ilocToAsm (Loadglobal l r) = [AsmMov (AsmSLabel l) (AsmDReg $ RegNum r)]
 ilocToAsm (Loadinargument l i r) = loadArg i r
-ilocToAsm (Loadret r) = [AsmMov (asmSReg Rax) (asmDReg $ RegNum r)]
-ilocToAsm (Storeai r1 r2 i) = [AsmMov (asmSReg $ RegNum r1) 
-                                (AsmDReg $ OffsetReg (RegNum r2) $ OffsetImm i)] 
-ilocToAsm (Storeglobal r l) = [AsmMov (asmSReg $ RegNum r) (AsmDLabel l)]
+ilocToAsm (Loadret r) = [AsmMov (AsmSReg Rax) (AsmDReg $ RegNum r)]
+ilocToAsm (Storeai r1 r2 i) = [AsmMov (AsmSReg $ RegNum r1) 
+                                (AsmDOReg $ OffsetReg (RegNum r2) $ OffsetImm i)] 
+ilocToAsm (Storeglobal r l) = [AsmMov (AsmSReg $ RegNum r) (AsmDLabel l)]
 ilocToAsm (Storeoutargument r i) = storeArg r i
-ilocToAsm (Storeret r) = [AsmMov (asmSReg $ RegNum r) (asmDReg Rax)]
+ilocToAsm (Storeret r) = [AsmMov (AsmSReg $ RegNum r) (AsmDReg Rax)]
 ilocToAsm (Call l) = [AsmCall l]
 ilocToAsm RetILOC = [AsmRet]
 ilocToAsm (New i r) = createNew i r
@@ -295,9 +289,9 @@ ilocToAsm (Del r) = createDelete r
 ilocToAsm (PrintILOC r) = createPrint r False
 ilocToAsm (Println r) = createPrint r True
 ilocToAsm (ReadILOC r) = createRead r
-ilocToAsm (Mov r1 r2) = [AsmMov (asmSReg $ RegNum r1) 
-                            (asmDReg $ RegNum r2)]
-ilocToAsm (Movi i r) = [AsmMov (AsmImmed i) (asmDReg $ RegNum r)]
+ilocToAsm (Mov r1 r2) = [AsmMov (AsmSReg $ RegNum r1) 
+                            (AsmDReg $ RegNum r2)]
+ilocToAsm (Movi i r) = [AsmMov (AsmImmed i) (AsmDReg $ RegNum r)]
 ilocToAsm (Moveq i r) = [AsmCmoveq i $ RegNum r]
 ilocToAsm (Movge i r) = [AsmCmovgeq i $ RegNum r]
 ilocToAsm (Movgt i r) = [AsmCmovgq i $ RegNum r]
@@ -311,21 +305,22 @@ ilocToAsm (Div r1 r2 r3) = createDiv r1 r2 r3
 ilocToAsm (Mult r1 r2 r3) = createMult r1 r2 r3
 
 createAdd :: Reg -> Reg -> Reg -> [Asm]
-createAdd r1 r2 r3 = [ AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3)
+createAdd r1 r2 r3 = [ AsmMov (AsmSReg $ RegNum r1) (AsmDReg $ RegNum r3)
                      , AsmAdd (RegNum r2) (RegNum r3) ]
 
 createDiv :: Reg -> Reg -> Reg -> [Asm]
-createDiv r1 r2 r3 = [ AsmMov (AsmImmed 0) (asmDReg Rdx)
-                     , AsmMov (asmSReg $ RegNum r1) (asmDReg Rax)
+createDiv r1 r2 r3 = [ AsmMov (AsmSReg $ RegNum r1) (AsmDReg Rdx)
+                     , AsmShift 63 Rdx
+                     , AsmMov (AsmSReg $ RegNum r1) (AsmDReg Rax)
                      , AsmDiv (RegNum r2)
-                     , AsmMov (asmSReg Rax) (asmDReg $ RegNum r3) ]
+                     , AsmMov (AsmSReg Rax) (AsmDReg $ RegNum r3) ]
 
 createMult :: Reg -> Reg -> Reg -> [Asm]
-createMult r1 r2 r3 = [ AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3)
+createMult r1 r2 r3 = [ AsmMov (AsmSReg $ RegNum r1) (AsmDReg $ RegNum r3)
                       , AsmMult (RegNum r2) (RegNum r3) ]
 
 createSub :: Reg -> Reg -> Reg -> [Asm]
-createSub r1 r2 r3 = [ AsmMov (asmSReg $ RegNum r1) (asmDReg $ RegNum r3)
+createSub r1 r2 r3 = [ AsmMov (AsmSReg $ RegNum r1) (AsmDReg $ RegNum r3)
                      , AsmSub (RegNum r2) (RegNum r3) ]
 
 brz :: Reg -> Label -> Label -> [Asm]
@@ -335,35 +330,35 @@ brz r l1 l2 = [ AsmCmp (CompImm 0) (RegNum r)
 
 loadArg :: Immed -> Reg -> [Asm]
 loadArg i r
-    | i < numArgRegs = [AsmMov (asmSReg $ argRegs !! i) (asmDReg $ RegNum r)]
+    | i < numArgRegs = [AsmMov (AsmSReg $ argRegs !! i) (AsmDReg $ RegNum r)]
     | otherwise = undefined
 
 storeArg :: Reg -> Immed -> [Asm]
 storeArg r i
-    | i < numArgRegs = [AsmMov (asmSReg $ RegNum r) (asmDReg $ argRegs !! i)] 
+    | i < numArgRegs = [AsmMov (AsmSReg $ RegNum r) (AsmDReg $ argRegs !! i)] 
     | otherwise = undefined {- need to push in reverse order n->6 -}
 
 createNew :: Immed -> Reg -> [Asm]
-createNew words res = [ AsmMov (AsmImmed $ words * wordSize) (asmDReg Rdi)
+createNew words res = [ AsmMov (AsmImmed $ words * wordSize) (AsmDReg Rdi)
                       , AsmCall malloc
-                      , AsmMov (asmSReg Rax) (asmDReg $ RegNum res) ]
+                      , AsmMov (AsmSReg Rax) (AsmDReg $ RegNum res) ]
 
 createDelete :: Reg -> [Asm]
-createDelete r = [ AsmMov (asmSReg $ RegNum r) (asmDReg Rdi)
+createDelete r = [ AsmMov (AsmSReg $ RegNum r) (AsmDReg Rdi)
                  , AsmCall free ]
 
 createPrint :: Reg -> Bool -> [Asm]
-createPrint r endl = [ AsmMov (AsmSLabel printString) (asmDReg Rdi)
-                     , AsmMov (asmSReg $ RegNum r) (asmDReg Rsi)
-                     , AsmMov (AsmImmed 0) (asmDReg Rax)
+createPrint r endl = [ AsmMov (AsmSLabel printString) (AsmDReg Rdi)
+                     , AsmMov (AsmSReg $ RegNum r) (AsmDReg Rsi)
+                     , AsmMov (AsmImmed 0) (AsmDReg Rax)
                      , AsmCall printf ]
     where printString = if endl then printlnLabel else formatLabel
 
 createRead :: Reg -> [Asm]
-createRead r = [ AsmMov (AsmSLabel formatLabel) (asmDReg Rdi)
-               , AsmMov (AsmSLabel scanVar) (asmDReg Rsi)
-               , AsmMov (AsmImmed 0) (asmDReg Rax)
+createRead r = [ AsmMov (AsmSLabel formatLabel) (AsmDReg Rdi)
+               , AsmMov (AsmSLabel scanVar) (AsmDReg Rsi)
+               , AsmMov (AsmImmed 0) (AsmDReg Rax)
                , AsmCall scanf
-               , AsmMov (AsmSReg $ OffsetReg Rip $ OffsetLab scanVar) 
-                        (asmDReg $ RegNum r) ]
---                , AsmMov (asmSReg Rax) (asmDReg $ RegNum r) ]
+               , AsmMov (AsmSOReg $ OffsetReg Rip $ OffsetLab scanVar) 
+                        (AsmDReg $ RegNum r) ]
+--                , AsmMov (AsmSReg Rax) (AsmDReg $ RegNum r) ]
