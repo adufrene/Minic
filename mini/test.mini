@@ -1,3 +1,5 @@
+int i = 2; i = 3;
+
 fun main() int {
     int i;
     i = 3;

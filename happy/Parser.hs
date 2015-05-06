@@ -1784,7 +1784,7 @@ lineP :: P Int
 lineP = asks snd >>= return
 
 happyError :: P a
-happyError = lineP >>= \l -> fail (show l ++ ": Parse error\n")
+happyError = lineP >>= \l -> fail (show l ++ ": Parse error")
 
 lexer :: (Token -> P a) -> P a
 lexer cont = mkP lexer'
@@ -1823,7 +1823,7 @@ lexText cont s = returnToken cont
     where (word, rest) = span (\x -> isAlpha x || isDigit x) s
 
 lexError :: String -> String -> Int -> ParseResult a
-lexError err = runP (lineP >>= \l -> fail (show l ++ ": " ++ err ++ "\n"))
+lexError err = runP (lineP >>= \l -> fail (show l ++ ": " ++ err))
  
 parse :: String -> Program
 parse fileString = either (\x -> error x) id $ runP calc fileString 1
