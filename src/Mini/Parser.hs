@@ -2,7 +2,9 @@
 module Mini.Parser (parse) where
 
 import Control.Applicative ((<$>))
+import Control.Monad.Reader
 import Data.Char
+import Data.Either
 import Data.List (find)
 import Data.Maybe
 
@@ -1034,14 +1036,13 @@ happyReduction_4 (HappyAbsSyn11  happy_var_3)
 	)
 happyReduction_4 _ _ _  = notHappyAtAll 
 
-happyReduce_5 = happySpecReduce_3  6 happyReduction_5
-happyReduction_5 _
-	(HappyAbsSyn14  happy_var_2)
-	(HappyAbsSyn9  happy_var_1)
-	 =  HappyAbsSyn5
-		 (fmap (Decl 0 happy_var_1) happy_var_2
-	)
-happyReduction_5 _ _ _  = notHappyAtAll 
+happyReduce_5 = happyMonadReduce 3 6 happyReduction_5
+happyReduction_5 (_ `HappyStk`
+	(HappyAbsSyn14  happy_var_2) `HappyStk`
+	(HappyAbsSyn9  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ fmap (Decl l happy_var_1) happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn5 r))
 
 happyReduce_6 = happySpecReduce_0  7 happyReduction_6
 happyReduction_6  =  HappyAbsSyn7
@@ -1057,13 +1058,12 @@ happyReduction_7 _
 	)
 happyReduction_7 _ _ _  = notHappyAtAll 
 
-happyReduce_8 = happySpecReduce_2  8 happyReduction_8
-happyReduction_8 (HappyTerminal (TokenId happy_var_2))
-	(HappyAbsSyn9  happy_var_1)
-	 =  HappyAbsSyn8
-		 (Field 0 happy_var_1 happy_var_2
-	)
-happyReduction_8 _ _  = notHappyAtAll 
+happyReduce_8 = happyMonadReduce 2 8 happyReduction_8
+happyReduction_8 ((HappyTerminal (TokenId happy_var_2)) `HappyStk`
+	(HappyAbsSyn9  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ Field l happy_var_1 happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn8 r))
 
 happyReduce_9 = happySpecReduce_1  9 happyReduction_9
 happyReduction_9 _
@@ -1097,23 +1097,23 @@ happyReduction_13 _
 		 (boolType
 	)
 
-happyReduce_14 = happyReduce 4 11 happyReduction_14
+happyReduce_14 = happyMonadReduce 4 11 happyReduction_14
 happyReduction_14 (_ `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn7  happy_var_2) `HappyStk`
 	_ `HappyStk`
-	happyRest)
-	 = HappyAbsSyn11
-		 (\x -> [TDef 0 x $ reverse happy_var_2]
-	) `HappyStk` happyRest
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return 
+                                                    $ \x -> [TDef l x $ reverse happy_var_2])
+	) (\r -> happyReturn (HappyAbsSyn11 r))
 
-happyReduce_15 = happySpecReduce_2  11 happyReduction_15
-happyReduction_15 _
-	(HappyAbsSyn14  happy_var_1)
-	 =  HappyAbsSyn11
-		 (\x -> fmap (Decl 0 x) happy_var_1
-	)
-happyReduction_15 _ _  = notHappyAtAll 
+happyReduce_15 = happyMonadReduce 2 11 happyReduction_15
+happyReduction_15 (_ `HappyStk`
+	(HappyAbsSyn14  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return 
+                                                    $ \x -> fmap (Decl 0 x) happy_var_1)
+	) (\r -> happyReturn (HappyAbsSyn11 r))
 
 happyReduce_16 = happySpecReduce_0  12 happyReduction_16
 happyReduction_16  =  HappyAbsSyn12
@@ -1128,14 +1128,13 @@ happyReduction_17 (HappyAbsSyn12  happy_var_2)
 	)
 happyReduction_17 _ _  = notHappyAtAll 
 
-happyReduce_18 = happySpecReduce_3  13 happyReduction_18
-happyReduction_18 _
-	(HappyAbsSyn14  happy_var_2)
-	(HappyAbsSyn9  happy_var_1)
-	 =  HappyAbsSyn12
-		 (fmap (Declaration 0 happy_var_1) happy_var_2
-	)
-happyReduction_18 _ _ _  = notHappyAtAll 
+happyReduce_18 = happyMonadReduce 3 13 happyReduction_18
+happyReduction_18 (_ `HappyStk`
+	(HappyAbsSyn14  happy_var_2) `HappyStk`
+	(HappyAbsSyn9  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ fmap (Declaration l happy_var_1) happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn12 r))
 
 happyReduce_19 = happySpecReduce_1  14 happyReduction_19
 happyReduction_19 (HappyTerminal (TokenId happy_var_1))
@@ -1166,7 +1165,7 @@ happyReduction_22 (HappyAbsSyn16  happy_var_2)
 	)
 happyReduction_22 _ _  = notHappyAtAll 
 
-happyReduce_23 = happyReduce 8 16 happyReduction_23
+happyReduce_23 = happyMonadReduce 8 16 happyReduction_23
 happyReduction_23 (_ `HappyStk`
 	(HappyAbsSyn22  happy_var_7) `HappyStk`
 	(HappyAbsSyn12  happy_var_6) `HappyStk`
@@ -1175,10 +1174,10 @@ happyReduction_23 (_ `HappyStk`
 	(HappyAbsSyn7  happy_var_3) `HappyStk`
 	(HappyTerminal (TokenId happy_var_2)) `HappyStk`
 	_ `HappyStk`
-	happyRest)
-	 = HappyAbsSyn16
-		 (Function 0 happy_var_2 (reverse happy_var_3) (reverse happy_var_6) (reverse happy_var_7) happy_var_4
-	) `HappyStk` happyRest
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ 
+                                                    Function l happy_var_2 (reverse happy_var_3) (reverse happy_var_6) (reverse happy_var_7) happy_var_4)
+	) (\r -> happyReturn (HappyAbsSyn16 r))
 
 happyReduce_24 = happySpecReduce_2  17 happyReduction_24
 happyReduction_24 _
@@ -1310,25 +1309,23 @@ happyReduction_41 (HappyAbsSyn20  happy_var_2)
 	)
 happyReduction_41 _ _  = notHappyAtAll 
 
-happyReduce_42 = happyReduce 4 23 happyReduction_42
+happyReduce_42 = happyMonadReduce 4 23 happyReduction_42
 happyReduction_42 (_ `HappyStk`
 	(HappyAbsSyn35  happy_var_3) `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn34  happy_var_1) `HappyStk`
-	happyRest)
-	 = HappyAbsSyn20
-		 (Asgn 0 happy_var_1 happy_var_3
-	) `HappyStk` happyRest
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ Asgn l happy_var_1 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn20 r))
 
-happyReduce_43 = happyReduce 4 24 happyReduction_43
+happyReduce_43 = happyMonadReduce 4 24 happyReduction_43
 happyReduction_43 (_ `HappyStk`
 	(HappyAbsSyn25  happy_var_3) `HappyStk`
 	(HappyAbsSyn35  happy_var_2) `HappyStk`
 	_ `HappyStk`
-	happyRest)
-	 = HappyAbsSyn20
-		 (Print 0 happy_var_2 happy_var_3
-	) `HappyStk` happyRest
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ Print l happy_var_2 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn20 r))
 
 happyReduce_44 = happySpecReduce_0  25 happyReduction_44
 happyReduction_44  =  HappyAbsSyn25
@@ -1341,26 +1338,24 @@ happyReduction_45 _
 		 (True
 	)
 
-happyReduce_46 = happySpecReduce_3  26 happyReduction_46
-happyReduction_46 _
-	(HappyAbsSyn34  happy_var_2)
-	_
-	 =  HappyAbsSyn20
-		 (Read 0 happy_var_2
-	)
-happyReduction_46 _ _ _  = notHappyAtAll 
+happyReduce_46 = happyMonadReduce 3 26 happyReduction_46
+happyReduction_46 (_ `HappyStk`
+	(HappyAbsSyn34  happy_var_2) `HappyStk`
+	_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ Read l happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn20 r))
 
-happyReduce_47 = happyReduce 6 27 happyReduction_47
+happyReduce_47 = happyMonadReduce 6 27 happyReduction_47
 happyReduction_47 ((HappyAbsSyn28  happy_var_6) `HappyStk`
 	(HappyAbsSyn20  happy_var_5) `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn35  happy_var_3) `HappyStk`
 	_ `HappyStk`
 	_ `HappyStk`
-	happyRest)
-	 = HappyAbsSyn20
-		 (Cond 0 happy_var_3 happy_var_5 happy_var_6
-	) `HappyStk` happyRest
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ Cond l happy_var_3 happy_var_5 happy_var_6)
+	) (\r -> happyReturn (HappyAbsSyn20 r))
 
 happyReduce_48 = happySpecReduce_0  28 happyReduction_48
 happyReduction_48  =  HappyAbsSyn28
@@ -1375,34 +1370,31 @@ happyReduction_49 (HappyAbsSyn20  happy_var_2)
 	)
 happyReduction_49 _ _  = notHappyAtAll 
 
-happyReduce_50 = happyReduce 5 29 happyReduction_50
+happyReduce_50 = happyMonadReduce 5 29 happyReduction_50
 happyReduction_50 ((HappyAbsSyn20  happy_var_5) `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn35  happy_var_3) `HappyStk`
 	_ `HappyStk`
 	_ `HappyStk`
-	happyRest)
-	 = HappyAbsSyn20
-		 (Loop 0 happy_var_3 happy_var_5
-	) `HappyStk` happyRest
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ Loop l happy_var_3 happy_var_5)
+	) (\r -> happyReturn (HappyAbsSyn20 r))
 
-happyReduce_51 = happySpecReduce_3  30 happyReduction_51
-happyReduction_51 _
-	(HappyAbsSyn35  happy_var_2)
-	_
-	 =  HappyAbsSyn20
-		 (Delete 0 happy_var_2
-	)
-happyReduction_51 _ _ _  = notHappyAtAll 
+happyReduce_51 = happyMonadReduce 3 30 happyReduction_51
+happyReduction_51 (_ `HappyStk`
+	(HappyAbsSyn35  happy_var_2) `HappyStk`
+	_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ Delete l happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn20 r))
 
-happyReduce_52 = happySpecReduce_3  31 happyReduction_52
-happyReduction_52 _
-	(HappyAbsSyn32  happy_var_2)
-	_
-	 =  HappyAbsSyn20
-		 (Ret 0 happy_var_2
-	)
-happyReduction_52 _ _ _  = notHappyAtAll 
+happyReduce_52 = happyMonadReduce 3 31 happyReduction_52
+happyReduction_52 (_ `HappyStk`
+	(HappyAbsSyn32  happy_var_2) `HappyStk`
+	_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ Ret l happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn20 r))
 
 happyReduce_53 = happySpecReduce_0  32 happyReduction_53
 happyReduction_53  =  HappyAbsSyn32
@@ -1416,14 +1408,13 @@ happyReduction_54 (HappyAbsSyn35  happy_var_1)
 	)
 happyReduction_54 _  = notHappyAtAll 
 
-happyReduce_55 = happySpecReduce_3  33 happyReduction_55
-happyReduction_55 _
-	(HappyAbsSyn42  happy_var_2)
-	(HappyTerminal (TokenId happy_var_1))
-	 =  HappyAbsSyn20
-		 (InvocSt 0 happy_var_1 $ reverse happy_var_2
-	)
-happyReduction_55 _ _ _  = notHappyAtAll 
+happyReduce_55 = happyMonadReduce 3 33 happyReduction_55
+happyReduction_55 (_ `HappyStk`
+	(HappyAbsSyn42  happy_var_2) `HappyStk`
+	(HappyTerminal (TokenId happy_var_1)) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ InvocSt l happy_var_1 $ reverse happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn20 r))
 
 happyReduce_56 = happySpecReduce_1  34 happyReduction_56
 happyReduction_56 (HappyTerminal (TokenId happy_var_1))
@@ -1432,14 +1423,13 @@ happyReduction_56 (HappyTerminal (TokenId happy_var_1))
 	)
 happyReduction_56 _  = notHappyAtAll 
 
-happyReduce_57 = happySpecReduce_3  34 happyReduction_57
-happyReduction_57 (HappyTerminal (TokenId happy_var_3))
-	_
-	(HappyAbsSyn34  happy_var_1)
-	 =  HappyAbsSyn34
-		 (LValue (Just 0) happy_var_3 (Just happy_var_1)
-	)
-happyReduction_57 _ _ _  = notHappyAtAll 
+happyReduce_57 = happyMonadReduce 3 34 happyReduction_57
+happyReduction_57 ((HappyTerminal (TokenId happy_var_3)) `HappyStk`
+	_ `HappyStk`
+	(HappyAbsSyn34  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ LValue (Just l) happy_var_3 (Just happy_var_1))
+	) (\r -> happyReturn (HappyAbsSyn34 r))
 
 happyReduce_58 = happySpecReduce_1  35 happyReduction_58
 happyReduction_58 (HappyAbsSyn35  happy_var_1)
@@ -1448,14 +1438,13 @@ happyReduction_58 (HappyAbsSyn35  happy_var_1)
 	)
 happyReduction_58 _  = notHappyAtAll 
 
-happyReduce_59 = happySpecReduce_3  35 happyReduction_59
-happyReduction_59 (HappyAbsSyn35  happy_var_3)
-	(HappyTerminal (TokenBoolOp happy_var_2))
-	(HappyAbsSyn35  happy_var_1)
-	 =  HappyAbsSyn35
-		 (BinExp 0 happy_var_2 happy_var_1 happy_var_3
-	)
-happyReduction_59 _ _ _  = notHappyAtAll 
+happyReduce_59 = happyMonadReduce 3 35 happyReduction_59
+happyReduction_59 ((HappyAbsSyn35  happy_var_3) `HappyStk`
+	(HappyTerminal (TokenBoolOp happy_var_2)) `HappyStk`
+	(HappyAbsSyn35  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ BinExp l happy_var_2 happy_var_1 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
 happyReduce_60 = happySpecReduce_1  36 happyReduction_60
 happyReduction_60 (HappyAbsSyn35  happy_var_1)
@@ -1464,14 +1453,13 @@ happyReduction_60 (HappyAbsSyn35  happy_var_1)
 	)
 happyReduction_60 _  = notHappyAtAll 
 
-happyReduce_61 = happySpecReduce_3  36 happyReduction_61
-happyReduction_61 (HappyAbsSyn35  happy_var_3)
-	(HappyTerminal (TokenCmpOp happy_var_2))
-	(HappyAbsSyn35  happy_var_1)
-	 =  HappyAbsSyn35
-		 (BinExp 0 happy_var_2 happy_var_1 happy_var_3
-	)
-happyReduction_61 _ _ _  = notHappyAtAll 
+happyReduce_61 = happyMonadReduce 3 36 happyReduction_61
+happyReduction_61 ((HappyAbsSyn35  happy_var_3) `HappyStk`
+	(HappyTerminal (TokenCmpOp happy_var_2)) `HappyStk`
+	(HappyAbsSyn35  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ BinExp l happy_var_2 happy_var_1 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
 happyReduce_62 = happySpecReduce_1  37 happyReduction_62
 happyReduction_62 (HappyAbsSyn35  happy_var_1)
@@ -1480,23 +1468,21 @@ happyReduction_62 (HappyAbsSyn35  happy_var_1)
 	)
 happyReduction_62 _  = notHappyAtAll 
 
-happyReduce_63 = happySpecReduce_3  37 happyReduction_63
-happyReduction_63 (HappyAbsSyn35  happy_var_3)
-	_
-	(HappyAbsSyn35  happy_var_1)
-	 =  HappyAbsSyn35
-		 (BinExp 0 "+" happy_var_1 happy_var_3
-	)
-happyReduction_63 _ _ _  = notHappyAtAll 
+happyReduce_63 = happyMonadReduce 3 37 happyReduction_63
+happyReduction_63 ((HappyAbsSyn35  happy_var_3) `HappyStk`
+	_ `HappyStk`
+	(HappyAbsSyn35  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ BinExp l "+" happy_var_1 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_64 = happySpecReduce_3  37 happyReduction_64
-happyReduction_64 (HappyAbsSyn35  happy_var_3)
-	_
-	(HappyAbsSyn35  happy_var_1)
-	 =  HappyAbsSyn35
-		 (BinExp 0 "-" happy_var_1 happy_var_3
-	)
-happyReduction_64 _ _ _  = notHappyAtAll 
+happyReduce_64 = happyMonadReduce 3 37 happyReduction_64
+happyReduction_64 ((HappyAbsSyn35  happy_var_3) `HappyStk`
+	_ `HappyStk`
+	(HappyAbsSyn35  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ BinExp l "-" happy_var_1 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
 happyReduce_65 = happySpecReduce_1  38 happyReduction_65
 happyReduction_65 (HappyAbsSyn35  happy_var_1)
@@ -1505,23 +1491,21 @@ happyReduction_65 (HappyAbsSyn35  happy_var_1)
 	)
 happyReduction_65 _  = notHappyAtAll 
 
-happyReduce_66 = happySpecReduce_3  38 happyReduction_66
-happyReduction_66 (HappyAbsSyn35  happy_var_3)
-	_
-	(HappyAbsSyn35  happy_var_1)
-	 =  HappyAbsSyn35
-		 (BinExp 0 "*" happy_var_1 happy_var_3
-	)
-happyReduction_66 _ _ _  = notHappyAtAll 
+happyReduce_66 = happyMonadReduce 3 38 happyReduction_66
+happyReduction_66 ((HappyAbsSyn35  happy_var_3) `HappyStk`
+	_ `HappyStk`
+	(HappyAbsSyn35  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ BinExp l "*" happy_var_1 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_67 = happySpecReduce_3  38 happyReduction_67
-happyReduction_67 (HappyAbsSyn35  happy_var_3)
-	_
-	(HappyAbsSyn35  happy_var_1)
-	 =  HappyAbsSyn35
-		 (BinExp 0 "/" happy_var_1 happy_var_3
-	)
-happyReduction_67 _ _ _  = notHappyAtAll 
+happyReduce_67 = happyMonadReduce 3 38 happyReduction_67
+happyReduction_67 ((HappyAbsSyn35  happy_var_3) `HappyStk`
+	_ `HappyStk`
+	(HappyAbsSyn35  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ BinExp l "/" happy_var_1 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
 happyReduce_68 = happySpecReduce_1  39 happyReduction_68
 happyReduction_68 (HappyAbsSyn35  happy_var_1)
@@ -1530,21 +1514,19 @@ happyReduction_68 (HappyAbsSyn35  happy_var_1)
 	)
 happyReduction_68 _  = notHappyAtAll 
 
-happyReduce_69 = happySpecReduce_2  39 happyReduction_69
-happyReduction_69 (HappyAbsSyn35  happy_var_2)
-	_
-	 =  HappyAbsSyn35
-		 (UExp 0 "!" happy_var_2
-	)
-happyReduction_69 _ _  = notHappyAtAll 
+happyReduce_69 = happyMonadReduce 2 39 happyReduction_69
+happyReduction_69 ((HappyAbsSyn35  happy_var_2) `HappyStk`
+	_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ UExp l "!" happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_70 = happySpecReduce_2  39 happyReduction_70
-happyReduction_70 (HappyAbsSyn35  happy_var_2)
-	_
-	 =  HappyAbsSyn35
-		 (UExp 0 "-" happy_var_2
-	)
-happyReduction_70 _ _  = notHappyAtAll 
+happyReduce_70 = happyMonadReduce 2 39 happyReduction_70
+happyReduction_70 ((HappyAbsSyn35  happy_var_2) `HappyStk`
+	_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ UExp l "-" happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
 happyReduce_71 = happySpecReduce_1  40 happyReduction_71
 happyReduction_71 (HappyAbsSyn35  happy_var_1)
@@ -1553,14 +1535,13 @@ happyReduction_71 (HappyAbsSyn35  happy_var_1)
 	)
 happyReduction_71 _  = notHappyAtAll 
 
-happyReduce_72 = happySpecReduce_3  40 happyReduction_72
-happyReduction_72 (HappyTerminal (TokenId happy_var_3))
-	_
-	(HappyAbsSyn35  happy_var_1)
-	 =  HappyAbsSyn35
-		 (DotExp 0 happy_var_1 happy_var_3
-	)
-happyReduction_72 _ _ _  = notHappyAtAll 
+happyReduce_72 = happyMonadReduce 3 40 happyReduction_72
+happyReduction_72 ((HappyTerminal (TokenId happy_var_3)) `HappyStk`
+	_ `HappyStk`
+	(HappyAbsSyn35  happy_var_1) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ DotExp l happy_var_1 happy_var_3)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
 happyReduce_73 = happySpecReduce_3  41 happyReduction_73
 happyReduction_73 _
@@ -1571,53 +1552,49 @@ happyReduction_73 _
 	)
 happyReduction_73 _ _ _  = notHappyAtAll 
 
-happyReduce_74 = happySpecReduce_1  41 happyReduction_74
-happyReduction_74 (HappyTerminal (TokenId happy_var_1))
-	 =  HappyAbsSyn35
-		 (IdExp 0 happy_var_1
-	)
-happyReduction_74 _  = notHappyAtAll 
+happyReduce_74 = happyMonadReduce 1 41 happyReduction_74
+happyReduction_74 ((HappyTerminal (TokenId happy_var_1)) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ IdExp l happy_var_1)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_75 = happySpecReduce_2  41 happyReduction_75
-happyReduction_75 (HappyAbsSyn42  happy_var_2)
-	(HappyTerminal (TokenId happy_var_1))
-	 =  HappyAbsSyn35
-		 (InvocExp 0 happy_var_1 $ reverse happy_var_2
-	)
-happyReduction_75 _ _  = notHappyAtAll 
+happyReduce_75 = happyMonadReduce 2 41 happyReduction_75
+happyReduction_75 ((HappyAbsSyn42  happy_var_2) `HappyStk`
+	(HappyTerminal (TokenId happy_var_1)) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ InvocExp l happy_var_1 $ reverse happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_76 = happySpecReduce_1  41 happyReduction_76
-happyReduction_76 (HappyTerminal (TokenNum happy_var_1))
-	 =  HappyAbsSyn35
-		 (IntExp 0 happy_var_1
-	)
-happyReduction_76 _  = notHappyAtAll 
+happyReduce_76 = happyMonadReduce 1 41 happyReduction_76
+happyReduction_76 ((HappyTerminal (TokenNum happy_var_1)) `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ IntExp l happy_var_1)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_77 = happySpecReduce_1  41 happyReduction_77
-happyReduction_77 _
-	 =  HappyAbsSyn35
-		 (TrueExp 0
-	)
+happyReduce_77 = happyMonadReduce 1 41 happyReduction_77
+happyReduction_77 (_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ TrueExp l)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_78 = happySpecReduce_1  41 happyReduction_78
-happyReduction_78 _
-	 =  HappyAbsSyn35
-		 (FalseExp 0
-	)
+happyReduce_78 = happyMonadReduce 1 41 happyReduction_78
+happyReduction_78 (_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ FalseExp l)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_79 = happySpecReduce_2  41 happyReduction_79
-happyReduction_79 (HappyTerminal (TokenId happy_var_2))
-	_
-	 =  HappyAbsSyn35
-		 (NewExp 0 happy_var_2
-	)
-happyReduction_79 _ _  = notHappyAtAll 
+happyReduce_79 = happyMonadReduce 2 41 happyReduction_79
+happyReduction_79 ((HappyTerminal (TokenId happy_var_2)) `HappyStk`
+	_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ NewExp l happy_var_2)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
-happyReduce_80 = happySpecReduce_1  41 happyReduction_80
-happyReduction_80 _
-	 =  HappyAbsSyn35
-		 (NullExp 0
-	)
+happyReduce_80 = happyMonadReduce 1 41 happyReduction_80
+happyReduction_80 (_ `HappyStk`
+	happyRest) tk
+	 = happyThen (( lineP >>= \l -> return $ NullExp l)
+	) (\r -> happyReturn (HappyAbsSyn35 r))
 
 happyReduce_81 = happySpecReduce_2  42 happyReduction_81
 happyReduction_81 _
@@ -1697,14 +1674,14 @@ happyError_ 78 tk = happyError' tk
 happyError_ _ tk = happyError' tk
 
 happyThen :: () => P a -> (a -> P b) -> P b
-happyThen = (thenP)
+happyThen = (>>=)
 happyReturn :: () => a -> P a
-happyReturn = (returnP)
+happyReturn = (return)
 happyThen1 = happyThen
 happyReturn1 :: () => a -> P a
 happyReturn1 = happyReturn
 happyError' :: () => (Token) -> P a
-happyError' tk = parseError tk
+happyError' tk = (\token -> happyError) tk
 
 calc = happySomeParser where
   happySomeParser = happyThen (happyParse action_0) (\x -> case x of {HappyAbsSyn4 z -> happyReturn z; _other -> notHappyAtAll })
@@ -1715,9 +1692,8 @@ happySeq = happyDontSeq
 data TypeDecl = TDef Int Id [Field]
               | Decl Int Type Id
 
-data ParseResult a = Ok a | Failed String
-type LineNumber = Int
-type P a = String -> LineNumber -> ParseResult a
+type ParseResult = Either String
+type P a = ReaderT (String, Int) ParseResult a
 
 data Token = TokenStruct
            | TokenInt
@@ -1798,61 +1774,59 @@ fromTypeDecls = foldr foldFun ([],[])
     where foldFun (TDef l i f) (ts, ds) = ((TypeDef l i f):ts, ds)
           foldFun (Decl l t i) (ts, ds) = (ts, (Declaration l t i):ds)
 
-getLineNo :: P LineNumber
-getLineNo = \s l -> Ok l
+mkP :: (String -> Int -> ParseResult a) -> P a
+mkP = ReaderT . uncurry
 
-thenP :: P a -> (a -> P b) -> P b
-thenP m k = \s l ->
-    case m s l of
-        Ok a -> k a s l
-        Failed e -> Failed e
+runP :: P a -> String -> Int -> ParseResult a
+runP f s l = runReaderT f (s, l)
 
-returnP :: a -> P a
-returnP a = \s l -> Ok a
+lineP :: P Int
+lineP = asks snd >>= return
 
-failP :: String -> P a
-failP a = \s l -> Failed a
-
-parseError :: Token -> P a
-parseError tk = getLineNo `thenP` \line ->
-                        failP (show line ++ ": parse error at "
-                                ++ (show tk))
+happyError :: P a
+happyError = lineP >>= \l -> fail (show l ++ ": Parse error\n")
 
 lexer :: (Token -> P a) -> P a
-lexer cont s = case s of
-        [] -> cont TokenEOF []
-        ('\n':cs) -> \line -> lexer cont cs (line + 1)
-        ('#':cs) -> lexer cont $ dropWhile ((/=) '\n') cs
+lexer cont = mkP lexer'
+    where lexer' [] = returnToken cont TokenEOF []
+          lexer' ('#':cs) = lexer' (dropWhile (/= '\n') cs)
+          lexer' s = nextLex cont s
+
+returnToken :: (t -> P a) -> t -> String -> Int -> ParseResult a
+returnToken cont tok = runP (cont tok)
+
+nextLex :: (Token -> P a) -> String -> Int -> ParseResult a
+nextLex cont s = case s of
+        ('\n':cs) -> \line -> returnToken lexer cont cs (line+1)
         (c:cs)
-            | isSpace c -> lexer cont cs
+            | isSpace c -> runP (lexer cont) cs
             | isAlpha c -> lexText cont (c:cs)
             | isDigit c -> lexNum cont (c:cs)
-        ('<':'=':cs) -> cont (TokenCmpOp "<=") cs       -- <=
-        ('>':'=':cs) -> cont (TokenCmpOp ">=") cs       -- >=
-        ('=':'=':cs) -> cont (TokenCmpOp "==") cs       -- ==
-        ('!':'=':cs) -> cont (TokenCmpOp "!=") cs       -- !=
-        ('&':'&':cs) -> cont (TokenBoolOp "&&") cs      -- &&
-        ('|':'|':cs) -> cont (TokenBoolOp "||") cs      -- ||
+        ('<':'=':cs) -> returnToken cont (TokenCmpOp "<=") cs
+        ('>':'=':cs) -> returnToken cont (TokenCmpOp ">=") cs
+        ('=':'=':cs) -> returnToken cont (TokenCmpOp "==") cs
+        ('!':'=':cs) -> returnToken cont (TokenCmpOp "!=") cs
+        ('&':'&':cs) -> returnToken cont (TokenBoolOp "&&") cs
+        ('|':'|':cs) -> returnToken cont (TokenBoolOp "||") cs
         (c:cs)
-            | isJust (charTk c)-> cont (fromJust $ charTk c) cs
-            | otherwise -> failP ("Unexpected token " ++ [c]) s
+            | isJust (charTk c) -> returnToken cont (fromJust $ charTk c) cs
+            | otherwise -> lexError ("Unexpected token " ++ [c]) s
     where charTk c = snd <$> find ((==) c . fst) charTks
 
-lexNum :: (Token -> P a) -> P a
-lexNum cont s = cont (TokenNum (read num)) rest
+lexNum :: (Token -> P a) -> String -> Int -> ParseResult a
+lexNum cont s = returnToken cont (TokenNum (read num)) rest
     where (num, rest) = span isDigit s
 
-lexText :: (Token -> P a) -> P a
-lexText cont s = cont
+lexText :: (Token -> P a) -> String -> Int -> ParseResult a
+lexText cont s = returnToken cont
         (fromMaybe (TokenId word) (snd <$> find ((==) word . fst) keywords)) rest
     where (word, rest) = span (\x -> isAlpha x || isDigit x) s
- 
-fromParseResult :: ParseResult a -> a
-fromParseResult (Ok a) = a
-fromParseResult (Failed s) = error s
 
+lexError :: String -> String -> Int -> ParseResult a
+lexError err = runP (lineP >>= \l -> fail (show l ++ ": " ++ err ++ "\n"))
+ 
 parse :: String -> Program
-parse fileString = fromParseResult $ calc fileString 1
+parse fileString = either (\x -> error x) id $ runP calc fileString 1
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 {-# LINE 1 "<built-in>" #-}
