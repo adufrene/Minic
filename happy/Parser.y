@@ -60,7 +60,6 @@ import Mini.Types
 
 %%
 
-
 {-
 - Combine Types & Declarations in grammar into {TypeDecls}*, create data type
 - for TypeDecl with two data constructors, Type & Declaration. TypeDecl =
@@ -68,36 +67,47 @@ import Mini.Types
 - constructor into type and Decls. 
 -}
 
-
 Program :: { Program }
-    : Types Declarations Functions { Program (reverse $1) (reverse $2) (reverse $3) }
+    : TypeDecls Functions { 
+                            let (types,decls) = fromTypeDecls $1
+                            in Program (reverse types) (reverse decls) (reverse $2) 
+                          }
 
-Types :: { [TypeDef] }
+
+TypeDecls :: { [TypeDecl] }
     : {- empty -}                               { [] }
-    | Types TypeSub                             { $2 : $1 }
+    | TypeDecls TypeDecl                        { $2 ++ $1 }
 
-TypeSub :: { TypeDef }
-    : struct id '{' NestedDecl '}' ';'   { TypeDef 0 $2 $ reverse $4 }
+TypeDecl :: { [TypeDecl] }
+    : struct id TypeOrDec                       { $3 $2 }
+    | DecType IdList ';'                        { fmap (Decl 0 $1) $2 }
 
 NestedDecl :: { [Field] }
     : {- empty -}                               { [] }
     | NestedDecl Decl ';'                       { $2 : $1 }
 
 Decl :: { Field }
-    : Type id                            { Field 0 $1 $2 }
+    : Type id                                   { Field 0 $1 $2 }
 
 Type :: { Type }
     : int                                       { intType }
     | bool                                      { boolType }
     | struct id                                 { $2 }
 
+DecType :: { Type }
+    : int                                       { intType }
+    | bool                                      { boolType }
+
+TypeOrDec :: { Id -> [TypeDecl] }
+    : '{' NestedDecl '}' ';'                    { \x -> [TDef 0 x $2] }
+    | IdList ';'                                { \x -> fmap (Decl 0 x) $1 }
+
 Declarations :: { [Declaration] }
     : {- empty -}                               { [] }
--- This rule matches empty on empty and on Lineno
     | Declarations Declaration                  { $2 ++ $1 }
 
 Declaration :: { [Declaration] }
-    : Type IdList ';'                    { map (Declaration 0 $1) $2 }
+    : Type IdList ';'                           { fmap (Declaration 0 $1) $2 }
 
 IdList :: { [Id] }
     : id                                        { [$1] }
@@ -233,6 +243,10 @@ ExprList :: { [Expression] }
 -}
 
 {
+
+data TypeDecl = TDef Int Id [Field]
+              | Decl Int Type Id
+
 data ParseResult a = Ok a | Failed String
 type LineNumber = Int
 type P a = String -> LineNumber -> ParseResult a
@@ -275,44 +289,46 @@ data Token = TokenStruct
            deriving (Show)
 
 keywords :: [(String, Token)]
-keywords = [
-    ("struct", TokenStruct),
-    ("int", TokenInt),
-    ("bool", TokenBool),
-    ("fun", TokenFun),
-    ("void", TokenVoid),
-    ("print", TokenPrint),
-    ("read", TokenRead),
-    ("if", TokenIf),
-    ("else", TokenElse),
-    ("while", TokenWhile),
-    ("delete", TokenDelete),
-    ("return", TokenReturn),
-    ("true", TokenTrue),
-    ("false", TokenFalse),
-    ("new", TokenNew),
-    ("null", TokenNull),
-    ("endl", TokenEndl)
-    ]
+keywords = [ ("struct", TokenStruct)
+           , ("int", TokenInt)
+           , ("bool", TokenBool)
+           , ("fun", TokenFun)
+           , ("void", TokenVoid)
+           , ("print", TokenPrint)
+           , ("read", TokenRead)
+           , ("if", TokenIf)
+           , ("else", TokenElse)
+           , ("while", TokenWhile)
+           , ("delete", TokenDelete)
+           , ("return", TokenReturn)
+           , ("true", TokenTrue)
+           , ("false", TokenFalse)
+           , ("new", TokenNew)
+           , ("null", TokenNull)
+           , ("endl", TokenEndl) ]
+    
 
 charTks :: [(Char, Token)]
-charTks = [
-    ('=', TokenEq),
-    ('+', TokenPlus),
-    ('-', TokenMinus),
-    ('*', TokenTimes),
-    ('/', TokenDiv),
-    ('(', TokenOB),
-    (')', TokenCB),
-    ('{', TokenLBrace),
-    ('}', TokenRBrace),
-    (';', TokenSemi),
-    (',', TokenComma),
-    ('.', TokenDot),
-    ('<', TokenCmpOp "<"),
-    ('>', TokenCmpOp ">"),
-    ('!', TokenBang)
-    ]
+charTks = [ ('=', TokenEq)
+          , ('+', TokenPlus)
+          , ('-', TokenMinus)
+          , ('*', TokenTimes)
+          , ('/', TokenDiv)
+          , ('(', TokenOB)
+          , (')', TokenCB)
+          , ('{', TokenLBrace)
+          , ('}', TokenRBrace)
+          , (';', TokenSemi)
+          , (',', TokenComma)
+          , ('.', TokenDot)
+          , ('<', TokenCmpOp "<")
+          , ('>', TokenCmpOp ">")
+          , ('!', TokenBang) ]
+
+fromTypeDecls :: [TypeDecl] -> ([TypeDef], [Declaration])
+fromTypeDecls = foldr foldFun ([],[])
+    where foldFun (TDef l i f) (ts, ds) = ((TypeDef l i f):ts, ds)
+          foldFun (Decl l t i) (ts, ds) = (ts, (Declaration l t i):ds)
 
 getLineNo :: P LineNumber
 getLineNo = \s l -> Ok l
