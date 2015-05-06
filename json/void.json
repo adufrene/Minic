@@ -1,1 +1,0 @@
-{"types":[],"declarations":[],"functions":[{"line":1,"id":"g","parameters":[],"return_type":"void","declarations":[],"body":[{"line":2,"stmt":"return"}]},{"line":5,"id":"main","parameters":[],"return_type":"int","declarations":[],"body":[{"line":6,"stmt":"invocation","id":"g","args":[]},{"line":7,"stmt":"return","exp":{"line":7,"exp":"num","value":"1"}}]}]}
