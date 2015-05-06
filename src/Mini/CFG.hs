@@ -37,7 +37,7 @@ import Control.Monad
 import Data.Array hiding ((!))
 import Data.Either
 import Data.Graph hiding (Node)
-import Data.List (foldl')
+import Data.List (foldr, foldl')
 import Data.Maybe
 import Data.HashMap.Strict hiding (filter, null, foldl, foldr, foldl')
 import Mini.Iloc.Types
@@ -102,8 +102,8 @@ defaultBounds :: Bounds
 defaultBounds = (exitVertex, initVertex)
 
 createGraphs :: GlobalEnv -> Program -> [NodeGraph]
-createGraphs global = snd . foldl' foldFun (1,[]) . getFunctions
-    where foldFun (nextLabel, ngs) fun = 
+createGraphs global = snd . foldr foldFun (1,[]) . getFunctions
+    where foldFun fun (nextLabel, ngs) = 
             ngs `app` functionToGraph fun nextLabel global
           app xs (label, x) = (label, x:xs)
 
