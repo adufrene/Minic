@@ -77,6 +77,39 @@ type LabelNum = Int
 type LabelReg = (LabelNum, Reg)
 type NumAndGraph = (LabelReg, ReturnBlock)
 
+-- maps a node to the list of registers in its gen set
+type GenSetLookup = HashMap Vertex [Reg]
+-- maps a node to the list of registers in its kill set
+type KillSetLookup = HashMap Vertex [Reg]
+
+createGenKillSets :: NodeGraph -> (GenSetLookup, KillSetLookup)
+createGenKillSets (graph, vertToNodeHM) = (empty, empty)
+-- TODO: IMPLEMENT ME
+
+type LiveOutLookup = HashMap Vertex [Reg]
+
+createLiveOut :: NodeGraph ->  GenSetLookup -> KillSetLookup -> LiveOutLookup
+createLiveOut (nodeGraph, vertToNodeHM) vertToGenHM vertToKillHM = empty
+-- TODO: IMPLEMENT ME
+
+type InterferenceGraph = (Graph, HashMap Vertex Reg)
+
+createInterferenceGraph :: Node -> GenSetLookup -> KillSetLookup -> LiveOutLookup -> InterferenceGraph
+createInterferenceGraph node vertToGenHM vertToKillHM vertToLiveOutHM = (buildG (1, 1) [], empty)
+-- TODO: IMPLEMENT ME
+
+type Color = Int
+spillColor = -1
+
+type ColorLookup = HashMap Vertex Color
+
+colorGraph :: InterferenceGraph -> ColorLookup
+colorGraph (graph, hm) = empty
+-- TODO: IMPLEMENT ME
+
+doStuff :: NodeGraph -> [HashMap Vertex InterferenceGraph]
+doStuff (graph, vertToNodeHM) = []
+
 showNodeGraph :: NodeGraph -> String
 showNodeGraph (graph, vertToNodeHM) =
   concat strs
