@@ -110,8 +110,10 @@ evalInvocExpr (InvocExp _ invocId args) = evalInvoc invocId args
 
 evalInvoc :: Id -> Arguments -> Baggage -> Reg -> IlocRet
 evalInvoc invocId args baggage nextReg =
-  (argsIloc ++ outArgIloc ++ callIloc, retReg)
+  ((PrepArgs $ length args) : argsIloc ++ outArgIloc ++ callIloc 
+        ++ [UnprepArgs $ length args], retReg)
   where
+    allocIloc = PrepArgs $ length args
     (argsIloc, argsRegs) = evalInvocArgs args [] [] baggage nextReg
     outArgIloc = [Storeoutargument (argsRegs !! idx) idx | idx <- [0..(length argsRegs - 1)]]
     callIloc = [ Call invocId

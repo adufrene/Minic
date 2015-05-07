@@ -83,6 +83,9 @@ data Iloc =
            | Movle Immed Reg    -- Used
            | Movlt Immed Reg    -- Used
            | Movne Immed Reg    -- Used
+
+           | PrepArgs Immed
+           | UnprepArgs Immed
            deriving (Eq)
 
 condCodeReg :: String
@@ -151,3 +154,6 @@ instance Show Iloc where
    show (Movle i1 r1) = showIlocHelper "movle" [show i1, showReg r1]
    show (Movlt i1 r1) = showIlocHelper "movlt" [show i1, showReg r1]
    show (Movne i1 r1) = showIlocHelper "movne" [show i1, showReg r1]
+
+   show (PrepArgs i) = showIlocHelper "prepArgs" [show i]
+   show (UnprepArgs i) = showIlocHelper "unprepArgs" [show i]

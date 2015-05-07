@@ -1,14 +1,8 @@
-int i = 2; i = 3;
+fun foo(int i1, int i2, int i3, int i4, int i5, int i6, int i7) int {
+    return i1 + i2 + i3 + i4 + i5 + i6 + i7;
+}
 
 fun main() int {
-    int i;
-    i = 3;
-#    while (false) {
-#        if (false) {
-#            return 1;
-#        }
-#    }
-    read i;
-    print i endl;
-    return 0;
+    return foo(0, 1, 2, 3, 4, 5, 6);
 }
+

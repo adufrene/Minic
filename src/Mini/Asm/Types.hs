@@ -81,11 +81,11 @@ data Asm = AsmPush AsmReg
          | AsmGlobal Label
          | AsmFunGlobal Label
          | AsmType Label AsmType
-         | AsmAdd AsmReg AsmReg
+         | AsmAdd AsmReg CompArg
          | AsmDiv AsmReg
          | AsmMult AsmReg AsmReg
          | AsmMulti Immed AsmReg AsmReg
-         | AsmSub AsmReg AsmReg
+         | AsmSub AsmReg CompArg
          | AsmCmp CompArg AsmReg
          | AsmJe Label
          | AsmJmp Label
@@ -116,11 +116,11 @@ instance Show Asm where
         show (AsmFunGlobal l) = ".global " ++ l
         show (AsmType l t) = showAsm ".type" [l, show t]
         show (AsmFunSize l) = showAsm ".size" [l, ".-" ++ l]
-        show (AsmAdd r1 r2) = showAsm "addq" [show r1, show r2]
+        show (AsmAdd r arg) = showAsm "addq" [show r, compArgStr arg]
         show (AsmDiv r) = showAsm "idivq" [show r]
         show (AsmMult r1 r2) = showAsm "imulq" [show r1, show r2]
         show (AsmMulti i r1 r2) = showAsm "imulq" [immStr i, show r1, show r2]
-        show (AsmSub r1 r2) = showAsm "subq" [show r1, show r2]
+        show (AsmSub r arg) = showAsm "subq" [show r, compArgStr arg]
         show (AsmCmp arg r) = showAsm "cmp " [compArgStr arg, show r]
         show (AsmJe l) = showAsm "je  " [l]
         show (AsmJmp l) = showAsm "jmp " [l]
@@ -298,15 +298,13 @@ ilocToAsm (Movgt i r) = [AsmCmovgq i $ RegNum r]
 ilocToAsm (Movle i r) = [AsmCmovleq i $ RegNum r]
 ilocToAsm (Movlt i r) = [AsmCmovlq i $ RegNum r]
 ilocToAsm (Movne i r) = [AsmCmovneq i $ RegNum r]
+ilocToAsm (PrepArgs i) = [AsmSub Rsp $ CompImm $ wordSize * (i - numArgRegs) | i > numArgRegs]
+ilocToAsm (UnprepArgs i) = [AsmAdd Rsp $ CompImm $ wordSize * (i - numArgRegs) | i > numArgRegs]
 ilocToAsm iloc = error $ "No Asm translation for " ++ show iloc
-
-ilocToAsm (Add r1 r2 r3) = createAdd r1 r2 r3
-ilocToAsm (Div r1 r2 r3) = createDiv r1 r2 r3
-ilocToAsm (Mult r1 r2 r3) = createMult r1 r2 r3
 
 createAdd :: Reg -> Reg -> Reg -> [Asm]
 createAdd r1 r2 r3 = [ AsmMov (AsmSReg $ RegNum r1) (AsmDReg $ RegNum r3)
-                     , AsmAdd (RegNum r2) (RegNum r3) ]
+                     , AsmAdd (RegNum r2) (CompReg $ RegNum r3) ]
 
 createDiv :: Reg -> Reg -> Reg -> [Asm]
 createDiv r1 r2 r3 = [ AsmMov (AsmSReg $ RegNum r1) (AsmDReg Rdx)
@@ -321,7 +319,7 @@ createMult r1 r2 r3 = [ AsmMov (AsmSReg $ RegNum r1) (AsmDReg $ RegNum r3)
 
 createSub :: Reg -> Reg -> Reg -> [Asm]
 createSub r1 r2 r3 = [ AsmMov (AsmSReg $ RegNum r1) (AsmDReg $ RegNum r3)
-                     , AsmSub (RegNum r2) (RegNum r3) ]
+                     , AsmSub (RegNum r2) (CompReg $ RegNum r3) ]
 
 brz :: Reg -> Label -> Label -> [Asm]
 brz r l1 l2 = [ AsmCmp (CompImm 0) (RegNum r)
@@ -331,12 +329,16 @@ brz r l1 l2 = [ AsmCmp (CompImm 0) (RegNum r)
 loadArg :: Immed -> Reg -> [Asm]
 loadArg i r
     | i < numArgRegs = [AsmMov (AsmSReg $ argRegs !! i) (AsmDReg $ RegNum r)]
-    | otherwise = undefined
+    | otherwise = [AsmMov (AsmSOReg $ OffsetReg Rbp $ OffsetImm offset) 
+                    (AsmDReg $ RegNum r)]
+    where offset = i - numArgRegs + 2
 
 storeArg :: Reg -> Immed -> [Asm]
 storeArg r i
     | i < numArgRegs = [AsmMov (AsmSReg $ RegNum r) (AsmDReg $ argRegs !! i)] 
-    | otherwise = undefined {- need to push in reverse order n->6 -}
+    | otherwise = [AsmMov (AsmSReg $ RegNum r) (AsmDOReg $ OffsetReg Rsp 
+                    $ OffsetImm offset)]
+    where offset = i - numArgRegs
 
 createNew :: Immed -> Reg -> [Asm]
 createNew words res = [ AsmMov (AsmImmed $ words * wordSize) (AsmDReg Rdi)
