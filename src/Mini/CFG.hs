@@ -38,6 +38,7 @@ import Data.Array hiding ((!))
 import Data.Either
 import Data.Graph hiding (Node)
 import Data.List (foldr, foldl')
+import qualified Data.List as L
 import Data.Maybe
 import Data.HashMap.Strict hiding (filter, null, foldl, foldr, foldl')
 import Mini.Iloc.Types
@@ -64,6 +65,36 @@ type ReturnBlock = YesNo NodeGraph
 type LabelNum = Int
 type LabelReg = (LabelNum, Reg)
 type NumAndGraph = (LabelReg, ReturnBlock)
+
+type GenSet = [Reg]
+type KillSet = [Reg]
+
+-- maps a node to the list of registers in its gen set
+type GenSetLookup = HashMap Vertex GenSet
+-- maps a node to the list of registers in its kill set
+type KillSetLookup = HashMap Vertex KillSet
+
+-- finds the gen and kill sets of a node graph
+createGenKillSets :: NodeGraph -> (GenSetLookup, KillSetLookup)
+createGenKillSets (graph, vertToNodeHM) =
+  (fromList vertGenTups, fromList vertKillTups)
+  where
+    vertGenTups = Prelude.map (\(vertex, (gen, kill)) -> (vertex, gen)) vertGenKillTups
+    vertKillTups = Prelude.map (\(vertex, (gen, kill)) -> (vertex, kill)) vertGenKillTups
+    vertGenKillTups = Prelude.map (\(vertex, node) -> (vertex, findGenAndKill node)) vertNodeTups
+    vertNodeTups = toList vertToNodeHM
+
+-- takes a node and returns its gen and kill set
+findGenAndKill :: Node -> (GenSet, KillSet)
+findGenAndKill (Node _ iloc) = findGenAndKillHelper iloc [] []
+  where
+    findGenAndKillHelper [] genSet killSet = (genSet, killSet)
+    findGenAndKillHelper (x:rest) genSet killSet = findGenAndKillHelper rest nextGenSet nextKillSet
+      where
+        nextGenSet = (L.union genSet (srcRegs L.\\ killSet))
+        nextKillSet = (L.union killSet dstRegs)
+        srcRegs = getSrcRegs x
+        dstRegs = getDstRegs x
 
 showNodeGraph :: NodeGraph -> String
 showNodeGraph (graph, vertToNodeHM) =
