@@ -96,6 +96,26 @@ findGenAndKill (Node _ iloc) = findGenAndKillHelper iloc [] []
         srcRegs = getSrcRegs x
         dstRegs = getDstRegs x
 
+type LiveOutLookup = HashMap Vertex [Reg]
+
+createLiveOut :: NodeGraph ->  GenSetLookup -> KillSetLookup -> LiveOutLookup
+createLiveOut (nodeGraph, vertToNodeHM) vertToGenHM vertToKillHM =
+  actuallyCreateLiveOut startingLiveOutHM vertToGenHM vertToKillHM (nodeGraph, vertToNodeHM)
+  where
+    startingLiveOutHM = fromList $ L.map (\x -> (x, [])) $ vertices nodeGraph
+
+actuallyCreateLiveOut :: LiveOutLookup -> GenSetLookup -> KillSetLookup -> NodeGraph -> LiveOutLookup
+actuallyCreateLiveOut stuffSoFar genSetHM killSetHM (nodeGraph, vertToNodeHM)
+  | (L.sort newStuff) == (L.sort (toList stuffSoFar)) = stuffSoFar
+  | otherwise = actuallyCreateLiveOut (fromList newStuff) genSetHM killSetHM (nodeGraph, vertToNodeHM)
+  where
+    vertices = Prelude.map fst (toList stuffSoFar)
+    newStuff = Prelude.map (\x -> (x, getLiveOutOfVert x stuffSoFar (nodeGraph, vertToNodeHM) genSetHM killSetHM)) vertices
+    getLiveOutOfVert vert liveOutHM (graph, hm) genSetHM killSetHM =
+      foldl' (L.union) [] (L.map (\x -> L.union (genSetHM ! x) ((liveOutHM ! x) L.\\ (killSetHM ! x))) successors)
+      where
+        successors = getSuccessors (graph, hm) vert
+
 showNodeGraph :: NodeGraph -> String
 showNodeGraph (graph, vertToNodeHM) =
   concat strs
@@ -310,3 +330,5 @@ fromNode node = (buildG defaultBounds [(entryVertex,initVertex)],
 addEdge :: NodeGraph -> Edge -> NodeGraph
 addEdge (graph, hash) edge = (buildG (bounds graph) (edge:edges graph), hash)
 
+getSuccessors :: NodeGraph -> Vertex -> [Vertex]
+getSuccessors (graph, hash) vertex = [end | (start, end) <- edges graph, start == vertex]
