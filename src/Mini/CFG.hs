@@ -8,6 +8,7 @@ module Mini.CFG
     , getSuccessors
     , getNeighbors
     , emptyGraph
+    , addEdges
     , push
     , pop
     ) where
@@ -299,6 +300,16 @@ getNeighbors graph v =
 -- empty graph has no edges
 emptyGraph :: Graph -> Bool
 emptyGraph graph = null $ edges graph
+
+-- adds a list of edges to a given graph
+addEdges :: Graph -> [Edge] -> Graph
+addEdges graph newEdges = buildG (minimum theVertices, maximum theVertices) $ (edges graph) ++ newEdges
+  where
+    theVertices = (getVerticesFromEdges newEdges) ++ (vertices graph)
+
+-- get all the verticies that are in the supplied list of edges
+getVerticesFromEdges :: [Edge] -> [Vertex]
+getVerticesFromEdges edges = (L.map fst edges) ++ (L.map snd edges)
 
 {- stack funcs-}
 push :: [a] -> a -> [a]

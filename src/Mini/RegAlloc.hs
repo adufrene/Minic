@@ -7,7 +7,6 @@ module Mini.RegAlloc
   , findGenAndKill
   , LiveOutLookup
   , InterferenceGraph
-  , 
   ) where
 
 import Data.HashMap.Strict hiding (filter, null, foldl, foldr, foldl')
@@ -91,3 +90,34 @@ actuallyDeconstructInterferenceGraph graph stack
 -- assumes graph is not empty
 pickNextVertex :: InterferenceGraph -> Vertex
 pickNextVertex graph = head $ vertices graph -- TODO: pick better heuristic
+
+type Color = Int
+colors = [42..0xDEADBEEF] -- TODO: implement me
+spillColor = -1
+
+type ColorLookup = HashMap Vertex Color
+
+theEmptyGraph = (buildG (0, 0) []) 
+
+reconstructInterferenceGraph :: DeconstructionStack -> ColorLookup
+reconstructInterferenceGraph stack = actuallyReconstruct stack theEmptyGraph empty
+
+actuallyReconstruct :: DeconstructionStack -> InterferenceGraph -> ColorLookup -> ColorLookup
+actuallyReconstruct [] _ colorHM = colorHM
+actuallyReconstruct ((nextVert, neighbors):rest) interferenceGraph colorHM =
+  actuallyReconstruct rest newInterferenceGraph newHM
+  where
+    newEdges = [ (nextVert, nextNeighbor) | nextNeighbor <- neighbors ]
+    newInterferenceGraph = addEdges interferenceGraph newEdges
+    color = pickColor nextVert newInterferenceGraph colorHM
+    newHM = insert nextVert color colorHM
+
+-- picks the first color that not used by any of its neighbors
+pickColor :: Vertex -> InterferenceGraph -> ColorLookup -> Color
+pickColor nextVert graph colorHM
+  | null availColors = spillColor
+  | otherwise = head availColors
+  where
+    neighbors = getNeighbors graph nextVert
+    neighborColors = [ colorHM ! n | n <- neighbors `L.intersect` (Data.HashMap.Strict.elems colorHM) ]
+    availColors = colors L.\\ neighborColors
