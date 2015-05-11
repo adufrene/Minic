@@ -116,6 +116,30 @@ actuallyCreateLiveOut stuffSoFar genSetHM killSetHM (nodeGraph, vertToNodeHM)
       where
         successors = getSuccessors (graph, hm) vert
 
+type InterferenceGraph = Graph
+
+type DeconstructionStack = [(Vertex, [Vertex])]
+
+deconstructInterferenceGraph :: InterferenceGraph -> DeconstructionStack
+deconstructInterferenceGraph graph = actuallyDeconstructInterferenceGraph graph []
+
+actuallyDeconstructInterferenceGraph :: InterferenceGraph -> DeconstructionStack -> DeconstructionStack
+actuallyDeconstructInterferenceGraph graph stack
+  | emptyGraph graph = stack
+  | otherwise = actuallyDeconstructInterferenceGraph newGraph newStack
+  where
+    nextVertex = pickNextVertex graph
+    neighbors = getNeighbors graph nextVertex
+    newEdges = [(nextVertex , nextNeighbor) | nextNeighbor <- neighbors]
+    filteredOldEdges = [(v1, v2) | (v1, v2) <- edges graph, (v1 /= nextVertex) && (v2 /= nextVertex)]
+    newStack = push stack (nextVertex, neighbors)
+    newGraph = (buildG (bounds graph) (filteredOldEdges ++ newEdges))
+
+-- uses heuristic to pick the next vertex to pull out of interference graph
+-- assumes graph is not empty
+pickNextVertex :: InterferenceGraph -> Vertex
+pickNextVertex graph = head $ vertices graph -- TODO: pick better heuristic
+
 showNodeGraph :: NodeGraph -> String
 showNodeGraph (graph, vertToNodeHM) =
   concat strs
@@ -332,3 +356,24 @@ addEdge (graph, hash) edge = (buildG (bounds graph) (edge:edges graph), hash)
 
 getSuccessors :: NodeGraph -> Vertex -> [Vertex]
 getSuccessors (graph, hash) vertex = [end | (start, end) <- edges graph, start == vertex]
+
+-- get all the neighbors of a given vertex in a graph
+-- two vertices are neighbors if they share an edge
+getNeighbors :: Graph -> Vertex -> [Vertex]
+getNeighbors graph v =
+  [ x | x <- vertices graph, ((x, v) `elem` theEdges) || ((v, x) `elem` theEdges) ]
+  where
+    theEdges = edges graph
+
+-- determines if a graph is empty
+-- empty graph has no edges
+emptyGraph :: Graph -> Bool
+emptyGraph graph = null $ edges graph
+
+{- stack funcs-}
+push :: [a] -> a -> [a]
+push stack item = item:stack
+
+pop :: [a] -> (a, [a])
+pop [] = error $ "empty stack"
+pop (x:xs) = (x, xs)
