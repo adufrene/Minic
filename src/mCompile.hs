@@ -13,6 +13,7 @@ import Mini.Parser
 import Mini.Iloc.Types
 import Mini.Types
 import Mini.TypeCheck
+import Mini.RegAlloc
 
 testJSON :: String
 testJSON = "--testJSON"
