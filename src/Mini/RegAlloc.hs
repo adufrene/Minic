@@ -41,6 +41,11 @@ regVertList = [ (Rax, -1)
               , (R15, -16)
               , (Rip, -17) ]
 
+callerSaved = [Rax, Rcx, Rdx, Rsi, Rdi, R8, R9, R10, R11]
+calleeSaved = [Rbx, Rsp, Rbp, R12, R13, R14, R15]
+argRegs = [Rdi, Rsi, Rdx, Rcx, R8, R9]
+returnReg = Rax
+
 -- registers we will read from for this instruction
 getSrcRegs :: Iloc -> [AsmReg]
 getSrcRegs (Add r1 r2 _) = [RegNum r1, RegNum r2]
@@ -81,7 +86,7 @@ getSrcRegs (Storeinargument r1 _ _) = [RegNum r1]
 getSrcRegs (Storeoutargument r1 _) = [RegNum r1]
 getSrcRegs (Storeret r1) = [RegNum r1]
 
-getSrcRegs Call{} = []
+getSrcRegs Call{} = argRegs
 getSrcRegs RetILOC = []
 
 getSrcRegs New{} = []
@@ -109,7 +114,7 @@ getSrcRegs iloc = error $ "unexpected input " ++ show iloc
 getDstRegs :: Iloc -> [AsmReg]
 getDstRegs (Add _ _ r3) = [RegNum r3]
 getDstRegs (Addi _ _ r2) = [RegNum r2]
-getDstRegs (Div _ _ r3) = [RegNum r3]
+getDstRegs (Div _ _ r3) = [RegNum r3, Rax, Rdx]
 getDstRegs (Mult _ _ r3) = [RegNum r3]
 getDstRegs (Multi _ _ r2) = [RegNum r2]
 getDstRegs (Sub _ _ r3) = [RegNum r3]
@@ -145,7 +150,7 @@ getDstRegs Storeinargument{} = []
 getDstRegs Storeoutargument{} = []
 getDstRegs Storeret{} = []
 
-getDstRegs Call{} = []
+getDstRegs Call{} = callerSaved
 getDstRegs RetILOC = []
 
 getDstRegs (New _ r1) = [RegNum r1]
