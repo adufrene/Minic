@@ -264,10 +264,8 @@ actuallyDeconstructInterferenceGraph graph stack
   where
     nextVertex = pickNextVertex graph
     neighbors = getNeighbors graph nextVertex
-    newEdges = [(nextVertex , nextNeighbor) | nextNeighbor <- neighbors]
-    filteredOldEdges = [(v1, v2) | (v1, v2) <- edges graph, (v1 /= nextVertex) && (v2 /= nextVertex)]
     newStack = push stack (nextVertex, neighbors)
-    newGraph = buildG (bounds graph) (filteredOldEdges ++ newEdges)
+    newGraph = removeVertex graph nextVertex
 
 -- uses heuristic to pick the next vertex to pull out of interference graph
 -- assumes graph is not empty

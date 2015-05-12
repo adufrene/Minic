@@ -10,6 +10,7 @@ module Mini.CFG
     , getNeighbors
     , emptyGraph
     , addEdges
+    , removeVertex
     , push
     , pop
     ) where
@@ -311,6 +312,11 @@ addEdges graph newEdges = buildG (minimum theVertices, maximum theVertices) $ (e
 -- get all the verticies that are in the supplied list of edges
 getVerticesFromEdges :: [Edge] -> [Vertex]
 getVerticesFromEdges edges = (L.map fst edges) ++ (L.map snd edges)
+
+-- take out all edges that touch a given vertex
+removeVertex :: Graph -> Vertex -> Graph
+removeVertex graph toKill = buildG (bounds graph) remainingEdges
+  where remainingEdges = [(v1, v2) | (v1, v2) <- edges graph, (v1 /= toKill) && (v2 /= toKill)]
 
 {- stack funcs-}
 push :: [a] -> a -> [a]
