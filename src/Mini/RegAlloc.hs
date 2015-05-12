@@ -257,7 +257,7 @@ newBounds (oldLower, oldUpper) verts = (newLower, newUpper)
 type DeconstructionStack = [(Vertex, [Vertex])]
 
 deconstructInterferenceGraph :: InterferenceGraph -> DeconstructionStack
-deconstructInterferenceGraph graph = actuallyDeconstructInterferenceGraph graph []
+deconstructInterferenceGraph = flip actuallyDeconstructInterferenceGraph []
 
 actuallyDeconstructInterferenceGraph :: InterferenceGraph -> DeconstructionStack -> DeconstructionStack
 actuallyDeconstructInterferenceGraph graph stack
@@ -318,5 +318,5 @@ safeMinimum :: Ord a => a -> [a] -> a
 safeMinimum def [] = def
 safeMinimum _ l = L.minimum l
 
-testIntGraph :: NodeGraph -> DeconstructionStack
-testIntGraph graph = deconstructInterferenceGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph :: NodeGraph -> InterferenceGraph
+testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph

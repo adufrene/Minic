@@ -315,8 +315,14 @@ getVerticesFromEdges edges = (L.map fst edges) ++ (L.map snd edges)
 
 -- take out all edges that touch a given vertex
 removeVertex :: Graph -> Vertex -> Graph
-removeVertex graph toKill = buildG (bounds graph) remainingEdges
+removeVertex graph toKill = buildG newBounds remainingEdges
   where remainingEdges = [(v1, v2) | (v1, v2) <- edges graph, (v1 /= toKill) && (v2 /= toKill)]
+        (lower, upper) = bounds graph
+        newBounds = if toKill == lower
+                        then (lower + 1, upper)
+                        else if toKill == upper
+                            then (lower, upper-1)
+                            else (lower, upper)
 
 {- stack funcs-}
 push :: [a] -> a -> [a]
