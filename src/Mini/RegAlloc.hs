@@ -17,6 +17,7 @@ import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Array hiding ((!), elems)
 import Data.Maybe
+import Prelude hiding (map)
 
 import Mini.Asm.Types
 import Mini.Iloc.Types
@@ -186,12 +187,7 @@ type GenKillLookup = HashMap Vertex (GenSet, KillSet)
 
 -- finds the gen and kill sets of a node graph
 createGenKillSets :: NodeGraph -> GenKillLookup
-createGenKillSets (graph, vertToNodeHM) = fromList vertGenKillTups 
-  where 
-    vertGenTups = L.map (\(vertex, (gen, _)) -> (vertex, gen)) vertGenKillTups
-    vertKillTups = L.map (\(vertex, (_, kill)) -> (vertex, kill)) vertGenKillTups
-    vertGenKillTups = L.map (second findGenAndKill) vertNodeTups
-    vertNodeTups = toList vertToNodeHM
+createGenKillSets = map findGenAndKill . snd
 
 -- takes a node and returns its gen and kill set
 findGenAndKill :: Node -> (GenSet, KillSet)
@@ -208,20 +204,21 @@ findGenAndKill (Node _ iloc) = findGenAndKillHelper iloc Set.empty Set.empty
 type LiveOutLookup = HashMap Vertex (Set.Set AsmReg)
 
 createLiveOut :: NodeGraph ->  GenKillLookup -> LiveOutLookup
-createLiveOut (nodeGraph, vertToNodeHM) lookup =
-  actuallyCreateLiveOut startingLiveOutHM lookup (nodeGraph, vertToNodeHM)
+createLiveOut (nodeGraph, vertToNodeHM) lookup' =
+  actuallyCreateLiveOut startingLiveOutHM lookup' (nodeGraph, vertToNodeHM)
   where
     startingLiveOutHM = fromList $ L.map (\x -> (x, Set.empty)) $ vertices nodeGraph
 
+{- Switch hashmap parameter to Set -}
 actuallyCreateLiveOut :: LiveOutLookup -> GenKillLookup -> NodeGraph -> LiveOutLookup
-actuallyCreateLiveOut stuffSoFar lookup (nodeGraph, vertToNodeHM)
-  | Set.null (newStuff Set.\\ Set.fromList (toList stuffSoFar)) = stuffSoFar
-  | otherwise = actuallyCreateLiveOut (fromList $ Set.toList newStuff) lookup (nodeGraph, vertToNodeHM)
+actuallyCreateLiveOut stuffSoFar gkLookup ng
+  | newStuff == Set.fromList (toList stuffSoFar) = stuffSoFar
+  | otherwise = actuallyCreateLiveOut (fromList $ Set.toList newStuff) gkLookup ng
   where
-    vertices = Set.map fst (Set.fromList $ toList stuffSoFar)
-    newStuff = Set.map (\x -> (x, getLiveOutOfVert x stuffSoFar (nodeGraph, vertToNodeHM) lookup)) vertices
-    getLiveOutOfVert vert liveOutHM (graph, hm) lookup =
-      Set.foldl' Set.union Set.empty (Set.map (\x -> fst (lookup ! x) `Set.union` ((liveOutHM ! x) Set.\\ snd (lookup ! x))) successors)
+    verts = Set.fromList $ keys stuffSoFar -- Set.map fst (Set.fromList $ toList stuffSoFar)
+    newStuff = Set.map (\x -> (x, getLiveOutOfVert x stuffSoFar ng gkLookup)) verts
+    getLiveOutOfVert vert liveOutHM (graph, hm) lookup' =
+      Set.foldl' Set.union Set.empty (Set.map (\x -> fst (lookup' ! x) `Set.union` ((liveOutHM ! x) Set.\\ snd (lookup' ! x))) successors)
       where
         successors = Set.fromList $ getSuccessors (graph, hm) vert
 
@@ -321,5 +318,5 @@ safeMinimum :: Ord a => a -> [a] -> a
 safeMinimum def [] = def
 safeMinimum _ l = L.minimum l
 
-testIntGraph :: NodeGraph -> InterferenceGraph
-testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph :: NodeGraph -> DeconstructionStack
+testIntGraph graph = deconstructInterferenceGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph

@@ -288,7 +288,7 @@ addEdge :: NodeGraph -> Edge -> NodeGraph
 addEdge (graph, hash) edge = (buildG (bounds graph) (edge:edges graph), hash)
 
 getSuccessors :: NodeGraph -> Vertex -> [Vertex]
-getSuccessors (graph, hash) vertex = [end | (start, end) <- edges graph, start == vertex]
+getSuccessors (graph, _) vertex = [end | (start, end) <- edges graph, start == vertex]
 
 -- get all the neighbors of a given vertex in a graph
 -- two vertices are neighbors if they share an edge
