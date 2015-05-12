@@ -1,6 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Mini.Asm.Types (Asm, programToAsm) where
+module Mini.Asm.Types 
+        ( Asm
+        , programToAsm
+        , AsmReg (..)
+        ) where
 
 import Control.Applicative
 import Data.Char
@@ -46,7 +50,7 @@ data AsmReg = Rax
             | R15
             | Rip
             | RegNum Reg
-            deriving (Eq, Data, Typeable)
+            deriving (Eq, Data, Typeable, Ord)
 
 data OffsetArg = OffsetImm Immed
                | OffsetLab Label

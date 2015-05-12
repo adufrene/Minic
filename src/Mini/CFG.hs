@@ -5,6 +5,7 @@ module Mini.CFG
     , createGraphs
     , entryVertex
     , exitVertex
+    , initVertex
     , getSuccessors
     , getNeighbors
     , emptyGraph

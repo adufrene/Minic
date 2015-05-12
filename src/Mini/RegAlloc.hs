@@ -16,12 +16,161 @@ import Data.Graph hiding (Node)
 import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Array hiding ((!), elems)
+import Data.Maybe
 
+import Mini.Asm.Types
 import Mini.Iloc.Types
 import Mini.CFG
 
-type GenSet = Set.Set Reg
-type KillSet = Set.Set Reg
+regVertList :: [(AsmReg, Vertex)]
+regVertList = [ (Rax, -1)
+              , (Rbx, -2)
+              , (Rcx, -3)
+              , (Rdx, -4)
+              , (Rsp, -5)
+              , (Rbp, -6)
+              , (Rsi, -7)
+              , (Rdi, -8)
+              , (R8, -9)
+              , (R9, -10)
+              , (R10, -11)
+              , (R11, -12)
+              , (R12, -13)
+              , (R13, -14)
+              , (R14, -15)
+              , (R15, -16)
+              , (Rip, -17) ]
+
+-- registers we will read from for this instruction
+getSrcRegs :: Iloc -> [AsmReg]
+getSrcRegs (Add r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Addi r1 _ _) = [RegNum r1]
+getSrcRegs (Div r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Mult r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Multi r1 _ _) = [RegNum r1]
+getSrcRegs (Sub r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Rsubi r1 _ _) = [RegNum r1]
+
+getSrcRegs (And r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Or r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Xori r1 _ _) = [RegNum r1]
+
+getSrcRegs (Comp r1 r2) = [RegNum r1, RegNum r2]
+getSrcRegs (Compi r1 _) = [RegNum r1]
+
+getSrcRegs Cbreq{} = []
+getSrcRegs Cbrge{} = []
+getSrcRegs Cbrgt{} = []
+getSrcRegs Cbrle{} = []
+getSrcRegs Cbrlt{} = []
+getSrcRegs Cbrne{} = []
+getSrcRegs Jumpi{} = []
+getSrcRegs (Brz r1 _ _) = [RegNum r1]
+
+getSrcRegs (Loadai r1 _ _) = [RegNum r1]
+getSrcRegs Loadglobal{} = []
+getSrcRegs Loadinargument{} = []
+getSrcRegs Loadret{} = []
+getSrcRegs Computeformaladdress{} = []
+getSrcRegs Restoreformal{} = []
+getSrcRegs Computeglobaladdress{} = []
+
+getSrcRegs (Storeai r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Storeglobal r1 _) = [RegNum r1]
+getSrcRegs (Storeinargument r1 _ _) = [RegNum r1]
+getSrcRegs (Storeoutargument r1 _) = [RegNum r1]
+getSrcRegs (Storeret r1) = [RegNum r1]
+
+getSrcRegs Call{} = []
+getSrcRegs RetILOC = []
+
+getSrcRegs New{} = []
+getSrcRegs (Del r1) = [RegNum r1]
+
+getSrcRegs (PrintILOC r1) = [RegNum r1]
+getSrcRegs (Println r1) = [RegNum r1]
+getSrcRegs ReadILOC{} = []
+
+getSrcRegs (Mov r1 _) = [RegNum r1]
+getSrcRegs Movi{} = []
+getSrcRegs Moveq{} = []
+getSrcRegs Movge{} = []
+getSrcRegs Movgt{} = []
+getSrcRegs Movle{} = []
+getSrcRegs Movlt{} = []
+getSrcRegs Movne{} = []
+
+getSrcRegs PrepArgs{} = []
+getSrcRegs UnprepArgs{} = []
+
+getSrcRegs iloc = error $ "unexpected input " ++ show iloc
+
+-- registers we will write to for this instruction
+getDstRegs :: Iloc -> [AsmReg]
+getDstRegs (Add _ _ r3) = [RegNum r3]
+getDstRegs (Addi _ _ r2) = [RegNum r2]
+getDstRegs (Div _ _ r3) = [RegNum r3]
+getDstRegs (Mult _ _ r3) = [RegNum r3]
+getDstRegs (Multi _ _ r2) = [RegNum r2]
+getDstRegs (Sub _ _ r3) = [RegNum r3]
+getDstRegs (Rsubi _ _ r2) = [RegNum r2]
+
+getDstRegs (And _ _ r3) = [RegNum r3]
+getDstRegs (Or _ _ r3) = [RegNum r3]
+getDstRegs (Xori _ _ r2) = [RegNum r2]
+
+getDstRegs Comp{} = []
+getDstRegs Compi{} = []
+
+getDstRegs Cbreq{} = []
+getDstRegs Cbrge{} = []
+getDstRegs Cbrgt{} = []
+getDstRegs Cbrle{} = []
+getDstRegs Cbrlt{} = []
+getDstRegs Cbrne{} = []
+getDstRegs Jumpi{} = []
+getDstRegs Brz{} = []
+
+getDstRegs (Loadai _ _ r2) = [RegNum r2]
+getDstRegs (Loadglobal _ r1) = [RegNum r1]
+getDstRegs (Loadinargument _ _ r1) = [RegNum r1]
+getDstRegs (Loadret r1) = [RegNum r1]
+getDstRegs (Computeformaladdress _ _ r1) = [RegNum r1]
+getDstRegs Restoreformal{} = []
+getDstRegs (Computeglobaladdress _ r1) = [RegNum r1]
+
+getDstRegs Storeai{} = []
+getDstRegs Storeglobal{} = []
+getDstRegs Storeinargument{} = []
+getDstRegs Storeoutargument{} = []
+getDstRegs Storeret{} = []
+
+getDstRegs Call{} = []
+getDstRegs RetILOC = []
+
+getDstRegs (New _ r1) = [RegNum r1]
+getDstRegs Del{} = []
+
+getDstRegs PrintILOC{} = []
+getDstRegs Println{} = []
+getDstRegs ReadILOC{} = []
+
+getDstRegs (Mov _ r2) = [RegNum r2]
+getDstRegs (Movi _ r1) = [RegNum r1]
+getDstRegs (Moveq _ r1) = [RegNum r1]
+getDstRegs (Movge _ r1) = [RegNum r1]
+getDstRegs (Movgt _ r1) = [RegNum r1]
+getDstRegs (Movle _ r1) = [RegNum r1]
+getDstRegs (Movlt _ r1) = [RegNum r1]
+getDstRegs (Movne _ r1) = [RegNum r1]
+
+getDstRegs PrepArgs{} = []
+getDstRegs UnprepArgs{} = []
+
+getDstRegs iloc = error $ "unexpected input " ++ show iloc
+
+type GenSet = Set.Set AsmReg
+type KillSet = Set.Set AsmReg
 
 -- maps a node to the list of registers in its gen set
 type GenSetLookup = HashMap Vertex GenSet
@@ -51,7 +200,7 @@ findGenAndKill (Node _ iloc) = findGenAndKillHelper iloc Set.empty Set.empty
         srcRegs = Set.fromList $ getSrcRegs x
         dstRegs = Set.fromList $ getDstRegs x
 
-type LiveOutLookup = HashMap Vertex (Set.Set Reg)
+type LiveOutLookup = HashMap Vertex (Set.Set AsmReg)
 
 createLiveOut :: NodeGraph ->  GenKillLookup -> LiveOutLookup
 createLiveOut (nodeGraph, vertToNodeHM) lookup =
@@ -74,24 +223,34 @@ actuallyCreateLiveOut stuffSoFar lookup (nodeGraph, vertToNodeHM)
 type InterferenceGraph = Graph
 
 createInterferenceGraph :: NodeGraph -> LiveOutLookup -> InterferenceGraph
-createInterferenceGraph (_, nodeHash) lookup = foldrWithKey foldFun (buildG (1,1) []) nodeHash 
+createInterferenceGraph (_, nodeHash) lookup = foldrWithKey foldFun theEmptyGraph nodeHash 
     where foldFun key node graph = fst $ foldr foldIntGraph (graph, lookup ! key) $ getIloc node
 
-foldIntGraph :: Iloc -> (Graph, Set.Set Reg) -> (Graph, Set.Set Reg)
+foldIntGraph :: Iloc -> (Graph, Set.Set AsmReg) -> (Graph, Set.Set AsmReg)
 foldIntGraph insn (graph, liveNow) = (newGraph, newLiveNow)
     where targetRegs = getDstRegs insn 
           sourceRegSet = Set.fromList $ getSrcRegs insn
           newLiveNow = Set.union sourceRegSet $ Set.filter (`elem` targetRegs) liveNow
-          newGraph = connectVertices graph targetRegs $ Set.toList liveNow
+          newGraph = connectVertices graph (regToVert targetRegs) $ regToVert $ Set.toList liveNow
 
-connectVertices :: Graph -> [Reg] -> [Reg] -> Graph
-connectVertices graph srcRegs destRegs = buildG (lowerBound, upperBound) newEdges
-    where upperBound = max currUpperBound maxReg 
-          lowerBound = fst $ bounds graph
-          currUpperBound = snd $ bounds graph
-          maxReg = safeMaximum 0 $ srcRegs `L.union` destRegs
-          newEdges = edges graph `L.union` L.concatMap (`createEdges` destRegs) srcRegs
+regToVert :: [AsmReg] -> [Vertex]
+regToVert = L.map mapFun 
+    where mapFun (RegNum r) = r
+          mapFun r = fromMaybe (error $ "Invalid vertex: " ++ show r) 
+                            $ r `L.lookup` regVertList 
+
+connectVertices :: Graph -> [Vertex] -> [Vertex] -> Graph
+connectVertices graph src dest = buildG newBnds newEdges
+    where newBnds = newBounds (newBounds (bounds graph) src) dest
+          newEdges = edges graph `L.union` L.concatMap (`createEdges` dest) src
           createEdges reg = L.nub . L.map (\dest -> (reg, dest)) . filter(/= reg)
+
+newBounds :: Bounds -> [Vertex] -> Bounds
+newBounds (oldLower, oldUpper) verts = (newLower, newUpper)
+    where newUpper = max vertMax oldUpper
+          newLower = min vertMin oldLower
+          vertMax = safeMaximum oldUpper verts
+          vertMin = safeMinimum oldLower verts
 
 type DeconstructionStack = [(Vertex, [Vertex])]
 
@@ -116,12 +275,17 @@ pickNextVertex :: InterferenceGraph -> Vertex
 pickNextVertex graph = head $ vertices graph -- TODO: pick better heuristic
 
 type Color = Int
+
+colors :: [Color]
 colors = [42..0xDEADBEEF] -- TODO: implement me
+
+spillColor :: Color
 spillColor = -1
 
 type ColorLookup = HashMap Vertex Color
 
-theEmptyGraph = buildG (1, 1) []
+theEmptyGraph :: Graph
+theEmptyGraph = buildG (initVertex, initVertex) []
 
 reconstructInterferenceGraph :: DeconstructionStack -> ColorLookup
 reconstructInterferenceGraph stack = actuallyReconstruct stack theEmptyGraph empty
@@ -149,6 +313,10 @@ pickColor nextVert graph colorHM
 safeMaximum :: Ord a => a -> [a] -> a
 safeMaximum def [] = def
 safeMaximum _ l = L.maximum l
+
+safeMinimum :: Ord a => a -> [a] -> a
+safeMinimum def [] = def
+safeMinimum _ l = L.minimum l
 
 testIntGraph :: NodeGraph -> InterferenceGraph
 testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
