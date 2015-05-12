@@ -156,7 +156,10 @@ getSrcRegs (Movle i1 r1) = []
 getSrcRegs (Movlt i1 r1) = []
 getSrcRegs (Movne i1 r1) = []
 
-getSrcRegs iloc = error $ "unexpected input" ++ (show iloc)
+getSrcRegs (PrepArgs _) = []
+getSrcRegs (UnprepArgs _) = []
+
+getSrcRegs iloc = error $ "unexpected input " ++ (show iloc)
 
 -- registers we will write to for this instruction
 getDstRegs :: Iloc -> [Reg]
@@ -217,7 +220,10 @@ getDstRegs (Movle i1 r1) = [r1]
 getDstRegs (Movlt i1 r1) = [r1]
 getDstRegs (Movne i1 r1) = [r1]
 
-getDstRegs iloc = error $ "unexpected input" ++ (show iloc)
+getDstRegs (PrepArgs _) = []
+getDstRegs (UnprepArgs _) = []
+
+getDstRegs iloc = error $ "unexpected input " ++ (show iloc)
 
 instance Show Iloc where
    show (Add r1 r2 r3) = showIlocHelper "add" $ map showReg [r1, r2, r3]

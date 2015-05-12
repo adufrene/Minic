@@ -24,6 +24,9 @@ printProg = "--printProgram"
 printEnv :: String
 printEnv = "--printEnv"
 
+printGraph :: String
+printGraph = "--printGraph"
+
 dumpIL :: String
 dumpIL = "--dumpIL"
 
@@ -32,30 +35,29 @@ dumpIL = "--dumpIL"
 main :: IO ()
 main = do
         args <- getArgs
-        let fileName = head $ filter (not . isPrefixOf "--") args
+        let fileName = safeGetFile args
         file <- readFile fileName
---         let parsedJSON = decode . BS.pack $ file :: Maybe Program
---             program = fromMaybe (error "Invalid JSON input") parsedJSON
         let program = parse file
         when (testJSON `elem` args) $ 
             putStrLn $ BS.unpack $ encode program
         when (printProg `elem` args) $ print program
         let env = checkTypes program
         when (printEnv `elem` args) $ print env
+        when (printGraph `elem` args) $ print $ fmap testIntGraph $ (envReport env) `createGraphs` program
         when (shouldPrint args) $
             do 
-               envReport env
+               let globalEnv = envReport env
                if dumpIL `elem` args
-                  then writeIloc (fmap (`createGraphs` program) env)
+                  then writeIloc (globalEnv `createGraphs` program) 
                            $ fileNameToIL fileName
-                  else writeAsm env program $ fileNameToS fileName 
+                  else writeAsm globalEnv program $ fileNameToS fileName 
 
 shouldPrint :: [String] -> Bool
-shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv])
+shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv, printGraph])
 
-envReport :: Either ErrType GlobalEnv -> IO ()
+envReport :: Either ErrType GlobalEnv -> GlobalEnv
 envReport (Left msg) = error msg
-envReport _ = return ()
+envReport (Right env) = env
 
 stripFile :: String -> String
 stripFile file = reverse $ take localNdx $ reverse newName
@@ -66,18 +68,22 @@ stripFile file = reverse $ take localNdx $ reverse newName
 fileNameToIL :: String -> String
 fileNameToIL oldFile = stripFile oldFile ++ ".il"
 
-writeIloc :: Either ErrType [NodeGraph] -> String -> IO ()
-writeIloc (Left msg) _ = error msg
-writeIloc (Right graphs) fileName = do
+writeIloc :: [NodeGraph] -> String -> IO ()
+writeIloc graphs fileName = do
         let print = foldl' (\msg ng -> msg ++ "\n" ++ showNodeGraph ng) "" graphs
         writeFile fileName print
 
 fileNameToS :: String -> String
 fileNameToS oldFile = stripFile oldFile ++ ".s"
 
-writeAsm :: Either ErrType GlobalEnv -> Program -> String -> IO ()
-writeAsm (Left msg) _ _= error msg
-writeAsm (Right env) prog fileName = do
+writeAsm :: GlobalEnv -> Program -> String -> IO ()
+writeAsm env prog fileName = do
         let print = foldl' (\msg insn -> msg ++ show insn ++ "\n") ""
                         $ programToAsm env prog
         writeFile fileName print  
+
+safeGetFile :: [String] -> String
+safeGetFile args = if null fileList
+                       then error "Please provide mini file as argument"
+                        else head fileList
+    where fileList = filter (not . isPrefixOf "--") args

@@ -42,8 +42,8 @@ import Control.Monad
 import Data.Array hiding ((!))
 import Data.Either
 import Data.Graph hiding (Node)
-import Data.List (foldr, foldl')
 import qualified Data.List as L
+import qualified Data.Set as Set
 import Data.Maybe
 import Data.HashMap.Strict hiding (filter, null, foldl, foldr, foldl')
 import Mini.Iloc.Types
@@ -108,7 +108,7 @@ defaultBounds :: Bounds
 defaultBounds = (exitVertex, initVertex)
 
 createGraphs :: GlobalEnv -> Program -> [NodeGraph]
-createGraphs global = snd . foldr foldFun (1,[]) . getFunctions
+createGraphs global = snd . L.foldr foldFun (1,[]) . getFunctions
     where foldFun fun (nextLabel, ngs) = 
             ngs `app` functionToGraph fun nextLabel global
           app xs (label, x) = (label, x:xs)
@@ -139,10 +139,10 @@ functionToGraph func nextLabel global = (resLabel, replaceRets resGraph func)
     where (resLabel, resGraph) = (label *** fromYesNo) numGraph
           argNode = emptyNode (getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
-            foldl' localFoldFun argsHashes $ getFunDeclarations func
+            L.foldl' localFoldFun argsHashes $ getFunDeclarations func
           localFoldFun (reg,rHash,lHash) (Declaration _ dType dId) =
               (reg+1, insert dId reg rHash, insert dId dType lHash)
-          (argsHashes, argIloc) = foldl' argFoldFun ((1, empty, empty), []) $  
+          (argsHashes, argIloc) = L.foldl' argFoldFun ((1, empty, empty), []) $  
             getFunParameters func
           argFoldFun ((reg,rHash,lHash),iloc) (Field _ fType fId) =
               ((reg+1, insert fId reg rHash, insert fId fType lHash), 
