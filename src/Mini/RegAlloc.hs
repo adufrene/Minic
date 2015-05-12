@@ -277,10 +277,10 @@ pickNextVertex graph = head $ vertices graph -- TODO: pick better heuristic
 type Color = Int
 
 colors :: [Color]
-colors = [42..0xDEADBEEF] -- TODO: implement me
+colors = [(-1),(-2)..(-16)]
 
 spillColor :: Color
-spillColor = -1
+spillColor = 0
 
 type ColorLookup = HashMap Vertex Color
 
