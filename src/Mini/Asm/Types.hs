@@ -324,8 +324,8 @@ spillVars asm
           localLookup = zip localRegs tempRegs
           loadRegs = foldl' loadFoldFun [] localLookup
           storeRegs = foldl' storeFoldFun [] localLookup
-          loadFoldFun l (r,r') = AsmMov (AsmSReg r') (AsmDReg r) : l
-          storeFoldFun l (r,r') = AsmMov (AsmSReg r) (AsmDReg r') : l
+          loadFoldFun l (r,r') = AsmMov (AsmSReg r) (AsmDReg r') : l
+          storeFoldFun l (r,r') = AsmMov (AsmSReg r') (AsmDReg r) : l
           newAsm = foldl' (\a (r,r') -> swapRegs a r r') asm localLookup
 
 functionMapFun :: (Reg -> AsmReg) -> NodeGraph -> Vertex -> [Asm]
