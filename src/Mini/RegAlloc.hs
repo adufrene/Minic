@@ -283,7 +283,7 @@ makeUndirected dirGraph = buildG (bounds dirGraph) $ L.nub duppedEdges
 type Color = Int
 
 colors :: [Color]
-colors = [(-1),(-2)..(-12)]
+colors = [(-1),(-2)..(-11)]
 
 spillColor :: Color
 spillColor = 0

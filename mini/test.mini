@@ -1,8 +1,8 @@
 fun main() int {
-    int x, y;
+    int x, y, z;
     x = 3;
-    y = x * 2;
+    y = 3;
+    z = 1;
     print x endl;
-    print y endl;
-    return x;
+    return y * 3 / z;
 }
