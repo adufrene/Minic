@@ -17,6 +17,7 @@ import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Array hiding ((!), elems)
 import Data.Maybe
+import Data.Tuple (swap)
 import Prelude hiding (map)
 
 import Debug.Trace
@@ -227,11 +228,13 @@ actuallyCreateLiveOut stuffSoFar gkLookup ng
 type InterferenceGraph = Graph
 
 createInterferenceGraph :: NodeGraph -> LiveOutLookup -> InterferenceGraph
-createInterferenceGraph (_, nodeHash) lookup = foldlWithKey' foldFun theEmptyGraph nodeHash 
-    where foldFun graph key node = fst $ foldr foldIntGraph (graph, lookup ! key) $ getIloc node
+createInterferenceGraph (_, nodeHash) lookup =
+        makeUndirected $ foldlWithKey' foldFun theEmptyGraph nodeHash
+    where foldFun graph key node = fst $ foldr foldIntGraph (graph, lookup ! key)
+                                        $ getIloc node
 
 foldIntGraph :: Iloc -> (Graph, Set.Set AsmReg) -> (Graph, Set.Set AsmReg)
-foldIntGraph insn (graph, liveNow) = trace ("Received insn: " ++ show insn ++ " and liveNow: " ++ show liveNow) (newGraph, newLiveNow)
+foldIntGraph insn (graph, liveNow) = (newGraph, newLiveNow)
     where targetRegs = getDstRegs insn 
           sourceRegSet = Set.fromList $ getSrcRegs insn
           newLiveNow = Set.union sourceRegSet $ Set.filter (`notElem` targetRegs) liveNow
@@ -275,6 +278,10 @@ actuallyDeconstructInterferenceGraph graph stack
 -- assumes graph is not empty
 pickNextVertex :: InterferenceGraph -> Vertex
 pickNextVertex graph = head $ vertices graph -- TODO: pick better heuristic
+
+makeUndirected :: Graph -> Graph
+makeUndirected dirGraph = buildG (bounds dirGraph) $ L.nub duppedEdges
+    where duppedEdges = L.foldl' (\xs x -> swap x:x:xs) [] $ edges dirGraph
 
 type Color = Int
 
