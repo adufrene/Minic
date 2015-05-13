@@ -327,5 +327,5 @@ safeMinimum :: Ord a => a -> [a] -> a
 safeMinimum def [] = def
 safeMinimum _ l = L.minimum l
 
-testIntGraph :: NodeGraph -> InterferenceGraph
-testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph :: NodeGraph -> DeconstructionStack
+testIntGraph graph = deconstructInterferenceGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph

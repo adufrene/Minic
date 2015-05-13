@@ -301,7 +301,7 @@ getNeighbors graph v =
 -- determines if a graph is empty
 -- empty graph has no edges
 emptyGraph :: Graph -> Bool
-emptyGraph graph = null $ edges graph
+emptyGraph graph = null $ vertices graph
 
 -- adds a list of edges to a given graph
 addEdges :: Graph -> [Edge] -> Graph
@@ -311,7 +311,7 @@ addEdges graph newEdges = buildG (minimum theVertices, maximum theVertices) $ (e
 
 -- get all the verticies that are in the supplied list of edges
 getVerticesFromEdges :: [Edge] -> [Vertex]
-getVerticesFromEdges edges = (L.map fst edges) ++ (L.map snd edges)
+getVerticesFromEdges edges = L.map fst edges ++ L.map snd edges
 
 -- take out all edges that touch a given vertex
 removeVertex :: Graph -> Vertex -> Graph
@@ -329,5 +329,5 @@ push :: [a] -> a -> [a]
 push stack item = item:stack
 
 pop :: [a] -> (a, [a])
-pop [] = error $ "empty stack"
+pop [] = error "empty stack"
 pop (x:xs) = (x, xs)
