@@ -48,8 +48,8 @@ main = do
         when (printEnv `elem` args) $ print env
         when (shouldPrint args) $
             do 
-               let globalEnv = envReport env
-                   graphs = globalEnv `createGraphs` program
+               globalEnv <- envReport env
+               let graphs = globalEnv `createGraphs` program
                if printGraphs `elem` args
                then print graphs
                else if testAlloc `elem` args
@@ -61,9 +61,9 @@ main = do
 shouldPrint :: [String] -> Bool
 shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv])
 
-envReport :: Either ErrType GlobalEnv -> GlobalEnv
+envReport :: Either ErrType GlobalEnv -> IO GlobalEnv
 envReport (Left msg) = error msg
-envReport (Right env) = env
+envReport (Right env) = return env
 
 stripFile :: String -> String
 stripFile file = reverse $ take localNdx $ reverse newName

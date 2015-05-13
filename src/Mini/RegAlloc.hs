@@ -52,8 +52,8 @@ returnReg = Rax
 
 -- registers we will read from for this instruction
 getSrcRegs :: Iloc -> [AsmReg]
-getSrcRegs (Add r1 r2 _) = [RegNum r1, RegNum r2]
-getSrcRegs (Addi r1 _ _) = [RegNum r1]
+getSrcRegs (Add r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
+getSrcRegs (Addi r1 _ r3) = [RegNum r1, RegNum r3]
 getSrcRegs (Div r1 r2 _) = [RegNum r1, RegNum r2]
 getSrcRegs (Mult r1 r2 _) = [RegNum r1, RegNum r2]
 getSrcRegs (Multi r1 _ _) = [RegNum r1]
@@ -327,5 +327,8 @@ safeMinimum :: Ord a => a -> [a] -> a
 safeMinimum def [] = def
 safeMinimum _ l = L.minimum l
 
+colorGraph :: InterferenceGraph -> ColorLookup
+colorGraph = reconstructInterferenceGraph . deconstructInterferenceGraph 
+
 testIntGraph :: NodeGraph -> ColorLookup
-testIntGraph graph = reconstructInterferenceGraph $ deconstructInterferenceGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph graph = colorGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
