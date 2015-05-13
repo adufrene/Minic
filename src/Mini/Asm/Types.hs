@@ -177,7 +177,7 @@ regsPerAsm (AsmGlobal l) = []
 regsPerAsm (AsmFunGlobal l) = []
 regsPerAsm (AsmType l t) = []
 regsPerAsm (AsmFunSize l) = []
-regsPerAsm (AsmAdd r arg) = [r]
+regsPerAsm (AsmAdd r arg) = r : getAsmFromCmp arg
 regsPerAsm (AsmDiv r) = [r]
 regsPerAsm (AsmMult r1 r2) = [r1,r2]
 regsPerAsm (AsmMulti i r1 r2) = [r1,r2]
@@ -210,6 +210,76 @@ getAsmFromDest (AsmDReg r) = [r]
 getAsmFromDest (AsmDOReg (OffsetReg r _)) = []
 getAsmFromDest _ = []
 
+swapRegs :: Asm -> AsmReg -> AsmReg -> Asm
+swapRegs asm@(AsmPush r) old new = if r == old then AsmPush new else asm
+swapRegs asm@(AsmPop r) old new = if r == old then AsmPop new else asm
+swapRegs (AsmShift i r) old new = AsmShift i $ if r == old then new else r
+swapRegs asm@AsmSection old new = asm
+swapRegs asm@AsmText old new = asm
+swapRegs asm@AsmData old new = asm
+swapRegs asm@AsmAlign old new = asm
+swapRegs asm@(AsmString s) old new = asm
+swapRegs asm@(AsmVarSize l i) old new = asm
+swapRegs asm@(AsmQuad i) old new = asm
+swapRegs asm@(AsmGlobal l) old new = asm
+swapRegs asm@(AsmFunGlobal l) old new = asm
+swapRegs asm@(AsmType l t) old new = asm
+swapRegs asm@(AsmFunSize l) old new = asm
+swapRegs asm@(AsmAdd r arg) old new = AsmAdd
+                                       (if r == old then new else r)
+                                       (convertArg arg old new)
+swapRegs asm@(AsmDiv r) old new = if r == old then AsmDiv new else asm
+swapRegs asm@(AsmMult r1 r2) old new = AsmMult
+                                        (if r1 == old then new else r1)
+                                        (if r2 == old then new else r2)
+swapRegs asm@(AsmMulti i r1 r2) old new = AsmMulti i
+                                        (if r1 == old then new else r1)
+                                        (if r2 == old then new else r2)
+swapRegs asm@(AsmSub r arg) old new = AsmSub
+                                       (if r == old then new else r)
+                                       (convertArg arg old new)
+swapRegs asm@(AsmCmp arg r) old new = AsmCmp
+                                       (convertArg arg old new)
+                                       (if r == old then new else r)
+swapRegs asm@(AsmJe l) old new = asm
+swapRegs asm@(AsmJmp l) old new = asm
+swapRegs asm@(AsmCall l) old new = asm
+swapRegs asm@AsmRet old new = asm
+swapRegs asm@(AsmMov r1 r2) old new = AsmMov (swapSReg r1 old new) (swapDReg r2 old new)
+swapRegs asm@(AsmCmoveq r1 r2) old new = AsmCmoveq
+                                        (if r1 == old then new else r1)
+                                        (if r2 == old then new else r2)
+swapRegs asm@(AsmCmovgeq r1 r2) old new = AsmCmovgeq
+                                        (if r1 == old then new else r1)
+                                        (if r2 == old then new else r2)
+swapRegs asm@(AsmCmovgq r1 r2) old new = AsmCmovgq
+                                        (if r1 == old then new else r1)
+                                        (if r2 == old then new else r2)
+swapRegs asm@(AsmCmovleq r1 r2) old new = AsmCmovleq
+                                        (if r1 == old then new else r1)
+                                        (if r2 == old then new else r2)
+swapRegs asm@(AsmCmovlq r1 r2) old new = AsmCmovlq
+                                        (if r1 == old then new else r1)
+                                        (if r2 == old then new else r2)
+swapRegs asm@(AsmCmovneq r1 r2) old new = AsmCmovneq
+                                        (if r1 == old then new else r1)
+                                        (if r2 == old then new else r2)
+swapRegs asm@(AsmLabel l) old new = asm
+
+convertArg :: CompArg -> AsmReg -> AsmReg -> CompArg
+convertArg arg@(CompReg r) old new = if r == old then CompReg new else arg
+convertArg arg _ _ = arg
+
+swapSReg :: AsmSrc -> AsmReg -> AsmReg -> AsmSrc
+swapSReg reg@(AsmSReg r) old new = if r == old then AsmSReg new else reg
+swapSReg reg@(AsmSOReg (OffsetReg r i)) old new = if r == old then AsmSOReg (OffsetReg new i) else reg
+swapSReg reg _ _ = reg
+
+swapDReg :: AsmDest -> AsmReg -> AsmReg -> AsmDest
+swapDReg reg@(AsmDReg r) old new = if r == old then AsmDReg new else reg
+swapDReg reg@(AsmDOReg (OffsetReg r i)) old new = if r == old then AsmDOReg (OffsetReg new i) else reg
+swapDReg reg _ _ = reg
+
 {- Create initial global variables and other file-specific data -}
 programToAsm :: [NodeGraph] -> [Declaration] -> [Asm]
 programToAsm graphs globals = asmProgramHelper globals bodyAsm 
@@ -237,13 +307,26 @@ globalString l s = [ AsmSection
 functionToAsm :: (Reg -> AsmReg) -> NodeGraph -> [Asm]
 functionToAsm regFun nodeG@(graph, hash) = prologue ++ body ++ epilogue
     where prologue = createPrologue nodeG ++ stackBegin
-          body = {-filter filterFun -}unfiltered
+          body = concatMap spillVars unfiltered
           regsUsed = concatMap regsPerAsm body
           (stackBegin, stackEnd) = manageStack regsUsed
           unfiltered = concatMap (functionMapFun regFun nodeG) $ topSort graph 
           epilogue = stackEnd ++ createEpilogue nodeG
           filterFun (AsmMov (AsmSReg r1) (AsmDReg r2)) = r1 /= r2
           filterFun _ = True
+
+spillVars :: Asm -> [Asm]
+spillVars asm
+    | null localRegs = [asm]
+    | otherwise = loadRegs ++ [newAsm] ++ storeRegs
+    where regsUsed = regsPerAsm asm
+          localRegs = [x | x@BaseOffset{} <- regsUsed]
+          localLookup = zip localRegs tempRegs
+          loadRegs = foldl' loadFoldFun [] localLookup
+          storeRegs = foldl' storeFoldFun [] localLookup
+          loadFoldFun l (r,r') = AsmMov (AsmSReg r') (AsmDReg r) : l
+          storeFoldFun l (r,r') = AsmMov (AsmSReg r) (AsmDReg r') : l
+          newAsm = foldl' (\a (r,r') -> swapRegs a r r') asm localLookup
 
 functionMapFun :: (Reg -> AsmReg) -> NodeGraph -> Vertex -> [Asm]
 functionMapFun regFun nodeG@(graph, hash) x
@@ -310,6 +393,9 @@ callerSaved = [Rax, Rcx, Rdx, Rsi, Rdi, R8, R9, R10, R11]
 
 calleeSaved :: [AsmReg]
 calleeSaved = [Rbx, Rsp, Rbp, R12, R13, R14, R15]
+
+tempRegs :: [AsmReg]
+tempRegs = [R13, R14, R15]
 
 returnReg :: AsmReg
 returnReg = Rax
@@ -382,7 +468,7 @@ ilocToAsm f (Multi r1 i r2) = [ AsmMulti i (f r1) (f r2) ]
 ilocToAsm f (Sub r1 r2 r3) = createSub f r1 r2 r3
 ilocToAsm f (Comp r1 r2) = [AsmCmp (CompReg $ f r2) (f r1)]
 ilocToAsm f (Compi r i) = [AsmCmp (CompImm i) (f r)]
-ilocToAsm f (Jumpi l) = [AsmJmp l]
+ilocToAsm _ (Jumpi l) = [AsmJmp l]
 ilocToAsm f (Brz r l1 l2) = brz f r l1 l2
 ilocToAsm f (Loadai r1 i r2) = [AsmMov (AsmSOReg $ OffsetReg (f r1) $ OffsetImm i) 
                                 (AsmDReg $ f r2)]
@@ -394,8 +480,8 @@ ilocToAsm f (Storeai r1 r2 i) = [AsmMov (AsmSReg $ f r1)
 ilocToAsm f (Storeglobal r l) = [AsmMov (AsmSReg $ f r) (AsmDLabel l)]
 ilocToAsm f (Storeoutargument r i) = storeArg f r i
 ilocToAsm f (Storeret r) = [AsmMov (AsmSReg $ f r) (AsmDReg returnReg)]
-ilocToAsm f (Call l) = [AsmCall l]
-ilocToAsm f RetILOC = [AsmRet]
+ilocToAsm _ (Call l) = [AsmCall l]
+ilocToAsm _ RetILOC = [AsmRet]
 ilocToAsm f (New i r) = createNew f i r
 ilocToAsm f (Del r) = createDelete f r
 ilocToAsm f (PrintILOC r) = createPrint f r False
@@ -410,8 +496,8 @@ ilocToAsm f (Movgt r1 r2) = [AsmCmovgq (f r1) (f r2)]
 ilocToAsm f (Movle r1 r2) = [AsmCmovleq (f r1) (f r2)]
 ilocToAsm f (Movlt r1 r2) = [AsmCmovlq (f r1) (f r2)]
 ilocToAsm f (Movne r1 r2) = [AsmCmovneq (f r1) (f r2)]
-ilocToAsm f (PrepArgs i) = [AsmSub Rsp $ CompImm $ wordSize * (i - numArgRegs) | i > numArgRegs]
-ilocToAsm f (UnprepArgs i) = [AsmAdd Rsp $ CompImm $ wordSize * (i - numArgRegs) | i > numArgRegs]
+ilocToAsm _ (PrepArgs i) = [AsmSub Rsp $ CompImm $ wordSize * (i - numArgRegs) | i > numArgRegs]
+ilocToAsm _ (UnprepArgs i) = [AsmAdd Rsp $ CompImm $ wordSize * (i - numArgRegs) | i > numArgRegs]
 ilocToAsm _ iloc = error $ "No Asm translation for " ++ show iloc
 
 createAdd :: (Reg -> AsmReg) -> Reg -> Reg -> Reg -> [Asm]
