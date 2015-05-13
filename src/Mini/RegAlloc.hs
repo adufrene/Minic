@@ -316,7 +316,7 @@ pickColor nextVert graph colorHM
   | otherwise = head availColors
   where
     neighbors = getNeighbors graph nextVert
-    neighborColors = [ colorHM ! n | n <- neighbors `L.intersect` elems colorHM]
+    neighborColors = [ colorHM ! n | n <- neighbors `L.intersect` keys colorHM]
     availColors = colors L.\\ neighborColors
 
 safeMaximum :: Ord a => a -> [a] -> a
@@ -327,5 +327,5 @@ safeMinimum :: Ord a => a -> [a] -> a
 safeMinimum def [] = def
 safeMinimum _ l = L.minimum l
 
-testIntGraph :: NodeGraph -> DeconstructionStack
-testIntGraph graph = deconstructInterferenceGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph :: NodeGraph -> ColorLookup
+testIntGraph graph = reconstructInterferenceGraph $ deconstructInterferenceGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
