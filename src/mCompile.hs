@@ -24,8 +24,11 @@ printProg = "--printProgram"
 printEnv :: String
 printEnv = "--printEnv"
 
-printGraph :: String
-printGraph = "--printGraph"
+printGraphs :: String
+printGraphs = "--printGraphs"
+
+testAlloc :: String
+testAlloc = "--testAlloc"
 
 dumpIL :: String
 dumpIL = "--dumpIL"
@@ -43,17 +46,20 @@ main = do
         when (printProg `elem` args) $ print program
         let env = checkTypes program
         when (printEnv `elem` args) $ print env
-        when (printGraph `elem` args) $ print $ fmap testIntGraph $ (envReport env) `createGraphs` program
         when (shouldPrint args) $
             do 
                let globalEnv = envReport env
-               if dumpIL `elem` args
-                  then writeIloc (globalEnv `createGraphs` program) 
-                           $ fileNameToIL fileName
-                  else writeAsm globalEnv program $ fileNameToS fileName 
+                   graphs = globalEnv `createGraphs` program
+               if printGraphs `elem` args
+               then print graphs
+               else if testAlloc `elem` args
+               then print $ fmap testIntGraph graphs
+               else if dumpIL `elem` args
+               then writeIloc graphs $ fileNameToIL fileName
+               else writeAsm graphs (getDeclarations program) $ fileNameToS fileName 
 
 shouldPrint :: [String] -> Bool
-shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv, printGraph])
+shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv])
 
 envReport :: Either ErrType GlobalEnv -> GlobalEnv
 envReport (Left msg) = error msg
@@ -76,10 +82,10 @@ writeIloc graphs fileName = do
 fileNameToS :: String -> String
 fileNameToS oldFile = stripFile oldFile ++ ".s"
 
-writeAsm :: GlobalEnv -> Program -> String -> IO ()
-writeAsm env prog fileName = do
+writeAsm :: [NodeGraph] -> [Declaration] -> String -> IO ()
+writeAsm graphs decls fileName = do
         let print = foldl' (\msg insn -> msg ++ show insn ++ "\n") ""
-                        $ programToAsm env prog
+                        $ programToAsm graphs decls
         writeFile fileName print  
 
 safeGetFile :: [String] -> String

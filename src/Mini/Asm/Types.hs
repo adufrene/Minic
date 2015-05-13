@@ -148,13 +148,12 @@ instance Show AsmType where
         show ObjectType = objectType
 
 {- Create initial global variables and other file-specific data -}
-programToAsm :: GlobalEnv -> Program -> [Asm]
-programToAsm env prog = createGlobals ++ bodyAsm
-    where graphs = createGraphs env prog
-          createGlobals = concat [ globalString formatLabel formatStr
+programToAsm :: [NodeGraph] -> [Declaration] -> [Asm]
+programToAsm graphs globals = createGlobals ++ bodyAsm
+    where createGlobals = concat [ globalString formatLabel formatStr
                                  , globalString printlnLabel printlnStr
                                  , [AsmGlobal scanVar]
-                                 , createGlobal <$> getDeclarations prog]
+                                 , createGlobal <$> globals ]
           bodyAsm = concat $ functionToAsm <$> graphs
           createGlobal = AsmGlobal . getDecId 
 

@@ -19,6 +19,8 @@ import Data.Array hiding ((!), elems)
 import Data.Maybe
 import Prelude hiding (map)
 
+import Debug.Trace
+
 import Mini.Asm.Types
 import Mini.Iloc.Types
 import Mini.CFG
@@ -225,14 +227,14 @@ actuallyCreateLiveOut stuffSoFar gkLookup ng
 type InterferenceGraph = Graph
 
 createInterferenceGraph :: NodeGraph -> LiveOutLookup -> InterferenceGraph
-createInterferenceGraph (_, nodeHash) lookup = foldrWithKey foldFun theEmptyGraph nodeHash 
-    where foldFun key node graph = fst $ foldr foldIntGraph (graph, lookup ! key) $ getIloc node
+createInterferenceGraph (_, nodeHash) lookup = foldlWithKey' foldFun theEmptyGraph nodeHash 
+    where foldFun graph key node = fst $ foldr foldIntGraph (graph, lookup ! key) $ getIloc node
 
 foldIntGraph :: Iloc -> (Graph, Set.Set AsmReg) -> (Graph, Set.Set AsmReg)
-foldIntGraph insn (graph, liveNow) = (newGraph, newLiveNow)
+foldIntGraph insn (graph, liveNow) = trace ("Received insn: " ++ show insn ++ " and liveNow: " ++ show liveNow) (newGraph, newLiveNow)
     where targetRegs = getDstRegs insn 
           sourceRegSet = Set.fromList $ getSrcRegs insn
-          newLiveNow = Set.union sourceRegSet $ Set.filter (`elem` targetRegs) liveNow
+          newLiveNow = Set.union sourceRegSet $ Set.filter (`notElem` targetRegs) liveNow
           newGraph = connectVertices graph (regToVert targetRegs) $ regToVert $ Set.toList liveNow
 
 regToVert :: [AsmReg] -> [Vertex]
