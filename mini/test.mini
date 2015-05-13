@@ -1,9 +1,8 @@
-fun foo (int i) int {
-    return i;
-}
-
 fun main() int {
-    int x;
-    x = foo(3);
-    return x * x / 1;
+    int x, y;
+    x = 3;
+    y = x * 2;
+    print x endl;
+    print y endl;
+    return x;
 }

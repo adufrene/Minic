@@ -4,7 +4,7 @@ module Mini.RegAlloc
   ) where
 
 import Control.Arrow
-import Data.HashMap.Strict hiding (filter, null, foldl, foldr, foldl')
+import Data.HashMap.Strict hiding (filter, null, foldl, foldr)
 import Data.Graph hiding (Node)
 import qualified Data.List as L
 import qualified Data.Set as Set
@@ -20,8 +20,7 @@ import Mini.Iloc.Types
 import Mini.CFG
 
 regVertList :: [(AsmReg, Vertex)]
-regVertList = [ ((RegNum (-1)), 0)
-              , (Rax, -1)
+regVertList = [ (Rax, -1)
               , (Rbx, -2)
               , (Rcx, -3)
               , (Rdx, -4)
@@ -42,22 +41,13 @@ regVertList = [ ((RegNum (-1)), 0)
 vertRegList :: [(Vertex, AsmReg)]
 vertRegList = L.map swap regVertList
 
-callerSaved :: [AsmReg]
-callerSaved = [Rax, Rcx, Rdx, Rsi, Rdi, R8, R9, R10, R11]
-
-calleeSaved :: [AsmReg]
-calleeSaved = [Rbx, Rsp, Rbp, R12, R13, R14, R15]
-
-returnReg :: AsmReg
-returnReg = Rax
-
 -- registers we will read from for this instruction
 getSrcRegs :: Iloc -> [AsmReg]
 getSrcRegs (Add r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
 getSrcRegs (Addi r1 _ r3) = [RegNum r1, RegNum r3]
 getSrcRegs (Div r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3, Rdx, Rax]
-getSrcRegs (Mult r1 r2 r3) = [RegNum r1, RegNum r2]
-getSrcRegs (Multi r1 _ _) = [RegNum r1]
+getSrcRegs (Mult r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
+getSrcRegs (Multi r1 _ r2) = [RegNum r1, RegNum r2]
 getSrcRegs (Sub r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
 getSrcRegs (Rsubi r1 _ _) = [RegNum r1]
 
@@ -273,6 +263,7 @@ deconstructInterferenceGraph = flip actuallyDeconstructInterferenceGraph []
 actuallyDeconstructInterferenceGraph :: InterferenceGraph -> DeconstructionStack -> DeconstructionStack
 actuallyDeconstructInterferenceGraph graph stack
   | emptyGraph graph = stack
+  | nextVertex == 0 = actuallyDeconstructInterferenceGraph newGraph stack
   | otherwise = actuallyDeconstructInterferenceGraph newGraph newStack
   where
     nextVertex = pickNextVertex graph
@@ -283,7 +274,7 @@ actuallyDeconstructInterferenceGraph graph stack
 -- uses heuristic to pick the next vertex to pull out of interference graph
 -- assumes graph is not empty
 pickNextVertex :: InterferenceGraph -> Vertex
-pickNextVertex graph = head $ vertices graph -- TODO: pick better heuristic
+pickNextVertex graph = last $ vertices graph -- TODO: pick better heuristic
 
 makeUndirected :: Graph -> Graph
 makeUndirected dirGraph = buildG (bounds dirGraph) $ L.nub duppedEdges
@@ -324,7 +315,9 @@ pickColor nextVert graph colorHM
   | otherwise = head availColors
   where
     neighbors = getNeighbors graph nextVert
-    neighborColors = [ colorHM ! n | n <- neighbors `L.intersect` keys colorHM]
+    forcedColor = filter (<0) neighbors
+    coloredNeighbors = [ colorHM ! n | n <- filter (>0) neighbors]
+    neighborColors = forcedColor `L.union` coloredNeighbors
     availColors = colors L.\\ neighborColors
 
 safeMaximum :: Ord a => a -> [a] -> a
@@ -339,13 +332,17 @@ colorGraph :: InterferenceGraph -> ColorLookup
 colorGraph = reconstructInterferenceGraph . deconstructInterferenceGraph 
 
 getRegLookup :: NodeGraph -> RegLookup
-getRegLookup graph = map mapFun colorLookup
+getRegLookup graph = fst $ foldlWithKey' foldFun (empty, 1) colorLookup
     where colorLookup = colorGraph intGraph
           intGraph = createInterferenceGraph graph loLookup
           loLookup = createLiveOut graph gkLookup
           gkLookup = createGenKillSets graph
-          mapFun v = fromMaybe (error $ "Invalid vertex: " ++ show v) 
-                            $ v `L.lookup` vertRegList 
+          foldFun (hash, nextLocal) key clr = 
+            if clr == 0
+                then (insert key (BaseOffset $ -nextLocal) hash, nextLocal + 1)
+                else (insert key (fromMaybe 
+                        (error $ "Invalid vertex: " ++ show clr)
+                            $ clr `L.lookup` vertRegList) hash, nextLocal)
 
-testIntGraph :: NodeGraph -> InterferenceGraph
-testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph :: NodeGraph -> DeconstructionStack
+testIntGraph graph = deconstructInterferenceGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
