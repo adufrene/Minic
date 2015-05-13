@@ -344,5 +344,5 @@ getRegLookup graph = fst $ foldlWithKey' foldFun (empty, 1) colorLookup
                         (error $ "Invalid vertex: " ++ show clr)
                             $ clr `L.lookup` vertRegList) hash, nextLocal)
 
-testIntGraph :: NodeGraph -> DeconstructionStack
-testIntGraph graph = deconstructInterferenceGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph :: NodeGraph -> InterferenceGraph
+testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
