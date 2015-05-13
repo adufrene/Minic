@@ -1,4 +1,4 @@
 fun main() int {
     print 3 + 2 endl; 
-    return 5;
+    return -1;
 }

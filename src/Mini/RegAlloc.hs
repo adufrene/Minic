@@ -1,13 +1,6 @@
 module Mini.RegAlloc
-  ( GenSet
-  , KillSet
-  , GenSetLookup
-  , KillSetLookup
-  , createGenKillSets
-  , findGenAndKill
-  , LiveOutLookup
-  , InterferenceGraph
-  , testIntGraph
+  ( testIntGraph
+  , getRegLookup
   ) where
 
 import Control.Arrow
@@ -31,19 +24,22 @@ regVertList = [ (Rax, -1)
               , (Rbx, -2)
               , (Rcx, -3)
               , (Rdx, -4)
-              , (Rsp, -5)   -- Not assignable
-              , (Rbp, -6)
-              , (Rsi, -7)
-              , (Rdi, -8)
-              , (R8, -9)
-              , (R9, -10)
-              , (R10, -11)
-              , (R11, -12)
-              , (R12, -13)
-              , (R13, -14)  -- Spill Reg
-              , (R14, -15)  -- Spill Reg
-              , (R15, -16)  -- Spill Reg
+              , (Rbp, -5)
+              , (Rsi, -6)
+              , (Rdi, -7)
+              , (R8, -8)
+              , (R9, -9)
+              , (R10, -10)
+              , (R11, -11)
+              , (R12, -12)
+              , (R13, -13)  -- Spill Reg
+              , (R14, -14)  -- Spill Reg
+              , (R15, -15)  -- Spill Reg
+              , (Rsp, -16)   -- Not assignable
               , (Rip, -17) ] -- Not assignable
+
+vertRegList :: [(Vertex, AsmReg)]
+vertRegList = L.map swap regVertList
 
 callerSaved = [Rax, Rcx, Rdx, Rsi, Rdi, R8, R9, R10, R11]
 calleeSaved = [Rbx, Rsp, Rbp, R12, R13, R14, R15]
@@ -54,10 +50,10 @@ returnReg = Rax
 getSrcRegs :: Iloc -> [AsmReg]
 getSrcRegs (Add r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
 getSrcRegs (Addi r1 _ r3) = [RegNum r1, RegNum r3]
-getSrcRegs (Div r1 r2 _) = [RegNum r1, RegNum r2]
-getSrcRegs (Mult r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Div r1 r2 _) = [RegNum r1, RegNum r2, Rdx, Rax]
+getSrcRegs (Mult r1 r2 r3) = [RegNum r1, RegNum r2]
 getSrcRegs (Multi r1 _ _) = [RegNum r1]
-getSrcRegs (Sub r1 r2 _) = [RegNum r1, RegNum r2]
+getSrcRegs (Sub r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
 getSrcRegs (Rsubi r1 _ _) = [RegNum r1]
 
 getSrcRegs (And r1 r2 _) = [RegNum r1, RegNum r2]
@@ -93,12 +89,12 @@ getSrcRegs (Storeret r1) = [RegNum r1]
 getSrcRegs Call{} = argRegs
 getSrcRegs RetILOC = []
 
-getSrcRegs New{} = []
-getSrcRegs (Del r1) = [RegNum r1]
+getSrcRegs New{} = [Rax, Rdi]
+getSrcRegs (Del r1) = [Rdi, RegNum r1]
 
-getSrcRegs (PrintILOC r1) = [RegNum r1]
-getSrcRegs (Println r1) = [RegNum r1]
-getSrcRegs ReadILOC{} = []
+getSrcRegs (PrintILOC r1) = [Rdi, Rsi, Rax, RegNum r1]
+getSrcRegs (Println r1) = [RegNum r1, Rdi, Rsi, Rax]
+getSrcRegs ReadILOC{} = [Rdi, Rsi, Rax]
 
 getSrcRegs (Mov r1 _) = [RegNum r1]
 getSrcRegs Movi{} = []
@@ -286,7 +282,7 @@ makeUndirected dirGraph = buildG (bounds dirGraph) $ L.nub duppedEdges
 type Color = Int
 
 colors :: [Color]
-colors = [(-1),(-2)..(-16)]
+colors = [(-1),(-2)..(-12)]
 
 spillColor :: Color
 spillColor = 0
@@ -329,6 +325,15 @@ safeMinimum _ l = L.minimum l
 
 colorGraph :: InterferenceGraph -> ColorLookup
 colorGraph = reconstructInterferenceGraph . deconstructInterferenceGraph 
+
+getRegLookup :: NodeGraph -> RegLookup
+getRegLookup graph = map mapFun colorLookup
+    where colorLookup = colorGraph intGraph
+          intGraph = createInterferenceGraph graph loLookup
+          loLookup = createLiveOut graph gkLookup
+          gkLookup = createGenKillSets graph
+          mapFun v = fromMaybe (error $ "Invalid vertex: " ++ show v) 
+                            $ v `L.lookup` vertRegList 
 
 testIntGraph :: NodeGraph -> ColorLookup
 testIntGraph graph = colorGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph

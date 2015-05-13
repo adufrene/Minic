@@ -33,6 +33,9 @@ testAlloc = "--testAlloc"
 dumpIL :: String
 dumpIL = "--dumpIL"
 
+noAlloc :: String
+noAlloc = "--noAlloc"
+
 -- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
 main :: IO ()
@@ -56,7 +59,8 @@ main = do
                then print $ fmap testIntGraph graphs
                else if dumpIL `elem` args
                then writeIloc graphs $ fileNameToIL fileName
-               else writeAsm graphs (getDeclarations program) $ fileNameToS fileName 
+               else writeAsm (noAlloc `notElem` args) graphs 
+                     (getDeclarations program) $ fileNameToS fileName 
 
 shouldPrint :: [String] -> Bool
 shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv])
@@ -82,11 +86,16 @@ writeIloc graphs fileName = do
 fileNameToS :: String -> String
 fileNameToS oldFile = stripFile oldFile ++ ".s"
 
-writeAsm :: [NodeGraph] -> [Declaration] -> String -> IO ()
-writeAsm graphs decls fileName = do
-        let print = foldl' (\msg insn -> msg ++ show insn ++ "\n") ""
-                        $ programToAsm graphs decls
-        writeFile fileName print  
+writeAsm :: Bool -> [NodeGraph] -> [Declaration] -> String -> IO ()
+writeAsm shouldAlloc graphs decls fileName = writeFile fileName print 
+    where regHashes = fmap getRegLookup graphs
+          funAsms = (if shouldAlloc
+                        then colorProgramToAsm regHashes
+                        else programToAsm) graphs decls
+          print = foldl' (\msg insn -> msg ++ show insn ++ "\n") 
+                    "" funAsms
+          
+        
 
 safeGetFile :: [String] -> String
 safeGetFile args = if null fileList
