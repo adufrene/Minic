@@ -67,3 +67,4 @@ antlr.generated*
 *.il
 *.s
 *.ng
+a.out

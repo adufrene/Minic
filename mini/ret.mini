@@ -22,3 +22,13 @@ fun bar(int i) int      # control flow case
    }
 }
 
+fun main() int {
+    int x, y, z;
+    x = 3;
+    y = foo(x);
+    z = bar(y);
+#    print x endl;
+#    print y endl;
+#    print z endl;
+    return x * y / z;
+}

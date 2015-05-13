@@ -20,37 +20,42 @@ import Mini.Iloc.Types
 import Mini.CFG
 
 regVertList :: [(AsmReg, Vertex)]
-regVertList = [ (Rax, -1)
+regVertList = [ ((RegNum (-1)), 0)
+              , (Rax, -1)
               , (Rbx, -2)
               , (Rcx, -3)
               , (Rdx, -4)
-              , (Rbp, -5)
-              , (Rsi, -6)
-              , (Rdi, -7)
-              , (R8, -8)
-              , (R9, -9)
-              , (R10, -10)
-              , (R11, -11)
-              , (R12, -12)
-              , (R13, -13)  -- Spill Reg
-              , (R14, -14)  -- Spill Reg
-              , (R15, -15)  -- Spill Reg
-              , (Rsp, -16)   -- Not assignable
+              , (Rsi, -5)
+              , (Rdi, -6)
+              , (R8, -7)
+              , (R9, -8)
+              , (R10, -9)
+              , (R11, -10)
+              , (R12, -11)
+              , (R13, -12)  -- Spill Reg
+              , (R14, -13)  -- Spill Reg
+              , (R15, -14)  -- Spill Reg
+              , (Rsp, -15)   -- Not assignable
+              , (Rbp, -16)   -- Not assignable
               , (Rip, -17) ] -- Not assignable
 
 vertRegList :: [(Vertex, AsmReg)]
 vertRegList = L.map swap regVertList
 
+callerSaved :: [AsmReg]
 callerSaved = [Rax, Rcx, Rdx, Rsi, Rdi, R8, R9, R10, R11]
+
+calleeSaved :: [AsmReg]
 calleeSaved = [Rbx, Rsp, Rbp, R12, R13, R14, R15]
-argRegs = [Rdi, Rsi, Rdx, Rcx, R8, R9]
+
+returnReg :: AsmReg
 returnReg = Rax
 
 -- registers we will read from for this instruction
 getSrcRegs :: Iloc -> [AsmReg]
 getSrcRegs (Add r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
 getSrcRegs (Addi r1 _ r3) = [RegNum r1, RegNum r3]
-getSrcRegs (Div r1 r2 _) = [RegNum r1, RegNum r2, Rdx, Rax]
+getSrcRegs (Div r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3, Rdx, Rax]
 getSrcRegs (Mult r1 r2 r3) = [RegNum r1, RegNum r2]
 getSrcRegs (Multi r1 _ _) = [RegNum r1]
 getSrcRegs (Sub r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
@@ -74,7 +79,7 @@ getSrcRegs (Brz r1 _ _) = [RegNum r1]
 
 getSrcRegs (Loadai r1 _ _) = [RegNum r1]
 getSrcRegs Loadglobal{} = []
-getSrcRegs Loadinargument{} = []
+getSrcRegs (Loadinargument _ _ i) = getArgRegister i
 getSrcRegs Loadret{} = []
 getSrcRegs Computeformaladdress{} = []
 getSrcRegs Restoreformal{} = []
@@ -147,18 +152,18 @@ getDstRegs (Computeglobaladdress _ r1) = [RegNum r1]
 getDstRegs Storeai{} = []
 getDstRegs Storeglobal{} = []
 getDstRegs Storeinargument{} = []
-getDstRegs Storeoutargument{} = []
+getDstRegs (Storeoutargument _ i) = getArgRegister i
 getDstRegs Storeret{} = []
 
 getDstRegs Call{} = callerSaved
 getDstRegs RetILOC = []
 
-getDstRegs (New _ r1) = [RegNum r1]
-getDstRegs Del{} = []
+getDstRegs (New _ r1) = RegNum r1 : callerSaved
+getDstRegs Del{} = callerSaved
 
-getDstRegs PrintILOC{} = []
-getDstRegs Println{} = []
-getDstRegs ReadILOC{} = []
+getDstRegs PrintILOC{} = [] ++ callerSaved
+getDstRegs Println{} = [] ++ callerSaved
+getDstRegs (ReadILOC r) = RegNum r : callerSaved
 
 getDstRegs (Mov _ r2) = [RegNum r2]
 getDstRegs (Movi _ r1) = [RegNum r1]
@@ -173,6 +178,11 @@ getDstRegs PrepArgs{} = []
 getDstRegs UnprepArgs{} = []
 
 getDstRegs iloc = error $ "unexpected input " ++ show iloc
+
+getArgRegister :: Immed -> [AsmReg]
+getArgRegister i
+    | i < numArgRegs = [argRegs !! i]
+    | otherwise = []
 
 type GenSet = Set.Set AsmReg
 type KillSet = Set.Set AsmReg
@@ -302,8 +312,10 @@ actuallyReconstruct ((nextVert, neighbors):rest) interferenceGraph colorHM =
   where
     newEdges = [ (nextVert, nextNeighbor) | nextNeighbor <- neighbors ]
     newInterferenceGraph = addEdges interferenceGraph newEdges
-    color = pickColor nextVert newInterferenceGraph colorHM
     newHM = insert nextVert color colorHM
+    color = if nextVert > spillColor
+                then pickColor nextVert newInterferenceGraph colorHM
+                else nextVert 
 
 -- picks the first color that not used by any of its neighbors
 pickColor :: Vertex -> InterferenceGraph -> ColorLookup -> Color
@@ -335,5 +347,5 @@ getRegLookup graph = map mapFun colorLookup
           mapFun v = fromMaybe (error $ "Invalid vertex: " ++ show v) 
                             $ v `L.lookup` vertRegList 
 
-testIntGraph :: NodeGraph -> ColorLookup
-testIntGraph graph = colorGraph $ createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph :: NodeGraph -> InterferenceGraph
+testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph

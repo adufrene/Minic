@@ -6,6 +6,8 @@ module Mini.Asm.Types
         , colorProgramToAsm
         , AsmReg (..)
         , RegLookup
+        , argRegs
+        , numArgRegs
         ) where
 
 import Control.Applicative
@@ -153,15 +155,15 @@ type RegLookup = HashMap Reg AsmReg
 
 {- Create initial global variables and other file-specific data -}
 programToAsm :: [NodeGraph] -> [Declaration] -> [Asm]
-programToAsm graphs globals = asmProgramhelper globals bodyAsm 
+programToAsm graphs globals = asmProgramHelper globals bodyAsm 
     where bodyAsm = concatMap (functionToAsm RegNum) graphs
 
 colorProgramToAsm :: [RegLookup] -> [NodeGraph] -> [Declaration] -> [Asm]
-colorProgramToAsm colorHashes graphs globals = asmProgramhelper globals body
+colorProgramToAsm colorHashes graphs globals = asmProgramHelper globals body
     where body = concatMap (\(g,h) -> functionToAsm (h !) g) $ zip graphs colorHashes
 
-asmProgramhelper :: [Declaration] -> [Asm] -> [Asm]
-asmProgramhelper globals bodyAsm = createGlobals ++ bodyAsm
+asmProgramHelper :: [Declaration] -> [Asm] -> [Asm]
+asmProgramHelper globals bodyAsm = createGlobals ++ bodyAsm
     where createGlobals = concat [ globalString formatLabel formatStr
                                  , globalString printlnLabel printlnStr
                                  , [AsmGlobal scanVar]
@@ -178,10 +180,13 @@ globalString l s = [ AsmSection
 functionToAsm :: (Reg -> AsmReg) -> NodeGraph -> [Asm]
 functionToAsm regFun nodeG@(graph, hash) = prologue ++ body ++ epilogue
     where prologue = createPrologue nodeG
-          body = concat $ mapFun <$> sortedVerts -- Strip off label
+          body = filter filterFun unfiltered
+          unfiltered = concatMap mapFun sortedVerts 
           epilogue = createEpilogue nodeG
           sortedVerts = topSort graph
           sv = startVert nodeG
+          filterFun (AsmMov (AsmSReg r1) (AsmDReg r2)) = r1 /= r2
+          filterFun _ = True
           mapFun x
             | x == entryVertex = []
             | x == exitVertex = labelInsn

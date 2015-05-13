@@ -36,6 +36,9 @@ dumpIL = "--dumpIL"
 noAlloc :: String
 noAlloc = "--noAlloc"
 
+checkColors :: String
+checkColors = "--checkColors"
+
 -- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
 main :: IO ()
@@ -57,6 +60,8 @@ main = do
                then print graphs
                else if testAlloc `elem` args
                then print $ fmap testIntGraph graphs
+               else if checkColors `elem` args
+               then print $ fmap getRegLookup graphs
                else if dumpIL `elem` args
                then writeIloc graphs $ fileNameToIL fileName
                else writeAsm (noAlloc `notElem` args) graphs 
@@ -94,8 +99,6 @@ writeAsm shouldAlloc graphs decls fileName = writeFile fileName print
                         else programToAsm) graphs decls
           print = foldl' (\msg insn -> msg ++ show insn ++ "\n") 
                     "" funAsms
-          
-        
 
 safeGetFile :: [String] -> String
 safeGetFile args = if null fileList
