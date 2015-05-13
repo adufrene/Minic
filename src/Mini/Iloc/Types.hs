@@ -77,12 +77,12 @@ data Iloc =
 
            | Mov Reg Reg                    -- Used
            | Movi Immed Reg     -- Used
-           | Moveq Immed Reg    -- Used
-           | Movge Immed Reg    -- Used
-           | Movgt Immed Reg    -- Used
-           | Movle Immed Reg    -- Used
-           | Movlt Immed Reg    -- Used
-           | Movne Immed Reg    -- Used
+           | Moveq Reg Reg    -- Used
+           | Movge Reg Reg    -- Used
+           | Movgt Reg Reg    -- Used
+           | Movle Reg Reg    -- Used
+           | Movlt Reg Reg    -- Used
+           | Movne Reg Reg    -- Used
 
            | PrepArgs Immed
            | UnprepArgs Immed
@@ -148,12 +148,12 @@ instance Show Iloc where
 
    show (Mov r1 r2) = showIlocHelper "mov" [showReg r1, showReg r2]
    show (Movi i1 r1) = showIlocHelper "movi" [show i1, showReg r1]
-   show (Moveq i1 r1) = showIlocHelper "moveq" [show i1, showReg r1]
-   show (Movge i1 r1) = showIlocHelper "movge" [show i1, showReg r1]
-   show (Movgt i1 r1) = showIlocHelper "movgt" [show i1, showReg r1]
-   show (Movle i1 r1) = showIlocHelper "movle" [show i1, showReg r1]
-   show (Movlt i1 r1) = showIlocHelper "movlt" [show i1, showReg r1]
-   show (Movne i1 r1) = showIlocHelper "movne" [show i1, showReg r1]
+   show (Moveq r1 r2) = showIlocHelper "moveq" [showReg r1, showReg r2]
+   show (Movge r1 r2) = showIlocHelper "movge" [showReg r1, showReg r2]
+   show (Movgt r1 r2) = showIlocHelper "movgt" [showReg r1, showReg r2]
+   show (Movle r1 r2) = showIlocHelper "movle" [showReg r1, showReg r2]
+   show (Movlt r1 r2) = showIlocHelper "movlt" [showReg r1, showReg r2]
+   show (Movne r1 r2) = showIlocHelper "movne" [showReg r1, showReg r2]
 
    show (PrepArgs i) = showIlocHelper "prepArgs" [show i]
    show (UnprepArgs i) = showIlocHelper "unprepArgs" [show i]

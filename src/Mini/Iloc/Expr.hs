@@ -40,40 +40,50 @@ evalBinopExpr (BinExp _ binop lhs rhs) baggage nextReg =
    where
       (lhsIloc, lhsReg) = evalExpr lhs baggage nextReg
       (rhsIloc, rhsReg) = evalExpr rhs baggage (lhsReg + 1)
-      resultReg = rhsReg + 1
+      tempReg = rhsReg + 1
+      resultReg = rhsReg + 2
       binopExprs
         | binop == "+" = [Add lhsReg rhsReg resultReg]
         | binop == "-" = [Sub lhsReg rhsReg resultReg]
         | binop == "*" = [Mult lhsReg rhsReg resultReg]
         | binop == "/" = [Div lhsReg rhsReg resultReg]
         | binop == "<" = [ Movi 0 resultReg
+                         , Movi 1 tempReg
                          , Comp lhsReg rhsReg
-                         , Movlt 1 resultReg]
+                         , Movlt tempReg resultReg]
         | binop == "<=" = [ Movi 0 resultReg
+                          , Movi 1 tempReg
                           , Comp lhsReg rhsReg
-                          , Movle 1 resultReg]
+                          , Movle tempReg resultReg]
         | binop == ">" = [ Movi 0 resultReg
+                         , Movi 1 tempReg
                          , Comp lhsReg rhsReg
-                         , Movgt 1 resultReg]
+                         , Movgt tempReg resultReg]
         | binop == ">=" = [ Movi 0 resultReg
+                          , Movi 1 tempReg
                           , Comp lhsReg rhsReg
-                          , Movge 1 resultReg]
+                          , Movge tempReg resultReg]
         | binop == "==" = [ Movi 0 resultReg
+                          , Movi 1 tempReg
                           , Comp lhsReg rhsReg
-                          , Moveq 1 resultReg]
+                          , Moveq tempReg resultReg]
         | binop == "!=" = [ Movi 0 resultReg
+                          , Movi 1 tempReg
                           , Comp lhsReg rhsReg
-                          , Movne 1 resultReg]
+                          , Movne tempReg resultReg]
         | binop == "&&" = [ Movi 1 resultReg
+                          , Movi 0 tempReg
                           , Compi lhsReg 0
-                          , Moveq 0 resultReg
+                          , Moveq tempReg resultReg
+                          , Movi 0 tempReg
                           , Compi rhsReg 0
-                          , Moveq 0 resultReg]
+                          , Moveq tempReg resultReg]
         | binop == "||" = [ Movi 0 resultReg
                           , Compi lhsReg 0
-                          , Movne 1 resultReg
+                          , Movi 1 tempReg
+                          , Movne tempReg resultReg
                           , Compi rhsReg 0
-                          , Moveq 1 resultReg]
+                          , Moveq tempReg resultReg]
         | otherwise = error $ "don't know what to do with " ++ binop
 
 evalUopExpr :: Expression -> Baggage -> Reg -> IlocRet

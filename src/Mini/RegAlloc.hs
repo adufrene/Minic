@@ -31,7 +31,7 @@ regVertList = [ (Rax, -1)
               , (Rbx, -2)
               , (Rcx, -3)
               , (Rdx, -4)
-              , (Rsp, -5)
+              , (Rsp, -5)   -- Not assignable
               , (Rbp, -6)
               , (Rsi, -7)
               , (Rdi, -8)
@@ -40,10 +40,10 @@ regVertList = [ (Rax, -1)
               , (R10, -11)
               , (R11, -12)
               , (R12, -13)
-              , (R13, -14)
-              , (R14, -15)
-              , (R15, -16)
-              , (Rip, -17) ]
+              , (R13, -14)  -- Spill Reg
+              , (R14, -15)  -- Spill Reg
+              , (R15, -16)  -- Spill Reg
+              , (Rip, -17) ] -- Not assignable
 
 callerSaved = [Rax, Rcx, Rdx, Rsi, Rdi, R8, R9, R10, R11]
 calleeSaved = [Rbx, Rsp, Rbp, R12, R13, R14, R15]
@@ -102,12 +102,12 @@ getSrcRegs ReadILOC{} = []
 
 getSrcRegs (Mov r1 _) = [RegNum r1]
 getSrcRegs Movi{} = []
-getSrcRegs Moveq{} = []
-getSrcRegs Movge{} = []
-getSrcRegs Movgt{} = []
-getSrcRegs Movle{} = []
-getSrcRegs Movlt{} = []
-getSrcRegs Movne{} = []
+getSrcRegs (Moveq r1 _) = [RegNum r1]
+getSrcRegs (Movge r1 _) = [RegNum r1]
+getSrcRegs (Movgt r1 _) = [RegNum r1]
+getSrcRegs (Movle r1 _) = [RegNum r1]
+getSrcRegs (Movlt r1 _) = [RegNum r1]
+getSrcRegs (Movne r1 _) = [RegNum r1]
 
 getSrcRegs PrepArgs{} = []
 getSrcRegs UnprepArgs{} = []

@@ -96,12 +96,12 @@ data Asm = AsmPush AsmReg
          | AsmCall Label
          | AsmRet
          | AsmMov AsmSrc AsmDest
-         | AsmCmoveq Immed AsmReg
-         | AsmCmovgeq Immed AsmReg
-         | AsmCmovgq Immed AsmReg
-         | AsmCmovleq Immed AsmReg
-         | AsmCmovlq Immed AsmReg
-         | AsmCmovneq Immed AsmReg
+         | AsmCmoveq AsmReg AsmReg
+         | AsmCmovgeq AsmReg AsmReg
+         | AsmCmovgq AsmReg AsmReg
+         | AsmCmovleq AsmReg AsmReg
+         | AsmCmovlq AsmReg AsmReg
+         | AsmCmovneq AsmReg AsmReg
          | AsmLabel Label
          deriving (Eq)
 
@@ -131,12 +131,12 @@ instance Show Asm where
         show (AsmCall l) = showAsm "call" [l]
         show AsmRet = showAsm "ret " []
         show (AsmMov r1 r2) = showAsm "movq" [srcStr r1, destStr r2]
-        show (AsmCmoveq i r) = showAsm "cmoveq" [immStr i, show r]
-        show (AsmCmovgeq i r) = showAsm "cmovgeq" [immStr i, show r]
-        show (AsmCmovgq i r) = showAsm "cmovgq" [immStr i, show r]
-        show (AsmCmovleq i r) = showAsm "cmovleq" [immStr i, show r]
-        show (AsmCmovlq i r) = showAsm "cmovlq" [immStr i, show r]
-        show (AsmCmovneq i r) = showAsm "cmovneq" [immStr i, show r]
+        show (AsmCmoveq r1 r2) = showAsm "cmoveq" [show r1, show r2]
+        show (AsmCmovgeq r1 r2) = showAsm "cmovgeq" [show r1, show r2]
+        show (AsmCmovgq r1 r2) = showAsm "cmovgq" [show r1, show r2]
+        show (AsmCmovleq r1 r2) = showAsm "cmovleq" [show r1, show r2]
+        show (AsmCmovlq r1 r2) = showAsm "cmovlq" [show r1, show r2]
+        show (AsmCmovneq r1 r2) = showAsm "cmovneq" [show r1, show r2]
         show (AsmLabel l) = l ++ ":"
 
 data AsmType = FunctionType 
@@ -295,12 +295,12 @@ ilocToAsm (ReadILOC r) = createRead r
 ilocToAsm (Mov r1 r2) = [AsmMov (AsmSReg $ RegNum r1) 
                             (AsmDReg $ RegNum r2)]
 ilocToAsm (Movi i r) = [AsmMov (AsmImmed i) (AsmDReg $ RegNum r)]
-ilocToAsm (Moveq i r) = [AsmCmoveq i $ RegNum r]
-ilocToAsm (Movge i r) = [AsmCmovgeq i $ RegNum r]
-ilocToAsm (Movgt i r) = [AsmCmovgq i $ RegNum r]
-ilocToAsm (Movle i r) = [AsmCmovleq i $ RegNum r]
-ilocToAsm (Movlt i r) = [AsmCmovlq i $ RegNum r]
-ilocToAsm (Movne i r) = [AsmCmovneq i $ RegNum r]
+ilocToAsm (Moveq r1 r2) = [AsmCmoveq (RegNum r1) (RegNum r2)]
+ilocToAsm (Movge r1 r2) = [AsmCmovgeq (RegNum r1) (RegNum r2)]
+ilocToAsm (Movgt r1 r2) = [AsmCmovgq (RegNum r1) (RegNum r2)]
+ilocToAsm (Movle r1 r2) = [AsmCmovleq (RegNum r1) (RegNum r2)]
+ilocToAsm (Movlt r1 r2) = [AsmCmovlq (RegNum r1) (RegNum r2)]
+ilocToAsm (Movne r1 r2) = [AsmCmovneq (RegNum r1) (RegNum r2)]
 ilocToAsm (PrepArgs i) = [AsmSub Rsp $ CompImm $ wordSize * (i - numArgRegs) | i > numArgRegs]
 ilocToAsm (UnprepArgs i) = [AsmAdd Rsp $ CompImm $ wordSize * (i - numArgRegs) | i > numArgRegs]
 ilocToAsm iloc = error $ "No Asm translation for " ++ show iloc
