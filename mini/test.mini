@@ -1,8 +1,9 @@
 fun main() int {
-    int x, y, z;
-    x = 3;
-    y = 3;
-    z = 1;
-    print x endl;
-    return y * 3 / z;
+    int x;
+    x = 0;
+    while (x < 10) {
+        print x endl;
+        x = x + 1;
+    }
+    return 0;
 }
