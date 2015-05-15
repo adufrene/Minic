@@ -343,7 +343,9 @@ manageStack regs = (pushInsns ++ subSp, addSp ++ popInsns)
           totalOffset = abs $ wordSize * (minimum localOffsets - 1)
           savedRegs = nub $ regs `intersect` delete Rbp calleeSaved
           pushInsns = foldl' (\l r -> l ++ [AsmPush r]) [] savedRegs
-          popInsns = foldl' (\l r -> AsmPop r : l) [] savedRegs
+                        ++ [AsmPush Rbp, AsmMov (AsmSReg Rsp) (AsmDReg Rbp)]
+          popInsns = AsmMov (AsmSReg Rbp) (AsmDReg Rsp) : AsmPop Rbp
+                        : foldl' (\l r -> AsmPop r : l) [] savedRegs
           (subSp, addSp) = if null localOffsets
                             then ([], [])
                             else ([AsmSubSp totalOffset],
@@ -354,26 +356,26 @@ createPrologue (graph, hash) = [ AsmText
                                , AsmFunGlobal funLabel
                                , AsmType funLabel FunctionType
                                , AsmLabel funLabel
-                               , AsmPush Rbp
+--                                , AsmPush Rbp
 --                                , AsmPush Rbx
 --                                , AsmPush Rsp
 --                                , AsmPush R12
 --                                , AsmPush R13
 --                                , AsmPush R14
 --                                , AsmPush R15
-                               , AsmMov (AsmSReg Rsp) (AsmDReg Rbp) ]
+                               {-, AsmMov (AsmSReg Rsp) (AsmDReg Rbp)-} ]
     where funLabel = funName (graph, hash) 
 
 createEpilogue :: NodeGraph -> [Asm]
-createEpilogue (graph, hash) = [ AsmMov (AsmSReg Rbp) (AsmDReg Rsp)
+createEpilogue (graph, hash) = [ {-AsmMov (AsmSReg Rbp) (AsmDReg Rsp)
 --                                , AsmPop R15
 --                                , AsmPop R14
 --                                , AsmPop R13
 --                                , AsmPop R12
 --                                , AsmPop Rsp
 --                                , AsmPop Rbx
-                               , AsmPop Rbp
-                               , AsmRet
+--                                , AsmPop Rbp
+                               ,-} AsmRet
                                , AsmFunSize $ funName (graph, hash)]
 
 functionType :: String
