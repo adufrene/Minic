@@ -339,7 +339,7 @@ getRegLookup graph = fst $ foldlWithKey' foldFun (empty, 1) colorLookup
           gkLookup = createGenKillSets graph
           foldFun (hash, nextLocal) key clr = 
             if clr == 0
-                then (insert key (BaseOffset $ -nextLocal) hash, nextLocal + 1)
+                then (insert key (LocalReg nextLocal) hash, nextLocal + 1)
                 else (insert key (fromMaybe 
                         (error $ "Invalid vertex: " ++ show clr)
                             $ clr `L.lookup` vertRegList) hash, nextLocal)

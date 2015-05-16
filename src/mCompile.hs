@@ -6,6 +6,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.List
 import Data.Maybe
 import System.Environment
+import System.FilePath
 
 import Mini.Asm.Types
 import Mini.CFG
@@ -74,14 +75,8 @@ envReport :: Either ErrType GlobalEnv -> IO GlobalEnv
 envReport (Left msg) = error msg
 envReport (Right env) = return env
 
-stripFile :: String -> String
-stripFile file = reverse $ take localNdx $ reverse newName
-    where reverseNdx = 1 + fromMaybe (-1) ('.' `elemIndex` reverse file)
-          localNdx = fromMaybe 0 $ '/' `elemIndex` reverse newName
-          newName = reverse $ drop reverseNdx $ reverse file
-
 fileNameToIL :: String -> String
-fileNameToIL oldFile = stripFile oldFile ++ ".il"
+fileNameToIL oldFile = takeBaseName oldFile ++ ".il"
 
 writeIloc :: [NodeGraph] -> String -> IO ()
 writeIloc graphs fileName = do
@@ -89,7 +84,7 @@ writeIloc graphs fileName = do
         writeFile fileName print
 
 fileNameToS :: String -> String
-fileNameToS oldFile = stripFile oldFile ++ ".s"
+fileNameToS oldFile = takeBaseName oldFile ++ ".s"
 
 writeAsm :: Bool -> [NodeGraph] -> [Declaration] -> String -> IO ()
 writeAsm shouldAlloc graphs decls fileName = writeFile fileName print 

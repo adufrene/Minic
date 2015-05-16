@@ -28,11 +28,13 @@ data AsmSrc = AsmSOReg OffsetReg
             | AsmSReg AsmReg
             | AsmImmed Immed
             | AsmSLabel Label
+            | AsmSAddr Label
             deriving (Eq)
 
 data AsmDest = AsmDOReg OffsetReg
              | AsmDReg AsmReg
              | AsmDLabel Label
+             | AsmDAddr Label
              deriving (Eq)
 
 data CompArg = CompReg AsmReg
@@ -56,29 +58,20 @@ data AsmReg = Rax
             | R14
             | R15
             | Rip
-            | BaseOffset Immed
+            | LocalReg Immed
             | RegNum Reg
             deriving (Eq, Data, Typeable, Ord)
 
-data OffsetArg = OffsetImm Immed
-               | OffsetLab Label
-               deriving (Eq)
-
-instance Show OffsetArg where
-        show (OffsetLab l) = l
-        show (OffsetImm i) = show i
-
-data OffsetReg = OffsetReg AsmReg OffsetArg deriving (Eq)
+data OffsetReg = OffsetReg AsmReg Immed deriving (Eq)
 
 instance Show AsmReg where
         show (RegNum i) = "r" ++ show i
-        show (BaseOffset i) = show (i * wordSize) ++ "(%rbp)"
+        show (LocalReg i) = show (-i * wordSize) ++ "(%rbp)"
         show reg = "%" ++ map toLower (show $ toConstr reg)
 
 instance Show OffsetReg where
-        show (OffsetReg r (OffsetImm 0)) = "(" ++ show r ++ ")"
-        show (OffsetReg r (OffsetImm i)) = show (wordSize * i) ++ "(" ++ show r ++ ")"
-        show (OffsetReg r (OffsetLab l)) = l ++ "(" ++ show r ++ ")"
+        show (OffsetReg r 0) = "(" ++ show r ++ ")"
+        show (OffsetReg r i) = show (wordSize * i) ++ "(" ++ show r ++ ")"
 
 data Asm = AsmPush AsmReg
          | AsmPop AsmReg
@@ -207,7 +200,7 @@ getAsmFromSrc _ = []
 
 getAsmFromDest :: AsmDest -> [AsmReg]
 getAsmFromDest (AsmDReg r) = [r]
-getAsmFromDest (AsmDOReg (OffsetReg r _)) = []
+getAsmFromDest (AsmDOReg (OffsetReg r _)) = [r]
 getAsmFromDest _ = []
 
 swapRegs :: Asm -> AsmReg -> AsmReg -> Asm
@@ -291,8 +284,9 @@ colorProgramToAsm colorHashes graphs globals = asmProgramHelper globals body
 
 asmProgramHelper :: [Declaration] -> [Asm] -> [Asm]
 asmProgramHelper globals bodyAsm = createGlobals ++ bodyAsm
-    where createGlobals = concat [ globalString formatLabel formatStr
+    where createGlobals = concat [ globalString printLabel printStr
                                  , globalString printlnLabel printlnStr
+                                 , globalString scanLabel scanStr
                                  , [AsmGlobal scanVar]
                                  , createGlobal <$> globals ]
           createGlobal = AsmGlobal . getDecId 
@@ -320,7 +314,7 @@ spillVars asm
     | null localRegs = [asm]
     | otherwise = loadRegs ++ [newAsm] ++ storeRegs
     where regsUsed = regsPerAsm asm
-          localRegs = [x | x@BaseOffset{} <- regsUsed]
+          localRegs = [x | x@LocalReg{} <- regsUsed]
           localLookup = zip localRegs tempRegs
           loadRegs = foldl' loadFoldFun [] localLookup
           storeRegs = foldl' storeFoldFun [] localLookup
@@ -339,8 +333,8 @@ functionMapFun regFun nodeG@(graph, hash) x
 
 manageStack :: [AsmReg] -> ([Asm], [Asm])
 manageStack regs = (pushInsns ++ subSp, addSp ++ popInsns)
-    where localOffsets = [ i | (BaseOffset i) <- regs ]
-          totalOffset = abs $ wordSize * (minimum localOffsets - 1)
+    where localOffsets = [ i | (LocalReg i) <- regs ]
+          totalOffset = abs $ wordSize * (maximum localOffsets + 1)
           savedRegs = nub $ regs `intersect` delete Rbp calleeSaved
           pushInsns = foldl' (\l r -> l ++ [AsmPush r]) [] savedRegs
                         ++ [AsmPush Rbp, AsmMov (AsmSReg Rsp) (AsmDReg Rbp)]
@@ -405,11 +399,11 @@ returnReg = Rax
 wordSize :: Int
 wordSize = 8
 
-formatLabel :: Label
-formatLabel = ".FORMAT"
+printLabel :: Label
+printLabel = ".PRINT"
 
-formatStr :: String
-formatStr = "%ld"
+printStr :: String
+printStr = "%ld "
 
 printlnStr :: String
 printlnStr = "%ld\\n"
@@ -419,6 +413,12 @@ printlnLabel = ".PRINTLN"
 
 printf :: Label
 printf = "printf"
+
+scanLabel :: Label
+scanLabel = ".SCAN"
+
+scanStr :: String
+scanStr = "%ld"
 
 scanVar :: Label
 scanVar = ".SCANVAR"
@@ -443,14 +443,19 @@ srcStr (AsmSOReg r) = show r
 srcStr (AsmImmed i) = immStr i
 srcStr (AsmSLabel l) = labStr l
 srcStr (AsmSReg r) = show r
+srcStr (AsmSAddr l) = addrStr l
 
 destStr :: AsmDest -> String
 destStr (AsmDOReg r) = show r
 destStr (AsmDLabel l) = labStr l
 destStr (AsmDReg r) = show r
+destStr (AsmDAddr l) = addrStr l
 
 labStr :: Label -> String
-labStr l = "$" ++ l
+labStr l = l ++ "(%rip)"
+
+addrStr :: Label -> String
+addrStr l = "$" ++ l
 
 immStr :: Immed -> String
 immStr i = "$" ++ show i
@@ -472,13 +477,13 @@ ilocToAsm f (Comp r1 r2) = [AsmCmp (CompReg $ f r2) (f r1)]
 ilocToAsm f (Compi r i) = [AsmCmp (CompImm i) (f r)]
 ilocToAsm _ (Jumpi l) = [AsmJmp l]
 ilocToAsm f (Brz r l1 l2) = brz f r l1 l2
-ilocToAsm f (Loadai r1 i r2) = [AsmMov (AsmSOReg $ OffsetReg (f r1) $ OffsetImm i) 
+ilocToAsm f (Loadai r1 i r2) = [AsmMov (AsmSOReg $ OffsetReg (f r1) i) 
                                 (AsmDReg $ f r2)]
 ilocToAsm f (Loadglobal l r) = [AsmMov (AsmSLabel l) (AsmDReg $ f r)]
 ilocToAsm f (Loadinargument l i r) = loadArg f i r
 ilocToAsm f (Loadret r) = [AsmMov (AsmSReg returnReg) (AsmDReg $ f r)]
 ilocToAsm f (Storeai r1 r2 i) = [AsmMov (AsmSReg $ f r1) 
-                                (AsmDOReg $ OffsetReg (f r2) $ OffsetImm i)] 
+                                (AsmDOReg $ OffsetReg (f r2) i)] 
 ilocToAsm f (Storeglobal r l) = [AsmMov (AsmSReg $ f r) (AsmDLabel l)]
 ilocToAsm f (Storeoutargument r i) = storeArg f r i
 ilocToAsm f (Storeret r) = [AsmMov (AsmSReg $ f r) (AsmDReg returnReg)]
@@ -529,15 +534,13 @@ brz f r l1 l2 = [ AsmCmp (CompImm 0) (f r)
 loadArg :: (Reg -> AsmReg) -> Immed -> Reg -> [Asm]
 loadArg f i r
     | i < numArgRegs = [AsmMov (AsmSReg $ argRegs !! i) (AsmDReg $ f r)]
-    | otherwise = [AsmMov (AsmSOReg $ OffsetReg Rbp $ OffsetImm offset) 
-                    (AsmDReg $ f r)]
+    | otherwise = [AsmMov (AsmSOReg $ OffsetReg Rbp offset) (AsmDReg $ f r)]
     where offset = i - numArgRegs + 2
 
 storeArg :: (Reg -> AsmReg) -> Reg -> Immed -> [Asm]
 storeArg f r i
     | i < numArgRegs = [AsmMov (AsmSReg $ f r) (AsmDReg $ argRegs !! i)] 
-    | otherwise = [AsmMov (AsmSReg $ f r) (AsmDOReg $ OffsetReg Rsp 
-                    $ OffsetImm offset)]
+    | otherwise = [AsmMov (AsmSReg $ f r) (AsmDOReg $ OffsetReg Rsp offset)]
     where offset = i - numArgRegs
 
 createNew :: (Reg -> AsmReg) -> Immed -> Reg -> [Asm]
@@ -550,16 +553,15 @@ createDelete f r = [ AsmMov (AsmSReg $ f r) (AsmDReg Rdi)
                  , AsmCall free ]
 
 createPrint :: (Reg -> AsmReg) -> Reg -> Bool -> [Asm]
-createPrint f r endl = [ AsmMov (AsmSLabel printString) (AsmDReg Rdi)
+createPrint f r endl = [ AsmMov (AsmSAddr printString) (AsmDReg Rdi)
                      , AsmMov (AsmSReg $ f r) (AsmDReg Rsi)
                      , AsmMov (AsmImmed 0) (AsmDReg Rax)
                      , AsmCall printf ]
-    where printString = if endl then printlnLabel else formatLabel
+    where printString = if endl then printlnLabel else printLabel
 
 createRead :: (Reg -> AsmReg) -> Reg -> [Asm]
-createRead f r = [ AsmMov (AsmSLabel formatLabel) (AsmDReg Rdi)
-               , AsmMov (AsmSLabel scanVar) (AsmDReg Rsi)
+createRead f r = [ AsmMov (AsmSAddr scanLabel) (AsmDReg Rdi)
+               , AsmMov (AsmSAddr scanVar) (AsmDReg Rsi)
                , AsmMov (AsmImmed 0) (AsmDReg Rax)
                , AsmCall scanf
-               , AsmMov (AsmSOReg $ OffsetReg Rip $ OffsetLab scanVar) 
-                        (AsmDReg $ f r) ]
+               , AsmMov (AsmSLabel scanVar) (AsmDReg $ f r) ]
