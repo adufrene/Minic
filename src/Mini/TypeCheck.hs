@@ -80,7 +80,7 @@ readFuncs structHash decHash = foldM foldFun empty
             localsWOutArgs <- readDecls structHash decls
             let newHash = insert fieldId (fmap getFieldType params, expectRet) hash
             retType <- checkFunctionBody fun (createGlobal newHash) (createLocal localsWOutArgs params)
-            if retType /= expectRet 
+            if retType /= expectRet && retType /= nullType
                 then createError fun $ "function returns " ++ retType ++ " expected " ++ expectRet
                 else Right newHash
 
@@ -113,19 +113,20 @@ getExprType NullExp{} = \_ _ -> Right nullType
 
 getBinExpType :: Expression -> GlobalEnv -> LocalEnv -> Either ErrType Type
 getBinExpType expr@(BinExp _ op lft rht) global local
-    | op `elem` boolBinops = checkBinTypes boolType boolType -- bool
-    | op `elem` equalityBinops = lftType  >>= flip checkBinTypes boolType -- int or struct
-    | op `elem` relationalBinops = checkBinTypes intType boolType
-    | op `elem` arithBinops = checkBinTypes intType intType -- int
+    | op `elem` boolBinops = checkBinTypes [boolType] boolType -- bool
+    | op `elem` equalityBinops = lftType >>= (\x -> checkBinTypes [x, nullType] boolType) -- int or struct
+    | op `elem` relationalBinops = checkBinTypes [intType] boolType
+    | op `elem` arithBinops = checkBinTypes [intType] intType -- int
     | otherwise = createError expr "invalid binary operator"
     where lftType = getExprType lft global local
           rhtType = getExprType rht global local
-          checkBinTypes exprType retType = do
+          checkBinTypes expTypes retType = do
               lftM <- lftType
               rhtM <- rhtType
-              if all (==exprType) [lftM, rhtM] 
+              if all (`elem` expTypes) [lftM, rhtM] 
                   then Right retType 
-                  else createError expr $ "expected " ++ exprType ++ ", found " ++ lftM ++ " and " ++ rhtM
+                  else createError expr $ "expected " ++ show expTypes 
+                        ++ ", found " ++ lftM ++ " and " ++ rhtM
 
 getUExpType :: Expression -> GlobalEnv -> LocalEnv -> Either ErrType Type
 getUExpType expr@(UExp _ op opnd) global local
@@ -220,15 +221,15 @@ validateReturn line expectRet nextStmts global local = do
         nextRet <- checkStatements nextStmts global local
         compareReturns expectRet nextRet
     where compareReturns Nothing ret = Right ret 
-          compareReturns (Just t1) (Yes ret) =
-               if t1 == fromJust ret
-                then Right $ Yes $ Just t1
-                else createError line $ "Function returns " ++ t1 ++ " and " ++ fromJust ret
+          compareReturns (Just t1) (Yes (Just ret)) =
+               if t1 == ret || nullType `elem` [t1, ret]
+                then Right $ Yes $ Just $ fromMaybe nullType $ (/= nullType) `find` [t1, ret]
+                else createError line $ "Function returns " ++ t1 ++ " and " ++ ret
           compareReturns (Just t1) (No ret) = 
                case ret of
-                   Just t2 -> if t1 /= t2
+                   Just t2 -> if t1 /= t2 && nullType `notElem` [t1, t2]
                                   then createError line $ "Function returns " ++ t1 ++ " and " ++ t2
-                                  else Right $ No ret
+                                  else Right $ No $ Just $ fromMaybe nullType $ (/= nullType) `find` [t1, t2]
                    Nothing -> Right $ No (Just t1)
 
 -- Return: 
@@ -246,8 +247,8 @@ checkCond (stmt@(Cond _ condGuard thenBlock (Just elseBlock)):rest) global local
           compareTypes (No _) (Yes (Just t)) = validateReturn stmt (Just t) rest global local
           compareTypes (No _) (No _) = validateReturn stmt Nothing rest global local
           compareTypes (Yes (Just t1)) (Yes (Just t2)) = 
-            if t1 == t2
-              then Right $ Yes $ Just t1
+            if t1 == t2 || nullType `elem` [t1, t2]
+              then Right $ Yes $ Just $ fromMaybe nullType $ (/= nullType) `find` [t1, t2]
               else createError stmt $ "Function returns " ++ t1 ++ " and " ++ t2
 
 checkLoop :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
@@ -259,7 +260,7 @@ checkAsgn :: [Statement] -> GlobalEnv -> LocalEnv -> StatementRet
 checkAsgn (stmt@(Asgn _ lval expr):rest) global local = do
         expType <- getExprType expr global local
         lValType <- getLValType lval global local
-        if lValType == expType
+        if lValType == expType || expType == nullType
             then checkStatements rest global local
             else createError stmt $ "assigning " ++ expType ++ " to " ++ lValType
 
