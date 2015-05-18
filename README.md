@@ -9,7 +9,6 @@
 - binaryConvert -- Segmentation Fault
 - fact_sum -- Segmentation Fault
 - killerBubbles -- Segmentation Fault
-- OptimizationBenchmark -- Register Allocation Timeout
 - primes -- Segmentation Fault
 
 ## Works
@@ -29,3 +28,4 @@
 - TicTac
 - uncreativeBenchmark
 - wasteOfCycles
+- OptimizationBenchmark -- Register Allocation SLOW
