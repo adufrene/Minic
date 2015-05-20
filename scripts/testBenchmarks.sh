@@ -4,16 +4,15 @@
 set -u
 
 MINI_EXE=mCompile
-TMP_DIR=$(mktemp -d -p .)
 BENCHMARK_DIR="$(realpath $(dirname ${BASH_SOURCE})/../benchmarks)"
-
-cd $TMP_DIR
 
 cleanup() {
     cd ..
     rm -rf $TMP_DIR
 }
 
+TMP_DIR=$(mktemp -d -p .)
+cd $TMP_DIR
 trap cleanup EXIT
 
 runTest() {
