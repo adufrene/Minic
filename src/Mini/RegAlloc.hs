@@ -225,11 +225,11 @@ type InterferenceGraph = Graph
 
 createInterferenceGraph :: NodeGraph -> LiveOutLookup -> InterferenceGraph
 createInterferenceGraph (_, nodeHash) lookup =
-        makeUndirected $ foldlWithKey' foldFun theEmptyGraph nodeHash
+        foldlWithKey' foldFun theEmptyGraph nodeHash
     where foldFun graph key node = fst $ foldr foldIntGraph (graph, lookup ! key)
                                         $ getIloc node
 
-foldIntGraph :: Iloc -> (Graph, Set.Set AsmReg) -> (Graph, Set.Set AsmReg)
+foldIntGraph :: Iloc -> (InterferenceGraph, Set.Set AsmReg) -> (InterferenceGraph, Set.Set AsmReg)
 foldIntGraph insn (graph, liveNow) = (newGraph, newLiveNow)
     where targetRegs = getDstRegs insn 
           sourceRegSet = Set.fromList $ getSrcRegs insn
@@ -258,23 +258,32 @@ newBounds (oldLower, oldUpper) verts = (newLower, newUpper)
 type DeconstructionStack = [(Vertex, [Vertex])]
 
 deconstructInterferenceGraph :: InterferenceGraph -> DeconstructionStack
-deconstructInterferenceGraph = flip actuallyDeconstructInterferenceGraph []
+deconstructInterferenceGraph graph = actuallyDeconstructInterferenceGraph (graph, vertices graph) []
 
-actuallyDeconstructInterferenceGraph :: InterferenceGraph -> DeconstructionStack -> DeconstructionStack
-actuallyDeconstructInterferenceGraph graph stack
-  | emptyGraph graph = stack
+actuallyDeconstructInterferenceGraph :: (InterferenceGraph, [Vertex]) -> DeconstructionStack -> DeconstructionStack
+actuallyDeconstructInterferenceGraph (graph, verts) stack
+  | null verts = stack
   | nextVertex == 0 = actuallyDeconstructInterferenceGraph newGraph stack
   | otherwise = actuallyDeconstructInterferenceGraph newGraph newStack
   where
-    nextVertex = pickNextVertex graph
+    nextVertex = pickNextVertex verts graph
     neighbors = getNeighbors graph nextVertex
     newStack = push stack (nextVertex, neighbors)
-    newGraph = removeVertex graph nextVertex
+    newGraph = (removeVertex graph nextVertex, nextVertex `L.delete` verts)
 
 -- uses heuristic to pick the next vertex to pull out of interference graph
 -- assumes graph is not empty
-pickNextVertex :: InterferenceGraph -> Vertex
-pickNextVertex graph = last $ vertices graph -- TODO: pick better heuristic
+pickNextVertex :: [Vertex] -> InterferenceGraph -> Vertex
+pickNextVertex verts graph
+    | not $ null unconstrained = pickBest unconstrained
+    | not $ null constrained = pickBest constrained
+    | otherwise = head verts
+    where (unconstrained, constrained) = L.partition partFun $ filter (>0) verts
+          partFun x = length (getNeighbors graph x) < length colors
+          pickBest = head
+
+
+-- = last verts -- TODO: pick better heuristic
 
 makeUndirected :: Graph -> Graph
 makeUndirected dirGraph = buildG (bounds dirGraph) $ L.nub duppedEdges
