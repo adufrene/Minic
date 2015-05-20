@@ -43,131 +43,173 @@ vertRegList = L.map swap regVertList
 
 -- registers we will read from for this instruction
 getSrcRegs :: Iloc -> [AsmReg]
-getSrcRegs (Add r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
-getSrcRegs (Addi r1 _ r3) = [RegNum r1, RegNum r3]
-getSrcRegs (Div r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3, Rdx, Rax]
-getSrcRegs (Mult r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
-getSrcRegs (Multi r1 _ r2) = [RegNum r1, RegNum r2]
-getSrcRegs (Sub r1 r2 r3) = [RegNum r1, RegNum r2, RegNum r3]
-getSrcRegs (Rsubi r1 _ _) = [RegNum r1]
+getSrcRegs iloc = (getSrcAsmRegs iloc) ++ (fmap RegNum (getSrcIlocRegs iloc))
 
-getSrcRegs (And r1 r2 _) = [RegNum r1, RegNum r2]
-getSrcRegs (Or r1 r2 _) = [RegNum r1, RegNum r2]
-getSrcRegs (Xori r1 _ _) = [RegNum r1]
+-- asm registers we will read from for this instuction
+getSrcAsmRegs :: Iloc -> [AsmReg]
+getSrcAsmRegs (Div r1 r2 r3) = [Rdx, Rax]
 
-getSrcRegs (Comp r1 r2) = [RegNum r1, RegNum r2]
-getSrcRegs (Compi r1 _) = [RegNum r1]
+getSrcAsmRegs (Loadinargument _ _ i) = getArgRegister i
 
-getSrcRegs Cbreq{} = []
-getSrcRegs Cbrge{} = []
-getSrcRegs Cbrgt{} = []
-getSrcRegs Cbrle{} = []
-getSrcRegs Cbrlt{} = []
-getSrcRegs Cbrne{} = []
-getSrcRegs Jumpi{} = []
-getSrcRegs (Brz r1 _ _) = [RegNum r1]
+getSrcAsmRegs Call{} = argRegs
 
-getSrcRegs (Loadai r1 _ _) = [RegNum r1]
-getSrcRegs Loadglobal{} = []
-getSrcRegs (Loadinargument _ _ i) = getArgRegister i
-getSrcRegs Loadret{} = []
-getSrcRegs Computeformaladdress{} = []
-getSrcRegs Restoreformal{} = []
-getSrcRegs Computeglobaladdress{} = []
+getSrcAsmRegs New{} = [Rax, Rdi]
+getSrcAsmRegs (Del r1) = [Rdi]
 
-getSrcRegs (Storeai r1 r2 _) = [RegNum r1, RegNum r2]
-getSrcRegs (Storeglobal r1 _) = [RegNum r1]
-getSrcRegs (Storeinargument r1 _ _) = [RegNum r1]
-getSrcRegs (Storeoutargument r1 _) = [RegNum r1]
-getSrcRegs (Storeret r1) = [RegNum r1]
+getSrcAsmRegs (PrintILOC r1) = [Rdi, Rsi, Rax]
+getSrcAsmRegs (Println r1) = [Rdi, Rsi, Rax]
+getSrcAsmRegs ReadILOC{} = [Rdi, Rsi, Rax]
 
-getSrcRegs Call{} = argRegs
-getSrcRegs RetILOC = []
+getSrcAsmRegs _ = []
 
-getSrcRegs New{} = [Rax, Rdi]
-getSrcRegs (Del r1) = [Rdi, RegNum r1]
+-- iloc registers we will read from for this instuction
+getSrcIlocRegs :: Iloc -> [Reg]
+getSrcIlocRegs (Add r1 r2 r3) = [r1, r2, r3]
+getSrcIlocRegs (Addi r1 _ r3) = [r1, r3]
+getSrcIlocRegs (Div r1 r2 r3) = [r1, r2, r3]
+getSrcIlocRegs (Mult r1 r2 r3) = [r1, r2, r3]
+getSrcIlocRegs (Multi r1 _ r2) = [r1, r2]
+getSrcIlocRegs (Sub r1 r2 r3) = [r1, r2, r3]
+getSrcIlocRegs (Rsubi r1 _ _) = [r1]
 
-getSrcRegs (PrintILOC r1) = [Rdi, Rsi, Rax, RegNum r1]
-getSrcRegs (Println r1) = [RegNum r1, Rdi, Rsi, Rax]
-getSrcRegs ReadILOC{} = [Rdi, Rsi, Rax]
+getSrcIlocRegs (And r1 r2 _) = [r1, r2]
+getSrcIlocRegs (Or r1 r2 _) = [r1, r2]
+getSrcIlocRegs (Xori r1 _ _) = [r1]
 
-getSrcRegs (Mov r1 _) = [RegNum r1]
-getSrcRegs Movi{} = []
-getSrcRegs (Moveq r1 r2) = [RegNum r1, RegNum r2]
-getSrcRegs (Movge r1 r2) = [RegNum r1, RegNum r2]
-getSrcRegs (Movgt r1 r2) = [RegNum r1, RegNum r2]
-getSrcRegs (Movle r1 r2) = [RegNum r1, RegNum r2]
-getSrcRegs (Movlt r1 r2) = [RegNum r1, RegNum r2]
-getSrcRegs (Movne r1 r2) = [RegNum r1, RegNum r2]
+getSrcIlocRegs (Comp r1 r2) = [r1, r2]
+getSrcIlocRegs (Compi r1 _) = [r1]
 
-getSrcRegs PrepArgs{} = []
-getSrcRegs UnprepArgs{} = []
+getSrcIlocRegs Cbreq{} = []
+getSrcIlocRegs Cbrge{} = []
+getSrcIlocRegs Cbrgt{} = []
+getSrcIlocRegs Cbrle{} = []
+getSrcIlocRegs Cbrlt{} = []
+getSrcIlocRegs Cbrne{} = []
+getSrcIlocRegs Jumpi{} = []
+getSrcIlocRegs (Brz r1 _ _) = [r1]
 
-getSrcRegs iloc = error $ "unexpected input " ++ show iloc
+getSrcIlocRegs (Loadai r1 _ _) = [r1]
+getSrcIlocRegs Loadglobal{} = []
+getSrcIlocRegs (Loadinargument _ _ i) = []
+getSrcIlocRegs Loadret{} = []
+getSrcIlocRegs Computeformaladdress{} = []
+getSrcIlocRegs Restoreformal{} = []
+getSrcIlocRegs Computeglobaladdress{} = []
+
+getSrcIlocRegs (Storeai r1 r2 _) = [r1, r2]
+getSrcIlocRegs (Storeglobal r1 _) = [r1]
+getSrcIlocRegs (Storeinargument r1 _ _) = [r1]
+getSrcIlocRegs (Storeoutargument r1 _) = [r1]
+getSrcIlocRegs (Storeret r1) = [r1]
+
+getSrcIlocRegs Call{} = []
+getSrcIlocRegs RetILOC = []
+
+getSrcIlocRegs New{} = []
+getSrcIlocRegs (Del r1) = [r1]
+
+getSrcIlocRegs (PrintILOC r1) = [r1]
+getSrcIlocRegs (Println r1) = [r1]
+getSrcIlocRegs ReadILOC{} = []
+
+getSrcIlocRegs (Mov r1 _) = [r1]
+getSrcIlocRegs Movi{} = []
+getSrcIlocRegs (Moveq r1 r2) = [r1, r2]
+getSrcIlocRegs (Movge r1 r2) = [r1, r2]
+getSrcIlocRegs (Movgt r1 r2) = [r1, r2]
+getSrcIlocRegs (Movle r1 r2) = [r1, r2]
+getSrcIlocRegs (Movlt r1 r2) = [r1, r2]
+getSrcIlocRegs (Movne r1 r2) = [r1, r2]
+
+getSrcIlocRegs PrepArgs{} = []
+getSrcIlocRegs UnprepArgs{} = []
+
+getSrcIlocRegs iloc = error $ "unexpected input " ++ show iloc
 
 -- registers we will write to for this instruction
 getDstRegs :: Iloc -> [AsmReg]
-getDstRegs (Add _ _ r3) = [RegNum r3]
-getDstRegs (Addi _ _ r2) = [RegNum r2]
-getDstRegs (Div _ _ r3) = [RegNum r3, Rax, Rdx]
-getDstRegs (Mult _ _ r3) = [RegNum r3]
-getDstRegs (Multi _ _ r2) = [RegNum r2]
-getDstRegs (Sub _ _ r3) = [RegNum r3]
-getDstRegs (Rsubi _ _ r2) = [RegNum r2]
+getDstRegs iloc = (getDstAsmRegs iloc) ++ (fmap RegNum (getDstIlocRegs iloc))
 
-getDstRegs (And _ _ r3) = [RegNum r3]
-getDstRegs (Or _ _ r3) = [RegNum r3]
-getDstRegs (Xori _ _ r2) = [RegNum r2]
+-- get the asm dest registers
+getDstAsmRegs :: Iloc -> [AsmReg]
+getDstAsmRegs (Div _ _ r3) = [Rax, Rdx]
 
-getDstRegs Comp{} = []
-getDstRegs Compi{} = []
+getDstAsmRegs (Storeoutargument _ i) = getArgRegister i
 
-getDstRegs Cbreq{} = []
-getDstRegs Cbrge{} = []
-getDstRegs Cbrgt{} = []
-getDstRegs Cbrle{} = []
-getDstRegs Cbrlt{} = []
-getDstRegs Cbrne{} = []
-getDstRegs Jumpi{} = []
-getDstRegs Brz{} = []
+getDstAsmRegs Call{} = callerSaved
 
-getDstRegs (Loadai _ _ r2) = [RegNum r2]
-getDstRegs (Loadglobal _ r1) = [RegNum r1]
-getDstRegs (Loadinargument _ _ r1) = [RegNum r1]
-getDstRegs (Loadret r1) = [RegNum r1]
-getDstRegs (Computeformaladdress _ _ r1) = [RegNum r1]
-getDstRegs Restoreformal{} = []
-getDstRegs (Computeglobaladdress _ r1) = [RegNum r1]
+getDstAsmRegs (New _ r1) = callerSaved
+getDstAsmRegs Del{} = callerSaved
 
-getDstRegs Storeai{} = []
-getDstRegs Storeglobal{} = []
-getDstRegs Storeinargument{} = []
-getDstRegs (Storeoutargument _ i) = getArgRegister i
-getDstRegs Storeret{} = []
+getDstAsmRegs PrintILOC{} = callerSaved
+getDstAsmRegs Println{} = callerSaved
+getDstAsmRegs (ReadILOC r) = callerSaved
 
-getDstRegs Call{} = callerSaved
-getDstRegs RetILOC = []
+getDstAsmRegs iloc = []
 
-getDstRegs (New _ r1) = RegNum r1 : callerSaved
-getDstRegs Del{} = callerSaved
+-- get the iloc dest registers
+getDstIlocRegs :: Iloc -> [Reg]
+getDstIlocRegs (Add _ _ r3) = [r3]
+getDstIlocRegs (Addi _ _ r2) = [r2]
+getDstIlocRegs (Div _ _ r3) = [r3]
+getDstIlocRegs (Mult _ _ r3) = [r3]
+getDstIlocRegs (Multi _ _ r2) = [r2]
+getDstIlocRegs (Sub _ _ r3) = [r3]
+getDstIlocRegs (Rsubi _ _ r2) = [r2]
 
-getDstRegs PrintILOC{} = [] ++ callerSaved
-getDstRegs Println{} = [] ++ callerSaved
-getDstRegs (ReadILOC r) = RegNum r : callerSaved
+getDstIlocRegs (And _ _ r3) = [r3]
+getDstIlocRegs (Or _ _ r3) = [r3]
+getDstIlocRegs (Xori _ _ r2) = [r2]
 
-getDstRegs (Mov _ r2) = [RegNum r2]
-getDstRegs (Movi _ r1) = [RegNum r1]
-getDstRegs (Moveq _ r) = [RegNum r]
-getDstRegs (Movge _ r) = [RegNum r]
-getDstRegs (Movgt _ r) = [RegNum r]
-getDstRegs (Movle _ r) = [RegNum r]
-getDstRegs (Movlt _ r) = [RegNum r]
-getDstRegs (Movne _ r) = [RegNum r]
+getDstIlocRegs Comp{} = []
+getDstIlocRegs Compi{} = []
 
-getDstRegs PrepArgs{} = []
-getDstRegs UnprepArgs{} = []
+getDstIlocRegs Cbreq{} = []
+getDstIlocRegs Cbrge{} = []
+getDstIlocRegs Cbrgt{} = []
+getDstIlocRegs Cbrle{} = []
+getDstIlocRegs Cbrlt{} = []
+getDstIlocRegs Cbrne{} = []
+getDstIlocRegs Jumpi{} = []
+getDstIlocRegs Brz{} = []
 
-getDstRegs iloc = error $ "unexpected input " ++ show iloc
+getDstIlocRegs (Loadai _ _ r2) = [r2]
+getDstIlocRegs (Loadglobal _ r1) = [r1]
+getDstIlocRegs (Loadinargument _ _ r1) = [r1]
+getDstIlocRegs (Loadret r1) = [r1]
+getDstIlocRegs (Computeformaladdress _ _ r1) = [r1]
+getDstIlocRegs Restoreformal{} = []
+getDstIlocRegs (Computeglobaladdress _ r1) = [r1]
+
+getDstIlocRegs Storeai{} = []
+getDstIlocRegs Storeglobal{} = []
+getDstIlocRegs Storeinargument{} = []
+getDstIlocRegs (Storeoutargument _ i) = []
+getDstIlocRegs Storeret{} = []
+
+getDstIlocRegs Call{} = []
+getDstIlocRegs RetILOC = []
+
+getDstIlocRegs (New _ r1) = [r1]
+getDstIlocRegs Del{} = []
+
+getDstIlocRegs PrintILOC{} = []
+getDstIlocRegs Println{} = []
+getDstIlocRegs (ReadILOC r) = [r]
+
+getDstIlocRegs (Mov _ r2) = [r2]
+getDstIlocRegs (Movi _ r1) = [r1]
+getDstIlocRegs (Moveq _ r) = [r]
+getDstIlocRegs (Movge _ r) = [r]
+getDstIlocRegs (Movgt _ r) = [r]
+getDstIlocRegs (Movle _ r) = [r]
+getDstIlocRegs (Movlt _ r) = [r]
+getDstIlocRegs (Movne _ r) = [r]
+
+getDstIlocRegs PrepArgs{} = []
+getDstIlocRegs UnprepArgs{} = []
+
+getDstIlocRegs iloc = error $ "unexpected input " ++ show iloc
 
 getArgRegister :: Immed -> [AsmReg]
 getArgRegister i
