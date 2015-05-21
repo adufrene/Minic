@@ -1,4 +1,5 @@
-module Mini.Optimize where
+module Mini.Optimize ( removeUselessCode ) where
+                     
 
 import Mini.Iloc.Types
 import Mini.RegAlloc
@@ -76,12 +77,15 @@ isCritical Storeret{} = True
 isCritical Brz{} = True
 isCritical Jumpi{} = True
 isCritical Call{} = True
+isCritical RetILOC{} = True
 isCritical Storeglobal{} = True
 isCritical Loadglobal{} = True
-isCritical PrepArgs{} = True
 isCritical Println{} = True
 isCritical PrintILOC{} = True
 isCritical ReadILOC{} = True
+isCritical PrepArgs{} = True
+isCritical Comp{} = True
+isCritical Compi{} = True
 isCritical UnprepArgs{} = True
 -- Among others
 isCritical _ = False

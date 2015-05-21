@@ -5,6 +5,7 @@ import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BS 
 import Data.List
 import Data.Maybe
+import qualified Data.HashMap.Strict as HM
 import System.Environment
 import System.FilePath
 
@@ -41,6 +42,9 @@ noAlloc = "--noAlloc"
 checkColors :: String
 checkColors = "--checkColors"
 
+noOpt :: String
+noOpt = "--noOpt"
+
 -- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
 main :: IO ()
@@ -58,15 +62,17 @@ main = do
             do 
                globalEnv <- envReport env
                let graphs = globalEnv `createGraphs` program
+                   optFun = if noOpt `elem` args then id else removeUselessCode
+                   optimized = optimize optFun <$> graphs
                if printGraphs `elem` args
-               then print graphs
+               then print optimized
                else if testAlloc `elem` args
-               then print $ fmap testIntGraph graphs
+               then print $ fmap testIntGraph optimized
                else if checkColors `elem` args
-               then print $ fmap getRegLookup graphs
+               then print $ fmap getRegLookup optimized
                else if dumpIL `elem` args
-               then writeIloc graphs $ fileNameToIL fileName
-               else writeAsm (noAlloc `notElem` args) graphs 
+               then writeIloc optimized $ fileNameToIL fileName
+               else writeAsm (noAlloc `notElem` args) optimized 
                      (getDeclarations program) $ fileNameToS fileName 
 
 shouldPrint :: [String] -> Bool
@@ -96,8 +102,14 @@ writeAsm shouldAlloc graphs decls fileName = writeFile fileName print
           print = foldl' (\msg insn -> msg ++ show insn ++ "\n") 
                     "" funAsms
 
+mapNode :: ([Iloc] -> [Iloc]) -> Node -> Node
+mapNode f (Node l il) = Node l (f il)
+
+optimize :: ([Iloc] -> [Iloc]) -> NodeGraph -> NodeGraph
+optimize f (g, hash) = (g, HM.map (mapNode f) hash)
+
 safeGetFile :: [String] -> String
-safeGetFile args = if null fileList
-                       then error "Please provide mini file as argument"
-                        else head fileList
+safeGetFile args
+    | null fileList = error "Please provide mini file as argument"
+    | otherwise = head fileList
     where fileList = filter (not . isPrefixOf "--") args

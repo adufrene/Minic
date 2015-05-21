@@ -3,7 +3,7 @@
 #set -e
 set -u
 
-MINI_EXE=mCompile
+MINI_EXE=minic
 BENCHMARK_DIR="$(realpath $(dirname ${BASH_SOURCE})/../benchmarks)"
 TIMEOUT=2m
 REMOTE_LOGIN=''
