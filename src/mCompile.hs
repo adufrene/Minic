@@ -12,6 +12,7 @@ import Mini.Asm.Types
 import Mini.CFG
 import Mini.Parser
 import Mini.Iloc.Types
+import Mini.Optimize
 import Mini.Types
 import Mini.TypeCheck
 import Mini.RegAlloc

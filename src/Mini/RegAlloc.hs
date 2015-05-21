@@ -1,6 +1,8 @@
 module Mini.RegAlloc
   ( testIntGraph
   , getRegLookup
+  , getSrcIlocRegs
+  , getDstIlocRegs
   ) where
 
 import Control.Arrow
@@ -43,7 +45,7 @@ vertRegList = L.map swap regVertList
 
 -- registers we will read from for this instruction
 getSrcRegs :: Iloc -> [AsmReg]
-getSrcRegs iloc = (getSrcAsmRegs iloc) ++ (fmap RegNum (getSrcIlocRegs iloc))
+getSrcRegs iloc = getSrcAsmRegs iloc ++ fmap RegNum (getSrcIlocRegs iloc)
 
 -- asm registers we will read from for this instuction
 getSrcAsmRegs :: Iloc -> [AsmReg]
@@ -128,7 +130,7 @@ getSrcIlocRegs iloc = error $ "unexpected input " ++ show iloc
 
 -- registers we will write to for this instruction
 getDstRegs :: Iloc -> [AsmReg]
-getDstRegs iloc = (getDstAsmRegs iloc) ++ (fmap RegNum (getDstIlocRegs iloc))
+getDstRegs iloc = getDstAsmRegs iloc ++ fmap RegNum (getDstIlocRegs iloc)
 
 -- get the asm dest registers
 getDstAsmRegs :: Iloc -> [AsmReg]

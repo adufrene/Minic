@@ -5,7 +5,7 @@ set -u
 
 MINI_EXE=mCompile
 BENCHMARK_DIR="$(realpath $(dirname ${BASH_SOURCE})/../benchmarks)"
-
+TIMEOUT=2m
 REMOTE_LOGIN=''
 
 cleanup() {
@@ -65,7 +65,13 @@ runTest() {
     output=$3
     tempFile="$filename".tmp
 
-    $MINI_EXE $miniFile
+    timeout $TIMEOUT $MINI_EXE $miniFile
+
+    if [[ $? -ne 0 ]]
+    then
+        printf "timeout "
+        return 1
+    fi
 
     if [[ -n $REMOTE_LOGIN ]]
     then
