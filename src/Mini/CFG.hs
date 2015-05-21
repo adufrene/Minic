@@ -305,9 +305,9 @@ emptyGraph graph = null $ vertices graph
 
 -- adds a list of edges to a given graph
 addEdges :: Graph -> [Edge] -> Graph
-addEdges graph newEdges = buildG (minimum theVertices, maximum theVertices) $ (edges graph) ++ newEdges
+addEdges graph newEdges = buildG (minimum theVertices, maximum theVertices) $ edges graph ++ newEdges
   where
-    theVertices = (getVerticesFromEdges newEdges) ++ (vertices graph)
+    theVertices = getVerticesFromEdges newEdges ++ vertices graph
 
 -- get all the verticies that are in the supplied list of edges
 getVerticesFromEdges :: [Edge] -> [Vertex]
@@ -318,11 +318,10 @@ removeVertex :: Graph -> Vertex -> Graph
 removeVertex graph toKill = buildG newBounds remainingEdges
   where remainingEdges = [(v1, v2) | (v1, v2) <- edges graph, (v1 /= toKill) && (v2 /= toKill)]
         (lower, upper) = bounds graph
-        newBounds = if toKill == lower
-                        then (lower + 1, upper)
-                        else if toKill == upper
-                            then (lower, upper-1)
-                            else (lower, upper)
+        newBounds
+            | toKill == lower = (lower + 1, upper)
+            | toKill == upper = (lower, upper - 1)
+            | otherwise = (lower, upper)
 
 {- stack funcs-}
 push :: [a] -> a -> [a]
