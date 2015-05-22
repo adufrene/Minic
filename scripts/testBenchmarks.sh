@@ -65,7 +65,7 @@ runTest() {
     output=$3
     tempFile="$filename".tmp
 
-    timeout $TIMEOUT $MINI_EXE $miniFile
+    timeout $TIMEOUT $MINI_EXE $miniFile --noOpt
 
     if [[ $? -ne 0 ]]
     then
