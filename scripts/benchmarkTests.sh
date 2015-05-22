@@ -59,7 +59,7 @@ fi
 
 if [[ "$OS" == "$MAC" ]]
 then
-    TMP_DIR=$(mktemp ./tmp.XXXXXX)
+    TMP_DIR=$(mktemp -d tmp.XXXXXX)
 else
     TMP_DIR=$(mktemp -d -p .)
 fi
