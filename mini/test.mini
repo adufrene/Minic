@@ -1,11 +1,12 @@
 fun main() int {
-    int x;
-    int y;
-    x = 0;
+    int x, y, z;
+    x = 2;
     y = 3;
-    while (x < 10) {
+    z = 5;
+    if (z < 2) {
         print x endl;
-        x = x + 1;
+    } else {
+        print y endl;
     }
     return 0;
 }
