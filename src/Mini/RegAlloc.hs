@@ -51,7 +51,7 @@ getSrcRegs iloc = getSrcAsmRegs iloc ++ fmap RegNum (getSrcIlocRegs iloc)
 getSrcAsmRegs :: Iloc -> [AsmReg]
 getSrcAsmRegs (Div r1 r2 r3) = [Rdx, Rax]
 
-getSrcAsmRegs (Loadinargument _ _ i) = getArgRegister i
+getSrcAsmRegs (Loadinargument _ i _) = getArgRegister i
 
 getSrcAsmRegs Call{} = argRegs
 

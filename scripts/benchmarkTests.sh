@@ -9,6 +9,8 @@ TIMEOUT=2m
 REMOTE_LOGIN=''
 NUM_SUCCESS=0
 NUM_RUN=0
+OS=$(uname -s)
+MAC="Darwin"
 
 cleanup() {
     cd ..
@@ -55,7 +57,13 @@ then
     fi
 fi
 
-TMP_DIR=$(mktemp -d -p .)
+if [[ "$OS" == "$MAC" ]]
+then
+    TMP_DIR=$(mktemp ./tmp.XXXXXX)
+else
+    TMP_DIR=$(mktemp -d -p .)
+fi
+
 cd $TMP_DIR
 trap cleanup EXIT
 
@@ -68,7 +76,12 @@ runTest() {
     output=$3
     tempFile="$filename".tmp
 
-    timeout $TIMEOUT $MINI_EXE $miniFile --noOpt
+    if [[ "$OS" == "$MAC" ]]
+    then
+        gtimeout $TIMEOUT $MINI_EXE $miniFile --noOpt
+    else
+        timeout $TIMEOUT $MINI_EXE $miniFile --noOpt
+    fi
 
     if [[ $? -ne 0 ]]
     then
