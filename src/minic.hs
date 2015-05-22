@@ -10,6 +10,7 @@ import System.Environment
 import System.FilePath
 
 import Mini.Asm.Types
+import Mini.Graph
 import Mini.CFG
 import Mini.Parser
 import Mini.Iloc.Types
@@ -63,7 +64,7 @@ main = do
                globalEnv <- envReport env
                let graphs = globalEnv `createGraphs` program
                    optFun = if noOpt `elem` args then id else removeUselessCode
-                   optimized = optimize optFun <$> graphs
+                   optimized = optFun <$> graphs
                if printGraphs `elem` args
                then print optimized
                else if testAlloc `elem` args
@@ -85,7 +86,7 @@ envReport (Right env) = return env
 fileNameToIL :: String -> String
 fileNameToIL oldFile = takeBaseName oldFile ++ ".il"
 
-writeIloc :: [NodeGraph] -> String -> IO ()
+writeIloc :: [IlocGraph] -> String -> IO ()
 writeIloc graphs fileName = do
         let print = foldl' (\msg ng -> msg ++ "\n" ++ showNodeGraph ng) "" graphs
         writeFile fileName print
@@ -93,7 +94,7 @@ writeIloc graphs fileName = do
 fileNameToS :: String -> String
 fileNameToS oldFile = takeBaseName oldFile ++ ".s"
 
-writeAsm :: Bool -> [NodeGraph] -> [Declaration] -> String -> IO ()
+writeAsm :: Bool -> [IlocGraph] -> [Declaration] -> String -> IO ()
 writeAsm shouldAlloc graphs decls fileName = writeFile fileName print 
     where regHashes = fmap getRegLookup graphs
           funAsms = (if shouldAlloc
@@ -101,12 +102,6 @@ writeAsm shouldAlloc graphs decls fileName = writeFile fileName print
                         else programToAsm) graphs decls
           print = foldl' (\msg insn -> msg ++ show insn ++ "\n") 
                     "" funAsms
-
-mapNode :: ([Iloc] -> [Iloc]) -> Node -> Node
-mapNode f (Node l il) = Node l (f il)
-
-optimize :: ([Iloc] -> [Iloc]) -> NodeGraph -> NodeGraph
-optimize f (g, hash) = (g, HM.map (mapNode f) hash)
 
 safeGetFile :: [String] -> String
 safeGetFile args

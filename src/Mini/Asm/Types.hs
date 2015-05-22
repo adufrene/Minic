@@ -20,7 +20,7 @@ import Data.Graph
 import Data.HashMap.Strict ((!), HashMap)
 import Data.List (intercalate, elem, concatMap, minimum, intersect, foldl', delete, nub)
 
-import Mini.CFG
+import Mini.Graph
 import Mini.Iloc.Types
 import Mini.Types
 
@@ -274,11 +274,11 @@ swapDReg reg@(AsmDOReg (OffsetReg r i)) old new = if r == old then AsmDOReg (Off
 swapDReg reg _ _ = reg
 
 {- Create initial global variables and other file-specific data -}
-programToAsm :: [NodeGraph] -> [Declaration] -> [Asm]
+programToAsm :: [IlocGraph] -> [Declaration] -> [Asm]
 programToAsm graphs globals = asmProgramHelper globals bodyAsm 
     where bodyAsm = concatMap (functionToAsm RegNum) graphs
 
-colorProgramToAsm :: [RegLookup] -> [NodeGraph] -> [Declaration] -> [Asm]
+colorProgramToAsm :: [RegLookup] -> [IlocGraph] -> [Declaration] -> [Asm]
 colorProgramToAsm colorHashes graphs globals = asmProgramHelper globals body
     where body = concatMap (\(g,h) -> functionToAsm (h !) g) $ zip graphs colorHashes
 
@@ -298,7 +298,7 @@ globalString l s = [ AsmSection
 
 {- Create Function prologue to start -}
 {- http://users.csc.calpoly.edu/~akeen/courses/csc431/handouts/references/asm.pdf -}
-functionToAsm :: (Reg -> AsmReg) -> NodeGraph -> [Asm]
+functionToAsm :: (Reg -> AsmReg) -> IlocGraph -> [Asm]
 functionToAsm regFun nodeG@(graph, hash) = prologue ++ body ++ epilogue
     where prologue = createPrologue nodeG ++ stackBegin
           body = concatMap spillVars unfiltered
@@ -322,11 +322,11 @@ spillVars asm
           storeFoldFun l (r,r') = AsmMov (AsmSReg r') (AsmDReg r) : l
           newAsm = foldl' (\a (r,r') -> swapRegs a r r') asm localLookup
 
-functionMapFun :: (Reg -> AsmReg) -> NodeGraph -> Vertex -> [Asm]
+functionMapFun :: (Reg -> AsmReg) -> IlocGraph -> Vertex -> [Asm]
 functionMapFun regFun nodeG@(graph, hash) x
     | x == entryVertex = []
     | x == exitVertex = labelInsn
-    | otherwise = labelInsn ++ concat (ilocToAsm regFun <$> getIloc node)
+    | otherwise = labelInsn ++ concat (ilocToAsm regFun <$> getData node)
     where node = hash ! x
           sv = startVert nodeG
           labelInsn = if x == sv then [] else [AsmLabel $ getLabel node]
@@ -345,7 +345,7 @@ manageStack regs = (pushInsns ++ subSp, addSp ++ popInsns)
                             else ([AsmSubSp totalOffset],
                                  [AsmAddSp totalOffset]) 
 
-createPrologue :: NodeGraph -> [Asm]
+createPrologue :: IlocGraph -> [Asm]
 createPrologue (graph, hash) = [ AsmText
                                , AsmFunGlobal funLabel
                                , AsmType funLabel FunctionType
@@ -360,7 +360,7 @@ createPrologue (graph, hash) = [ AsmText
                                {-, AsmMov (AsmSReg Rsp) (AsmDReg Rbp)-} ]
     where funLabel = funName (graph, hash) 
 
-createEpilogue :: NodeGraph -> [Asm]
+createEpilogue :: IlocGraph -> [Asm]
 createEpilogue (graph, hash) = [ {-AsmMov (AsmSReg Rbp) (AsmDReg Rsp)
 --                                , AsmPop R15
 --                                , AsmPop R14
@@ -432,10 +432,10 @@ free = "free"
 malloc :: Label
 malloc = "malloc"
 
-funName :: NodeGraph -> Label
+funName :: IlocGraph -> Label
 funName ng@(_, hash) = getLabel $ hash ! startVert ng
 
-startVert :: NodeGraph -> Vertex
+startVert :: IlocGraph -> Vertex
 startVert = snd . head . filter ((==entryVertex) . fst) . edges . fst
 
 srcStr :: AsmSrc -> String

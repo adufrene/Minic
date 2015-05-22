@@ -19,7 +19,8 @@ import Debug.Trace
 
 import Mini.Asm.Types
 import Mini.Iloc.Types
-import Mini.CFG
+import Mini.Graph
+import Mini.Stack
 
 regVertList :: [(AsmReg, Vertex)]
 regVertList = [ (Rax, -1)
@@ -218,8 +219,10 @@ getArgRegister i
     | i < numArgRegs = [argRegs !! i]
     | otherwise = []
 
-type GenSet = Set.Set AsmReg
-type KillSet = Set.Set AsmReg
+type RegSet = Set.Set AsmReg
+
+type GenSet = RegSet
+type KillSet = RegSet
 
 -- maps a node to the list of registers in its gen set
 type GenSetLookup = HashMap Vertex GenSet
@@ -229,11 +232,11 @@ type KillSetLookup = HashMap Vertex KillSet
 type GenKillLookup = HashMap Vertex (GenSet, KillSet)
 
 -- finds the gen and kill sets of a node graph
-createGenKillSets :: NodeGraph -> GenKillLookup
+createGenKillSets :: IlocGraph -> GenKillLookup
 createGenKillSets = map findGenAndKill . snd
 
 -- takes a node and returns its gen and kill set
-findGenAndKill :: Node -> (GenSet, KillSet)
+findGenAndKill :: IlocNode -> (GenSet, KillSet)
 findGenAndKill (Node _ iloc) = findGenAndKillHelper iloc Set.empty Set.empty
   where
     findGenAndKillHelper [] genSet killSet = (genSet, killSet)
@@ -244,36 +247,36 @@ findGenAndKill (Node _ iloc) = findGenAndKillHelper iloc Set.empty Set.empty
         srcRegs = Set.fromList $ getSrcRegs x
         dstRegs = Set.fromList $ getDstRegs x
 
-type LiveOutLookup = HashMap Vertex (Set.Set AsmReg)
+type LiveOutLookup = HashMap Vertex RegSet
 
-createLiveOut :: NodeGraph ->  GenKillLookup -> LiveOutLookup
+createLiveOut :: IlocGraph ->  GenKillLookup -> LiveOutLookup
 createLiveOut (nodeGraph, vertToNodeHM) lookup' =
   actuallyCreateLiveOut startingLiveOutHM lookup' (nodeGraph, vertToNodeHM)
   where
     startingLiveOutHM = fromList $ L.map (\x -> (x, Set.empty)) $ vertices nodeGraph
 
 {- Switch hashmap parameter to Set -}
-actuallyCreateLiveOut :: LiveOutLookup -> GenKillLookup -> NodeGraph -> LiveOutLookup
+actuallyCreateLiveOut :: LiveOutLookup -> GenKillLookup -> IlocGraph -> LiveOutLookup
 actuallyCreateLiveOut stuffSoFar gkLookup ng
   | newStuff == Set.fromList (toList stuffSoFar) = stuffSoFar
   | otherwise = actuallyCreateLiveOut (fromList $ Set.toList newStuff) gkLookup ng
   where
-    verts = Set.fromList $ keys stuffSoFar -- Set.map fst (Set.fromList $ toList stuffSoFar)
+    verts = Set.fromList $ keys stuffSoFar
     newStuff = Set.map (\x -> (x, getLiveOutOfVert x stuffSoFar ng gkLookup)) verts
     getLiveOutOfVert vert liveOutHM (graph, hm) lookup' =
       Set.foldl' Set.union Set.empty (Set.map (\x -> fst (lookup' ! x) `Set.union` ((liveOutHM ! x) Set.\\ snd (lookup' ! x))) successors)
       where
-        successors = Set.fromList $ getSuccessors (graph, hm) vert
+        successors = Set.fromList $ getSuccessors graph vert
 
 type InterferenceGraph = Graph
 
-createInterferenceGraph :: NodeGraph -> LiveOutLookup -> InterferenceGraph
+createInterferenceGraph :: IlocGraph -> LiveOutLookup -> InterferenceGraph
 createInterferenceGraph (_, nodeHash) lookup =
         foldlWithKey' foldFun theEmptyGraph nodeHash
     where foldFun graph key node = fst $ foldr foldIntGraph (graph, lookup ! key)
-                                        $ getIloc node
+                                        $ getData node
 
-foldIntGraph :: Iloc -> (InterferenceGraph, Set.Set AsmReg) -> (InterferenceGraph, Set.Set AsmReg)
+foldIntGraph :: Iloc -> (InterferenceGraph, RegSet) -> (InterferenceGraph, RegSet)
 foldIntGraph insn (graph, liveNow) = (newGraph, newLiveNow)
     where targetRegs = getDstRegs insn 
           sourceRegSet = Set.fromList $ getSrcRegs insn
@@ -299,10 +302,10 @@ newBounds (oldLower, oldUpper) verts = (newLower, newUpper)
           vertMax = safeMaximum oldUpper verts
           vertMin = safeMinimum oldLower verts
 
-type DeconstructionStack = [(Vertex, [Vertex])]
+type DeconstructionStack = Stack (Vertex, [Vertex])
 
 deconstructInterferenceGraph :: InterferenceGraph -> DeconstructionStack
-deconstructInterferenceGraph graph = actuallyDeconstructInterferenceGraph (graph, vertices graph) []
+deconstructInterferenceGraph graph = actuallyDeconstructInterferenceGraph (graph, vertices graph) (Stack [])
 
 actuallyDeconstructInterferenceGraph :: (InterferenceGraph, [Vertex]) -> DeconstructionStack -> DeconstructionStack
 actuallyDeconstructInterferenceGraph (graph, verts) stack
@@ -351,16 +354,16 @@ reconstructInterferenceGraph :: DeconstructionStack -> ColorLookup
 reconstructInterferenceGraph stack = actuallyReconstruct stack theEmptyGraph empty
 
 actuallyReconstruct :: DeconstructionStack -> InterferenceGraph -> ColorLookup -> ColorLookup
-actuallyReconstruct [] _ colorHM = colorHM
-actuallyReconstruct ((nextVert, neighbors):rest) interferenceGraph colorHM =
-  actuallyReconstruct rest newInterferenceGraph newHM
-  where
-    newEdges = [ (nextVert, nextNeighbor) | nextNeighbor <- neighbors ]
-    newInterferenceGraph = addEdges interferenceGraph newEdges
-    newHM = insert nextVert color colorHM
-    color = if nextVert > spillColor
-                then pickColor nextVert newInterferenceGraph colorHM
-                else nextVert 
+actuallyReconstruct stack graph colorHM
+    | emptyStack stack = colorHM
+    | otherwise = actuallyReconstruct rest newInterferenceGraph newHM
+  where ((nextVert, neighbors), rest) = pop stack
+        newEdges = [ (nextVert, nextNeighbor) | nextNeighbor <- neighbors ]
+        newInterferenceGraph = addEdges graph newEdges
+        newHM = insert nextVert color colorHM
+        color = if nextVert > spillColor
+                    then pickColor nextVert newInterferenceGraph colorHM
+                    else nextVert 
 
 -- picks the first color that not used by any of its neighbors
 pickColor :: Vertex -> InterferenceGraph -> ColorLookup -> Color
@@ -385,7 +388,7 @@ safeMinimum _ l = L.minimum l
 colorGraph :: InterferenceGraph -> ColorLookup
 colorGraph = reconstructInterferenceGraph . deconstructInterferenceGraph 
 
-getRegLookup :: NodeGraph -> RegLookup
+getRegLookup :: IlocGraph -> RegLookup
 getRegLookup graph = fst $ foldlWithKey' foldFun (empty, 1) colorLookup
     where colorLookup = colorGraph intGraph
           intGraph = createInterferenceGraph graph loLookup
@@ -398,5 +401,5 @@ getRegLookup graph = fst $ foldlWithKey' foldFun (empty, 1) colorLookup
                         (error $ "Invalid vertex: " ++ show clr)
                             $ clr `L.lookup` vertRegList) hash, nextLocal)
 
-testIntGraph :: NodeGraph -> InterferenceGraph
+testIntGraph :: IlocGraph -> InterferenceGraph
 testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph

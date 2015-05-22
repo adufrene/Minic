@@ -1,19 +1,4 @@
-module Mini.CFG 
-    ( showNodeGraph
-    , Node (..)
-    , NodeGraph
-    , createGraphs
-    , entryVertex
-    , exitVertex
-    , initVertex
-    , getSuccessors
-    , getNeighbors
-    , emptyGraph
-    , addEdges
-    , removeVertex
-    , push
-    , pop
-    ) where
+module Mini.CFG ( createGraphs ) where
 
 {-
 - Functions for converting a function/list of statements into a Control
@@ -50,6 +35,7 @@ import qualified Data.Set as Set
 import Data.Maybe
 import Data.HashMap.Strict hiding (filter, null, foldl, foldr, foldl')
 
+import Mini.Graph
 import Mini.Iloc.Types
 import Mini.Iloc.Expr
 import Mini.Iloc.Stmt
@@ -58,33 +44,10 @@ import Mini.TypeCheck
 
 import Debug.Trace
 
-data Node = Node { getLabel :: Label
-                 , getIloc :: [Iloc]
-                 }
-
-instance Show Node where
-  show (Node label iloc) = 
-    unlines strs
-    where
-      labelStr = label ++ ":"
-      strs = labelStr : fmap (\x -> "\t" ++ show x) iloc
-
--- Entry point will be Vertex 0
--- Exit point will be Vertex -1
-type NodeGraph = (Graph, HashMap Vertex Node)
-type ReturnBlock = YesNo NodeGraph
+type ReturnBlock = YesNo IlocGraph
 type LabelNum = Int
 type LabelReg = (LabelNum, Reg)
 type NumAndGraph = (LabelReg, ReturnBlock)
-
-showNodeGraph :: NodeGraph -> String
-showNodeGraph (graph, vertToNodeHM) =
-  concat strs
-  where
-    sortedVerts = topSort graph
-    strs = fmap (\x -> if x /= entryVertex 
-                        then show (vertToNodeHM ! x)
-                        else []) sortedVerts
 
 label :: LabelReg -> LabelNum
 label = fst
@@ -92,34 +55,16 @@ label = fst
 reg :: LabelReg -> Reg
 reg = snd
 
-initVertex :: Vertex
-initVertex = 1
-
-exitVertex :: Vertex
-exitVertex = -1
-
-entryVertex :: Vertex
-entryVertex = 0
-
 createLabel :: LabelNum -> Label
 createLabel num = "L" ++ show num
 
-emptyNode :: Label -> Node
-emptyNode name = Node name []
-
-addToNode :: Node -> [Iloc] -> Node
-addToNode (Node name iloc) insns = Node name (iloc ++ insns)
-
-defaultBounds :: Bounds
-defaultBounds = (exitVertex, initVertex)
-
-createGraphs :: GlobalEnv -> Program -> [NodeGraph]
+createGraphs :: GlobalEnv -> Program -> [IlocGraph]
 createGraphs global = snd . L.foldr foldFun (1,[]) . getFunctions
     where foldFun fun (nextLabel, ngs) = 
             ngs `app` functionToGraph fun nextLabel global
           app xs (label, x) = (label, x:xs)
 
-replaceRets :: Function -> NodeGraph -> NodeGraph
+replaceRets :: Function -> IlocGraph -> IlocGraph
 replaceRets fun (g, hash) = (g, insert exitVertex retNode newHash)
         where retLabel = getFunId fun ++ "_ret"
               newHash = fromList (mapFun <$> toList hash)
@@ -131,16 +76,16 @@ replaceRets fun (g, hash) = (g, insert exitVertex retNode newHash)
               retNode = Node retLabel [RetILOC]
               retNodes = fmap fst $ filter ((==exitVertex) . snd) $ edges g
 
-addRet :: NodeGraph -> NodeGraph
+addRet :: IlocGraph -> IlocGraph
 addRet (graph, hash) =  if functionReturns
                            then (graph, hash) 
                            else (graph, adjust adjustFun endVert hash) 
                                     `addEdge` (endVert, exitVertex)
     where adjustFun (Node label iloc) = Node label $ iloc ++ [RetILOC]
           endVert = snd $ bounds graph
-          functionReturns = last (getIloc $ hash ! endVert) == RetILOC
+          functionReturns = last (getData $ hash ! endVert) == RetILOC
 
-functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
+functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, IlocGraph)
 functionToGraph func nextLabel global = (resLabel, replaceRets func resGraph)
     where (resLabel, resGraph) = (label *** fromYesNo) numGraph
           argNode = emptyNode (getFunId func) `addToNode` argIloc
@@ -157,34 +102,11 @@ functionToGraph func nextLabel global = (resLabel, replaceRets func resGraph)
           numGraph = stmtsToGraph argNode (getFunBody func) 
             (nextLabel, nextNum) (global, locals, regHash)
 
--- Append 2nd graph to first one, 
--- creating edge from vertices arguments to Graph 2's Vertex 0's child
--- and transposing all of Graph 2's vertices by Graph 1's upper bound
--- If Graph 2 doesn't have a '0 child' then two graphs will not have an
--- edge connecting them
-appendGraph :: NodeGraph -> [Vertex] -> NodeGraph -> NodeGraph
-appendGraph (graph1, map1) vertices (graph2, map2) = 
-        (buildG (exitVertex, newUpperB) newEdges, map1 `union` newMap2)
-    where g1Upper = snd $ bounds graph1
-          newUpperB = g1Upper + snd (bounds graph2)
-          newEdges2 = fmap mapFun (edges graph2)
-          replacedEdges = concat 
-            (replaceFun <$> filter((==entryVertex) . fst) newEdges2)
-          newEdges = edges graph1 ++ 
-            filter ((/=entryVertex) . fst) newEdges2 ++ replacedEdges
-          newMap2 = fromList 
-            ((\(k, v)->(k+g1Upper,v)) <$> toList map2)
-          mapFun = moveVertex *** moveVertex 
-          replaceFun (_, v) = (\x -> (x,v)) <$> vertices
-          moveVertex v = if v `notElem` [exitVertex, entryVertex]
-                             then v + g1Upper
-                             else v
-
 -- RegHash will be important once we translate statements to iloc
 -- Need a better function name
 -- Yes means we will return in this graph
 -- No means we may not return in this graph
-stmtsToGraph :: Node -> [Statement] -> LabelReg -> Baggage -> NumAndGraph -- (NodeGraph, RegHash)
+stmtsToGraph :: IlocNode -> [Statement] -> LabelReg -> Baggage -> NumAndGraph -- (NodeGraph, RegHash)
 stmtsToGraph node [] nexts _ = (nexts, No $ fromNode node)
 stmtsToGraph node (stmt:rest) nexts baggage = 
         case stmt of
@@ -207,7 +129,7 @@ stmtsToGraph node (stmt:rest) nexts baggage =
 
 -- Yes means we will return in this graph
 -- No means we may not return in this graph
-createCondGraph :: Statement -> Node -> NumAndGraph -> Baggage -> NumAndGraph
+createCondGraph :: Statement -> IlocNode -> NumAndGraph -> Baggage -> NumAndGraph
 createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (nexts, nextG) baggage = 
         linkGraphs ifThenGraph elseNumGraph nextG thenNexts
     where newNode = node `addToNode` guardInsns `addToNode` [brInsn]
@@ -235,7 +157,7 @@ linkGraphs ifThenGraph (Just (elseNexts, elseGraph)) nextGraph _ =
           elseVertex = [graphEnd ifGraph | isNo elseGraph]
           ifVertices = elseVertex ++ thenVertex
 
-createLoopGraph :: Statement -> Node -> NumAndGraph -> Baggage -> NumAndGraph
+createLoopGraph :: Statement -> IlocNode -> NumAndGraph -> Baggage -> NumAndGraph
 createLoopGraph (Loop _ guard body) node (nexts, nextGraph) baggage = 
         ((label bodyNext, guard2Reg + 1), if isNo trueGraph
             then appendGraph <$> cyclicTG <*> pure [initVertex, graphEnd cyclicTG] <*> nextGraph
@@ -259,7 +181,7 @@ createLoopGraph (Loop _ guard body) node (nexts, nextGraph) baggage =
           trueChild = getChild initVertex trueGraph 
           cyclicTG = addEdge <$> trueGraph <*> pure (graphEnd trueGraph, trueChild)
 
-addGuard :: NodeGraph -> [Iloc] -> Reg -> Label -> Label -> NodeGraph
+addGuard :: IlocGraph -> [Iloc] -> Reg -> Label -> Label -> IlocGraph
 addGuard (graph, hash) newIloc reg trueLabel falseLabel = 
         (graph, adjust adjustFun endVertex hash) 
     where endVertex = graphEnd $ pure (graph, hash)
@@ -269,7 +191,7 @@ addGuard (graph, hash) newIloc reg trueLabel falseLabel =
 getGraphLabel :: ReturnBlock -> Label
 getGraphLabel graph = getLabel $ snd (fromYesNo graph) ! getChild entryVertex graph
 
-getChild:: Vertex -> ReturnBlock -> Vertex
+getChild :: Vertex -> ReturnBlock -> Vertex
 getChild v = snd . head . filter ((==v) . fst) . edges . fst . fromYesNo
 
 addJump :: NumAndGraph -> Label -> NumAndGraph
@@ -283,53 +205,4 @@ addJump ret@(lr, No (graph, hash)) label = {-trace ("Adding jump to " ++ show re
 graphEnd :: ReturnBlock -> Vertex
 graphEnd g = snd $ bounds $ fst $ fromYesNo g
 
-fromNode :: Node -> NodeGraph
-fromNode node = (buildG defaultBounds [(entryVertex,initVertex)], 
-                    singleton initVertex node)
 
-addEdge :: NodeGraph -> Edge -> NodeGraph
-addEdge (graph, hash) edge = (buildG (bounds graph) (edge:edges graph), hash)
-
-getSuccessors :: NodeGraph -> Vertex -> [Vertex]
-getSuccessors (graph, _) vertex = [end | (start, end) <- edges graph, start == vertex]
-
--- get all the neighbors of a given vertex in a graph
--- two vertices are neighbors if they share an edge
-getNeighbors :: Graph -> Vertex -> [Vertex]
-getNeighbors graph v =
-  [ x | x <- vertices graph, ((x, v) `elem` theEdges) || ((v, x) `elem` theEdges) ]
-  where
-    theEdges = edges graph
-
--- determines if a graph is empty
--- empty graph has no edges
-emptyGraph :: Graph -> Bool
-emptyGraph graph = null $ vertices graph
-
--- adds a list of edges to a given graph
-addEdges :: Graph -> [Edge] -> Graph
-addEdges graph newEdges = buildG (minimum theVertices, maximum theVertices) $ edges graph ++ newEdges
-  where
-    theVertices = getVerticesFromEdges newEdges ++ vertices graph
-
--- get all the verticies that are in the supplied list of edges
-getVerticesFromEdges :: [Edge] -> [Vertex]
-getVerticesFromEdges edges = L.map fst edges ++ L.map snd edges
-
--- take out all edges that touch a given vertex
-removeVertex :: Graph -> Vertex -> Graph
-removeVertex graph toKill = buildG newBounds remainingEdges
-  where remainingEdges = [(v1, v2) | (v1, v2) <- edges graph, (v1 /= toKill) && (v2 /= toKill)]
-        (lower, upper) = bounds graph
-        newBounds
-            | toKill == lower = (lower + 1, upper)
-            | toKill == upper = (lower, upper - 1)
-            | otherwise = (lower, upper)
-
-{- stack funcs-}
-push :: [a] -> a -> [a]
-push stack item = item:stack
-
-pop :: [a] -> (a, [a])
-pop [] = error "empty stack"
-pop (x:xs) = (x, xs)

@@ -3,11 +3,14 @@ module Mini.Optimize ( removeUselessCode ) where
 
 import Mini.Iloc.Types
 import Mini.RegAlloc
+import Mini.Graph
 
 import Control.Applicative
 import Control.Arrow
+import Control.Monad
 
 import Data.List
+import qualified Data.HashMap.Strict as HM
 
 data Marked a = Marked a Bool deriving (Eq)
 
@@ -15,11 +18,18 @@ instance Functor Marked where
         fmap f (Marked a m) = Marked (f a) m
 
 instance Applicative Marked where
-        pure = flip Marked True
-        (Marked f _) <*> (Marked a m) = Marked (f a) m
+        pure = return
+        (<*>) = ap
+
+instance Monad Marked where
+        return = flip Marked False
+        (Marked a _) >>= f = f a
 
 type MarkedIloc = Marked Iloc
 type Worklist = [Iloc]
+type Reaches = ()
+type ReachGen = ()
+type KillGen = ()
 
 isMarked :: Marked a -> Bool
 isMarked (Marked _ m) = m
@@ -30,11 +40,11 @@ mark (Marked a _) = Marked a True
 unmark :: Marked a -> Marked a
 unmark (Marked a _) = Marked a False
 
-getData :: Marked a -> a
-getData (Marked a _) = a
+getMarkedData :: Marked a -> a
+getMarkedData (Marked a _) = a
 
-removeUselessCode :: [Iloc] -> [Iloc]
-removeUselessCode = sweep . markIloc
+removeUselessCode :: IlocGraph -> IlocGraph
+removeUselessCode = second (HM.map $ mapNode $ sweep . markIloc)
 
 markIloc :: [Iloc] -> [MarkedIloc]
 markIloc iloc = finishMark workList markedInsns
@@ -42,6 +52,15 @@ markIloc iloc = finishMark workList markedInsns
           mapFun l x = if isCritical x 
                            then (x:l, Marked x True) 
                            else (l, Marked x False)
+
+createReaches :: IlocGraph -> Reaches
+createReaches (graph, hash) = undefined
+
+createReachingGen :: IlocNode -> ReachGen
+createReachingGen node = undefined
+
+createReachingKill :: IlocNode -> KillGen
+createReachingKill node = undefined
 
 {- 
 - Guessing.... for each src reg in insn, go back to where src is target of
@@ -63,14 +82,14 @@ markReversedSrcs [] xs = (xs, []) -- run out of src regs
 markReversedSrcs srcs (x:xs) = (newInsn:newMarks, newIloc)
     where (newMarks, restIloc) = markReversedSrcs newSrcs xs
           (newSrcs, old) = partition (`notElem` destRegs) srcs
-          insn = getData x
+          insn = getMarkedData x
           destRegs = getDstIlocRegs insn
           (newInsn, newIloc) = if null old || isMarked x
                                    then (x, restIloc)
                                    else (mark x, insn:restIloc)
 
 sweep :: [MarkedIloc] -> [Iloc]
-sweep = map getData . filter isMarked
+sweep = map getMarkedData . filter isMarked
 
 isCritical :: Iloc -> Bool
 isCritical Storeret{} = True

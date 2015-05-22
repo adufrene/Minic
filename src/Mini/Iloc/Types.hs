@@ -10,11 +10,16 @@ Adds a new instruction - brz
 
 import Data.List
 import Data.HashMap.Strict hiding (map)
+
+import Mini.Graph
 import Mini.Types
 
 type RegHash = HashMap Id Reg
 type Baggage = (GlobalEnv, LocalEnv, RegHash)
 type IlocRet = ([Iloc], Reg)
+
+type IlocGraph = NodeGraph Iloc
+type IlocNode = Node Iloc
 
 type Reg = Int
 type Immed = Int
