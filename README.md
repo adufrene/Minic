@@ -7,10 +7,7 @@
 
 ## Doesn't Work
 
-- binaryConvert -- Segmentation Fault
-- fact_sum -- Segmentation Fault
-- primes -- Segmentation Fault
-- TicTac -- Diff
+- TicTac -- Register allocation is overwriting registers
 - OptimizationBenchmark -- Register Allocation SLOW
 
 ## Works
@@ -30,3 +27,6 @@
 - uncreativeBenchmark
 - wasteOfCycles
 - killerBubbles
+- binaryConvert
+- fact_sum
+- primes

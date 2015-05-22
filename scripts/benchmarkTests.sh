@@ -7,10 +7,13 @@ MINI_EXE=minic
 BENCHMARK_DIR="$(realpath $(dirname ${BASH_SOURCE})/../benchmarks)"
 TIMEOUT=2m
 REMOTE_LOGIN=''
+NUM_SUCCESS=0
+NUM_RUN=0
 
 cleanup() {
     cd ..
     rm -rf $TMP_DIR
+    printf "Test Results: %d/%d\n" $NUM_SUCCESS $NUM_RUN
 }
 
 while getopts r: opt
@@ -98,11 +101,13 @@ do
     runTest $prefix/$bench.mini $prefix/input $prefix/output
     if [[ $? -eq 0 ]]
     then
+        NUM_SUCCESS=$((NUM_SUCCESS+1))
         echo -e "\033[92m\xe2\x9c\x93\033[0m"
     else
         EXIT_STATUS=1
         echo -e "\033[91m\xe2\x9c\x97\033[0m"
     fi
+    NUM_RUN=$((NUM_RUN+1))
 done
 
 exit $EXIT_STATUS

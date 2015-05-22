@@ -79,7 +79,7 @@ isCritical Jumpi{} = True
 isCritical Call{} = True
 isCritical RetILOC{} = True
 isCritical Storeglobal{} = True
-isCritical Loadglobal{} = True
+isCritical Loadglobal{} = True  -- Is this critical?
 isCritical Println{} = True
 isCritical PrintILOC{} = True
 isCritical ReadILOC{} = True
@@ -87,5 +87,5 @@ isCritical PrepArgs{} = True
 isCritical Comp{} = True
 isCritical Compi{} = True
 isCritical UnprepArgs{} = True
--- Among others
+isCritical Storeoutargument{} = True
 isCritical _ = False

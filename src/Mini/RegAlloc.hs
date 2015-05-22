@@ -318,6 +318,7 @@ actuallyDeconstructInterferenceGraph (graph, verts) stack
 -- uses heuristic to pick the next vertex to pull out of interference graph
 -- assumes graph is not empty
 pickNextVertex :: [Vertex] -> InterferenceGraph -> Vertex
+--pickNextVertex vs _ =  last vs
 pickNextVertex verts graph
     | not $ null unconstrained = pickBest unconstrained
     | not $ null constrained = pickBest constrained

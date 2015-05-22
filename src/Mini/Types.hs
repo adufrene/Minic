@@ -33,13 +33,12 @@ instance Functor YesNo where
         fmap f (No a) = No $ f a
 
 instance Monad YesNo where
-        return = Yes
-        (Yes x) >>= f = f x
-        (No x) >>= f = No $ fromYesNo $ f x
+        return = No
+        m >>= f = f $ fromYesNo m
 
 instance Applicative YesNo where
         pure = return
-        (<*>) = ap
+        f <*> m = fromYesNo f <$> m
 
 -- If 3rd arg is yes, run 1st function
 -- else run 2nd function

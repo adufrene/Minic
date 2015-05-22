@@ -41,6 +41,7 @@ module Mini.CFG
 import Control.Applicative hiding (empty)
 import Control.Arrow
 import Control.Monad
+
 import Data.Array hiding ((!))
 import Data.Either
 import Data.Graph hiding (Node)
@@ -48,11 +49,14 @@ import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Maybe
 import Data.HashMap.Strict hiding (filter, null, foldl, foldr, foldl')
+
 import Mini.Iloc.Types
 import Mini.Iloc.Expr
 import Mini.Iloc.Stmt
 import Mini.Types
 import Mini.TypeCheck
+
+import Debug.Trace
 
 data Node = Node { getLabel :: Label
                  , getIloc :: [Iloc]
@@ -78,7 +82,7 @@ showNodeGraph (graph, vertToNodeHM) =
   concat strs
   where
     sortedVerts = topSort graph
-    strs = fmap (\x -> if x /= 0
+    strs = fmap (\x -> if x /= entryVertex 
                         then show (vertToNodeHM ! x)
                         else []) sortedVerts
 
@@ -115,8 +119,8 @@ createGraphs global = snd . L.foldr foldFun (1,[]) . getFunctions
             ngs `app` functionToGraph fun nextLabel global
           app xs (label, x) = (label, x:xs)
 
-replaceRets :: NodeGraph -> Function -> NodeGraph
-replaceRets (g, hash) fun = (g, insert exitVertex retNode newHash)
+replaceRets :: Function -> NodeGraph -> NodeGraph
+replaceRets fun (g, hash) = (g, insert exitVertex retNode newHash)
         where retLabel = getFunId fun ++ "_ret"
               newHash = fromList (mapFun <$> toList hash)
               mapFun (k,v) = (k, if k `elem` retNodes
@@ -137,7 +141,7 @@ addRet (graph, hash) =  if functionReturns
           functionReturns = last (getIloc $ hash ! endVert) == RetILOC
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, NodeGraph)
-functionToGraph func nextLabel global = (resLabel, replaceRets resGraph func)
+functionToGraph func nextLabel global = (resLabel, replaceRets func resGraph)
     where (resLabel, resGraph) = (label *** fromYesNo) numGraph
           argNode = emptyNode (getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
@@ -222,8 +226,7 @@ createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (nexts, nextG) bagg
                 (getBlockStmts block) (label nextStuff + 1, reg nextStuff) baggage 
 
 linkGraphs :: ReturnBlock -> Maybe NumAndGraph -> ReturnBlock -> LabelReg -> NumAndGraph
-linkGraphs ifThenGraph Nothing nextGraph nexts =
-        (nexts, appendGraph <$> ifThenGraph <*> pure (initVertex:secVert) <*> nextGraph)
+linkGraphs ifThenGraph Nothing nextGraph nexts = {-trace ("linking:\n" ++ show ifThenGraph ++ "and\n" ++ show nextGraph) -}(nexts, appendGraph <$> ifThenGraph <*> pure (initVertex:secVert) <*> nextGraph)
     where secVert = yesNo (const []) (\g -> [graphEnd $ pure g]) ifThenGraph 
 linkGraphs ifThenGraph (Just (elseNexts, elseGraph)) nextGraph _ =
         (elseNexts, yesNo Yes (\g -> appendGraph g ifVertices <$> nextGraph) ifGraph)
@@ -271,7 +274,7 @@ getChild v = snd . head . filter ((==v) . fst) . edges . fst . fromYesNo
 
 addJump :: NumAndGraph -> Label -> NumAndGraph
 addJump ret@(_, Yes _) _ = ret
-addJump (lr, No (graph, hash)) label = (lr, No (graph, adjusted))
+addJump ret@(lr, No (graph, hash)) label = {-trace ("Adding jump to " ++ show ret) $ -}(lr, No (graph, adjusted))
     where adjusted = adjust adjustFun endVertex hash
           endVertex = graphEnd $ pure (graph, hash)
           brIloc = Jumpi label

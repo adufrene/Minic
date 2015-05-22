@@ -83,7 +83,7 @@ evalBinopExpr (BinExp _ binop lhs rhs) baggage nextReg =
                           , Movi 1 tempReg
                           , Movne tempReg resultReg
                           , Compi rhsReg 0
-                          , Moveq tempReg resultReg]
+                          , Movne tempReg resultReg]
         | otherwise = error $ "don't know what to do with " ++ binop
 
 evalUopExpr :: Expression -> Baggage -> Reg -> IlocRet
