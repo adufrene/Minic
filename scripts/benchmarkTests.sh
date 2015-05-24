@@ -5,7 +5,7 @@ set -u
 
 MINI_EXE=minic
 BENCHMARK_DIR="$(realpath $(dirname ${BASH_SOURCE})/../benchmarks)"
-TIMEOUT=2m
+TIMEOUT=3m
 REMOTE_LOGIN=''
 NUM_SUCCESS=0
 NUM_RUN=0

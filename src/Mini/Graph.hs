@@ -1,5 +1,6 @@
 module Mini.Graph where
 
+import Control.Applicative
 import Control.Arrow
 
 import Data.Array hiding ((!))

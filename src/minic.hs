@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Applicative
 import Control.Monad
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BS 
