@@ -46,7 +46,7 @@ applyCopyProp vert (_, vertToNodeHM) (genKillHM, copyInHM) = Node label optimize
     optimizedIloc = doIt iloc (snd (genKillHM ! vert)) (copyInHM ! vert)
     doIt :: [Iloc] -> KillSet -> CopyInSet -> [Iloc]
     doIt [] _ _ = []
-    doIt insns@(insn@(Mov r1 r2):rest) kill copyIn = optimizedInsn : (doIt insns newKill newNewCopyIn)
+    doIt (insn@(Mov r1 r2):rest) kill copyIn = optimizedInsn : (doIt rest newKill newNewCopyIn)
       where
         newKill = kill `Set.union` (Set.fromList (getDstIlocRegs insn))
         newCopyIn = copyIn `copiesNotKilledBy` newKill
