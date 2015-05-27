@@ -19,6 +19,9 @@ import Mini.Optimize
 import Mini.Types
 import Mini.TypeCheck
 import Mini.RegAlloc
+import Mini.CopyProp
+
+import Debug.Trace
 
 testJSON :: String
 testJSON = "--testJSON"
@@ -47,6 +50,9 @@ checkColors = "--checkColors"
 noOpt :: String
 noOpt = "--noOpt"
 
+copyProp :: String
+copyProp = "--copyProp"
+
 -- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
 main :: IO ()
@@ -63,9 +69,13 @@ main = do
         when (shouldPrint args) $
             do 
                globalEnv <- envReport env
-               let graphs = globalEnv `createGraphs` program
+               -- let graphs = globalEnv `createGraphs` program
+               let graphs =
+                    trace ("shouldCopyProp: " ++ (show shouldCopyProp)) $
+                    doCopyProp (globalEnv `createGraphs` program) shouldCopyProp
                    optFun = if noOpt `elem` args then id else removeUselessCode
                    optimized = optFun <$> graphs
+                   shouldCopyProp = copyProp `elem` args
                if printGraphs `elem` args
                then print optimized
                else if testAlloc `elem` args

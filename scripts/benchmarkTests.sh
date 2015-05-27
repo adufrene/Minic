@@ -78,7 +78,7 @@ runTest() {
 
     if [[ "$OS" == "$MAC" ]]
     then
-        gtimeout $TIMEOUT $MINI_EXE $miniFile --noOpt
+        gtimeout $TIMEOUT $MINI_EXE $miniFile --noOpt --copyProp +RTS -xc
     else
         timeout $TIMEOUT $MINI_EXE $miniFile --noOpt
     fi

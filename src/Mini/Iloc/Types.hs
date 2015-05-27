@@ -204,6 +204,7 @@ mapToRegs (Storeoutargument r1 i1) f = Storeoutargument (f r1) i1
 mapToRegs (Storeret r1) f = Storeret (f r1)
 
 mapToRegs (Call l1) f = Call l1
+mapToRegs RetILOC f = RetILOC
 
 mapToRegs (New i1 r1) f = New i1 (f r1)
 mapToRegs (Del r1) f = Del (f r1)
@@ -265,6 +266,7 @@ mapToSrcRegs (Storeoutargument r1 i1) f = Storeoutargument (f r1) i1
 mapToSrcRegs (Storeret r1) f = Storeret (f r1)
 
 mapToSrcRegs (Call l1) f = Call l1
+mapToSrcRegs RetILOC f = RetILOC
 
 mapToSrcRegs (New i1 r1) f = New i1 r1
 mapToSrcRegs (Del r1) f = Del (f r1)
@@ -284,3 +286,4 @@ mapToSrcRegs (Movne r1 r2) f = Movne (f r1) r2
 
 mapToSrcRegs (PrepArgs i) f = PrepArgs i
 mapToSrcRegs (UnprepArgs i) f = UnprepArgs i
+mapToSrcRegs iloc f = error $ "didn't expect to see a " ++ (show iloc)
