@@ -71,7 +71,7 @@ main = do
                globalEnv <- envReport env
                -- let graphs = globalEnv `createGraphs` program
                let graphs =
-                    trace ("shouldCopyProp: " ++ (show shouldCopyProp)) $
+                    trace ("shouldCopyProp: " ++ (show shouldCopyProp))
                     doCopyProp (globalEnv `createGraphs` program) shouldCopyProp
                    optFun = if noOpt `elem` args then id else removeUselessCode
                    optimized = optFun <$> graphs

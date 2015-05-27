@@ -35,16 +35,23 @@ getNodeGraphPredecessors nodeGraph@(graph, _) vertex = (Set.fromList [start | (s
 
 -- applies copy propegation to a list of node graphs, can be turned off with a flag
 doCopyProp :: [IlocGraph] -> Bool -> [IlocGraph]
-doCopyProp graphs False = graphs
-doCopyProp graphs True = L.map copyPropOptimize graphs
+doCopyProp graphs False =
+  trace ("not gonna do the copyProp to a list of iloc graphs")
+  graphs
+doCopyProp graphs True =
+  trace ("gonna do the copyProp to a list of iloc graphs")
+  L.map copyPropOptimize graphs
 
 -- applies the copy propegation optimization to the given node graph
 copyPropOptimize :: IlocGraph -> IlocGraph
-copyPropOptimize nodeGraph@(graph, vertToNodeHM) = (graph, optimizedNodes)
+copyPropOptimize nodeGraph@(graph, vertToNodeHM) =
+  (graph, optimizedNodes)
   where
     optimizedNodes =
       --trace ("copyInHM " ++ (show copyInHM)) $ trace ("genKillHM " ++ (show genKillHM))
-      HM.fromList [(vert, applyCopyProp vert nodeGraph baggage) | vert <- getVertices nodeGraph]
+      trace ("nodeVertices: " ++ (show nodeVertices))
+      HM.fromList [(vert, applyCopyProp vert nodeGraph baggage) | vert <- nodeVertices]
+    nodeVertices = getVertices nodeGraph
     genKillHM = createGenKillLookup nodeGraph
     copyInHM = createCopyInLookup nodeGraph genKillHM
     baggage = (genKillHM, copyInHM)
@@ -52,7 +59,10 @@ copyPropOptimize nodeGraph@(graph, vertToNodeHM) = (graph, optimizedNodes)
 -- applies copy propegation to a given node
 -- requires gen, kill, and copyIn sets
 applyCopyProp :: Vertex -> IlocGraph -> CopyPropBaggage -> IlocNode
-applyCopyProp vert (_, vertToNodeHM) (genKillHM, copyInHM) = Node label optimizedIloc -- TODO
+applyCopyProp vert (_, vertToNodeHM) (genKillHM, copyInHM) =
+  --trace ("node: " ++ (show node) ++ ", optimizedIloc: " ++ (show optimizedIloc))
+  (Node label optimizedIloc) -- TODO
+  --node
   where
     node@(Node label iloc)
       | vert `HM.member` vertToNodeHM = vertToNodeHM ! vert
@@ -62,14 +72,22 @@ applyCopyProp vert (_, vertToNodeHM) (genKillHM, copyInHM) = Node label optimize
       | otherwise = error "shit is fucked up 2"
     doIt :: [Iloc] -> CopySet -> [Iloc]
     doIt [] _ = []
+    -- doIt (iloc@(Mov r1 r2):rest) copyNow = nextIloc:(doIt rest nextCopyNow)
+    --   where
+    --     optimizedIloc@(Mov r1' r2') = doReplacements iloc copyNow
+    --     dstRegs = Set.fromList [r2]
+    --     filteredCopyNow = copyNow `copiesNotKilledBy` dstRegs
+    --     (nextIloc, nextCopyNow) = ((Mov r1' r1'), ((r1', r2') `Set.insert` filteredCopyNow))
     doIt (iloc:rest) copyNow = nextIloc:(doIt rest nextCopyNow)
       where
         optimizedIloc = doReplacements iloc copyNow
-        dstRegs = Set.fromList (getDstIlocRegs iloc)
+        dstRegs = Set.fromList (getDstIlocRegs optimizedIloc)
         filteredCopyNow = copyNow `copiesNotKilledBy` dstRegs
-        (nextIloc, nextCopyNow) = addToCopyNow optimizedIloc filteredCopyNow
-    addToCopyNow (Mov r1 r2) copyNow = ((Mov r1 r1), ((r1, r2) `Set.insert` copyNow))
-    addToCopyNow insn copyNow = (insn, copyNow)
+        (nextIloc, nextCopyNow) = (optimizedIloc, filteredCopyNow)
+        --addToCopyNow optimizedIloc filteredCopyNow
+
+    -- addToCopyNow (Mov r1 r2) copyNow = ((Mov r1 r1), ((r1, r2) `Set.insert` copyNow))
+    -- addToCopyNow insn copyNow = (insn, copyNow)
 
 -- finds the copyIn set for each node
 -- requires gen/kill sets
@@ -136,5 +154,5 @@ doReplacements iloc copies =
     doIt insn ((src, dst):rest) = doIt newInsn rest
       where
         newInsn =
-          insn `mapToSrcRegs` (\r -> if r == dst then src else r)
+          insn `mapToSrcRegs` (\r -> if r == dst then trace ("replacing " ++ (show r) ++ " with " ++ (show src)) src else r)
           --insn `mapToRegs` (\r -> if r == dst then (trace ("replacing " ++ (show dst) ++ " with " ++ (show src) ++ " in " ++ (show insn)) src) else  (trace ("no replacement for: " ++ (show insn)) r))
