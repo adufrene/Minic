@@ -40,7 +40,7 @@ emptyNode name = Node name []
 addToNode :: Node a -> [a] -> Node a
 addToNode (Node name old) new = Node name (old ++ new)
 
-mapNode :: ([a] -> [a]) -> Node a -> Node a
+mapNode :: ([a] -> [b]) -> Node a -> Node b
 mapNode f (Node l a) = Node l (f a)
 
 defaultBounds :: Bounds

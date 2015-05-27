@@ -91,7 +91,7 @@ data Iloc =
 
            | PrepArgs Immed
            | UnprepArgs Immed
-           deriving (Eq)
+           deriving (Eq, Ord)
 
 condCodeReg :: String
 condCodeReg = "ccr"
