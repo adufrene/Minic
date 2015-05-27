@@ -53,6 +53,9 @@ noOpt = "--noOpt"
 copyProp :: String
 copyProp = "--copyProp"
 
+printDefs :: String
+printDefs = "--printDefs"
+
 -- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
 main :: IO ()
@@ -76,7 +79,9 @@ main = do
                    optFun = if noOpt `elem` args then id else removeUselessCode
                    optimized = optFun <$> graphs
                    shouldCopyProp = copyProp `elem` args
-               if printGraphs `elem` args
+               if printDefs `elem` args
+               then print $ createReachingDefs <$> graphs
+               else if printGraphs `elem` args
                then print optimized
                else if testAlloc `elem` args
                then print $ fmap testIntGraph optimized
