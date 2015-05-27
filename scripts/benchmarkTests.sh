@@ -4,6 +4,7 @@
 set -u
 
 MINI_EXE=minic
+MINI_FLAGS=""
 BENCHMARK_DIR="$(realpath $(dirname ${BASH_SOURCE})/../benchmarks)"
 TIMEOUT=3m
 REMOTE_LOGIN=''
@@ -59,10 +60,10 @@ fi
 
 if [[ "$OS" == "$MAC" ]]
 then
-    TIMEOUT_EXE=gtimeout
+    TIMEOUT_EXE="gtimeout $TIMEOUT"
     TMP_DIR=$(mktemp -d tmp.XXXXXX)
 else
-    TIMEOUT_EXE=timeout
+    TIMEOUT_EXE="timeout $TIMEOUT"
     TMP_DIR=$(mktemp -d -p .)
 fi
 
@@ -78,7 +79,7 @@ runTest() {
     output=$3
     tempFile="$filename".tmp
 
-    $TIMEOUT_EXE $TIMEOUT $MINI_EXE $miniFile
+    $TIMEOUT_EXE $MINI_EXE $miniFile $MINI_FLAGS
 
     if [[ $? -ne 0 ]]
     then
@@ -92,11 +93,11 @@ runTest() {
 
         scp -q "$filename.s" "$REMOTE_LOGIN:"
         scp -q "$input" "$REMOTE_LOGIN:"
-        $TIMEOUT_EXE $TIMEOUT ssh $REMOTE_LOGIN "gcc $filename.s -o $filename && ./$filename < $remote_input | cat &> $tempFile"
+        $TIMEOUT_EXE ssh $REMOTE_LOGIN "gcc $filename.s -o $filename && ./$filename < $remote_input | cat &> $tempFile"
         scp -q "$REMOTE_LOGIN:$tempFile" .
         ssh $REMOTE_LOGIN "rm $filename $filename.s $remote_input $tempFile"
     else
-        $TIMEOUT_EXE $TIMEOUT gcc "$filename.s" -o $filename && $filename < $input | cat &> $tempFile
+        $TIMEOUT_EXE gcc "$filename.s" -o $filename && $filename < $input | cat &> $tempFile
     fi
 
     diff $tempFile $output &> /dev/null
