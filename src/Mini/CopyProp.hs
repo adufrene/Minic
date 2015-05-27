@@ -72,12 +72,12 @@ applyCopyProp vert (_, vertToNodeHM) (genKillHM, copyInHM) =
       | otherwise = error "shit is fucked up 2"
     doIt :: [Iloc] -> CopySet -> [Iloc]
     doIt [] _ = []
-    doIt (iloc@(Mov r1 r2):rest) copyNow = nextIloc:(doIt rest nextCopyNow)
-      where
-        optimizedIloc@(Mov r1' r2') = doReplacements iloc copyNow
-        dstRegs = Set.fromList [r2]
-        filteredCopyNow = copyNow `copiesNotKilledBy` dstRegs
-        (nextIloc, nextCopyNow) = ((Mov r1' r1'), ((r1', r2) `Set.insert` filteredCopyNow))
+    -- doIt (iloc@(Mov r1 r2):rest) copyNow = nextIloc:(doIt rest nextCopyNow)
+    --   where
+    --     optimizedIloc@(Mov r1' r2') = doReplacements iloc copyNow
+    --     dstRegs = Set.fromList [r2]
+    --     filteredCopyNow = copyNow `copiesNotKilledBy` dstRegs
+    --     (nextIloc, nextCopyNow) = ((Mov r1' r1'), ((r1', r2) `Set.insert` filteredCopyNow))
     doIt (iloc:rest) copyNow = nextIloc:(doIt rest nextCopyNow)
       where
         optimizedIloc = doReplacements iloc copyNow
@@ -146,13 +146,12 @@ copiesNotKilledBy copyIn kill = Set.filter (\(src, dst) -> (src `Set.notMember` 
 -- apply all of our copy replacements to a given iloc
 doReplacements :: Iloc -> CopySet -> Iloc
 doReplacements iloc copies =
-  --trace ("hello from doReplacements. iloc: " ++ (show iloc) ++ (", copies: ") ++ (show copies))
-  doIt iloc (Set.toList copies)
+  iloc `mapToSrcRegs` (replaceReg copies)
+
+-- apply all the replacements in a copy set to a given register
+replaceReg :: CopySet -> Reg -> Reg
+replaceReg copyNow reg = Set.foldl' makeAReplacement reg copyNow
   where
-    doIt :: Iloc -> [(Reg, Reg)] -> Iloc
-    doIt iloc [] = iloc
-    doIt insn ((src, dst):rest) = doIt newInsn rest
-      where
-        newInsn =
-          insn `mapToSrcRegs` (\r -> if r == dst then trace ("replacing " ++ (show r) ++ " with " ++ (show src)) src else r)
-          --insn `mapToRegs` (\r -> if r == dst then (trace ("replacing " ++ (show dst) ++ " with " ++ (show src) ++ " in " ++ (show insn)) src) else  (trace ("no replacement for: " ++ (show insn)) r))
+    makeAReplacement reg (src, dst)
+      | reg == dst = src
+      | otherwise = reg
