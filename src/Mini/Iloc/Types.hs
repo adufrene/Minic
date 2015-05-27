@@ -223,3 +223,64 @@ mapToRegs (Movne r1 r2) f = Movne (f r1) (f r2)
 
 mapToRegs (PrepArgs i) f = PrepArgs i
 mapToRegs (UnprepArgs i) f = UnprepArgs i
+
+-- applies given func to each source register in an ILOC and returns resulting iloc
+mapToSrcRegs :: Iloc -> (Reg -> Reg) -> Iloc
+mapToSrcRegs (Add r1 r2 r3) f = Add (f r1) (f r2) r3
+mapToSrcRegs (Addi r1 i1 r2) f = Addi (f r1) i1 r2
+mapToSrcRegs (Div r1 r2 r3) f = Div (f r1) (f r2) r3
+mapToSrcRegs (Mult r1 r2 r3) f = Mult (f r1) (f r2) r3
+mapToSrcRegs (Multi r1 i1 r2) f = Multi (f r1) i1 r2
+mapToSrcRegs (Sub r1 r2 r3) f = Sub (f r1) (f r2) r3
+mapToSrcRegs (Rsubi r1 i1 r2) f = Rsubi (f r1) i1 r2
+
+mapToSrcRegs (And r1 r2 r3) f = And (f r1) (f r2) r3
+mapToSrcRegs (Or r1 r2 r3) f = Or (f r1) (f r2) r3
+mapToSrcRegs (Xori r1 i1 r2) f = Xori (f r1) i1 r2
+
+mapToSrcRegs (Comp r1 r2) f = Comp (f r1) (f r2)
+mapToSrcRegs (Compi r1 i1) f = Compi (f r1) i1
+
+mapToSrcRegs (Cbreq l1 l2) f = Cbreq l1 l2
+mapToSrcRegs (Cbrge l1 l2) f = Cbrge l1 l2
+mapToSrcRegs (Cbrgt l1 l2) f = Cbrgt l1 l2
+mapToSrcRegs (Cbrle l1 l2) f = Cbrle l1 l2
+mapToSrcRegs (Cbrlt l1 l2) f = Cbrlt l1 l2
+mapToSrcRegs (Cbrne l1 l2) f = Cbrne l1 l2
+mapToSrcRegs (Jumpi l1) f = Jumpi l1
+mapToSrcRegs (Brz r1 l1 l2) f = Brz (f r1) l1 l2
+
+mapToSrcRegs (Loadai r1 i1 r2) f = Loadai (f r1) i1 r2
+mapToSrcRegs (Loadglobal s1 r1) f = Loadglobal s1 r1
+mapToSrcRegs (Loadinargument s1 i1 r1) f = Loadinargument s1 i1 r1
+mapToSrcRegs (Loadret r1) f = Loadret r1
+mapToSrcRegs (Computeformaladdress s1 i1 r1) f = Computeformaladdress s1 i1 r1
+mapToSrcRegs (Restoreformal s1 i1) f = Restoreformal s1 i1
+mapToSrcRegs (Computeglobaladdress s1 r1) f = Computeglobaladdress s1 r1
+
+mapToSrcRegs (Storeai r1 r2 i1) f = Storeai (f r1) (f r2) i1
+mapToSrcRegs (Storeglobal r1 s1) f = Storeglobal (f r1) s1
+mapToSrcRegs (Storeinargument r1 s1 i1) f = Storeinargument (f r1) s1 i1
+mapToSrcRegs (Storeoutargument r1 i1) f = Storeoutargument (f r1) i1
+mapToSrcRegs (Storeret r1) f = Storeret (f r1)
+
+mapToSrcRegs (Call l1) f = Call l1
+
+mapToSrcRegs (New i1 r1) f = New i1 r1
+mapToSrcRegs (Del r1) f = Del (f r1)
+
+mapToSrcRegs (PrintILOC r1) f = PrintILOC (f r1)
+mapToSrcRegs (Println r1) f = Println (f r1)
+mapToSrcRegs (ReadILOC r1) f = ReadILOC r1
+
+mapToSrcRegs (Mov r1 r2) f = Mov (f r1) r2
+mapToSrcRegs (Movi i1 r1) f = Movi i1 r1
+mapToSrcRegs (Moveq r1 r2) f = Moveq (f r1) r2
+mapToSrcRegs (Movge r1 r2) f = Movge (f r1) r2
+mapToSrcRegs (Movgt r1 r2) f = Movgt (f r1) r2
+mapToSrcRegs (Movle r1 r2) f = Movle (f r1) r2
+mapToSrcRegs (Movlt r1 r2) f = Movlt (f r1) r2
+mapToSrcRegs (Movne r1 r2) f = Movne (f r1) r2
+
+mapToSrcRegs (PrepArgs i) f = PrepArgs i
+mapToSrcRegs (UnprepArgs i) f = UnprepArgs i
