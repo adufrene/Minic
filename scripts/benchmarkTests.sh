@@ -102,7 +102,7 @@ runTest() {
         gcc "$filename.s" -o $filename && $filename < $input | cat &> $tempFile
     fi
 
-    diff $tempFile $output &> /dev/null
+    diff $tempFile $output #&> /dev/null
 }
 
 EXIT_STATUS=0

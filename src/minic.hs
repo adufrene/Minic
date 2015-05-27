@@ -20,6 +20,8 @@ import Mini.TypeCheck
 import Mini.RegAlloc
 import Mini.CopyProp
 
+import Debug.Trace
+
 testJSON :: String
 testJSON = "--testJSON"
 
@@ -66,7 +68,7 @@ main = do
         when (shouldPrint args) $
             do 
                globalEnv <- envReport env
-               let graphs = doCopyProp (globalEnv `createGraphs` program) shouldCopyProp
+               let graphs = doCopyProp (globalEnv `createGraphs` program) $ trace ("shouldCopyProp: " ++ show shouldCopyProp) shouldCopyProp
                    optFun = if noOpt `elem` args then id else removeUselessCode
                    optimized = optimize optFun <$> graphs
                    shouldCopyProp = copyProp `elem` args

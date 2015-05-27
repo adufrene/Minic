@@ -6,6 +6,7 @@ module Mini.CFG
     , entryVertex
     , exitVertex
     , initVertex
+    , getVertices
     , getSuccessors
     , getPredecessors
     , getNeighbors
@@ -328,7 +329,11 @@ getSuccessors :: NodeGraph -> Vertex -> [Vertex]
 getSuccessors (graph, _) vertex = [end | (start, end) <- edges graph, start == vertex]
 
 getPredecessors :: NodeGraph -> Vertex -> Set.Set Vertex
-getPredecessors (graph, _) vertex = Set.fromList [start | (start, end) <- edges graph, end == vertex]
+getPredecessors nodeGraph@(graph, _) vertex = (Set.fromList [start | (start, end) <- edges graph, end == vertex, start `elem` (getVertices nodeGraph)])
+
+-- find the verticesr in a NodeGraph
+getVertices :: NodeGraph -> [Vertex]
+getVertices (_, vertToNodeHM) = keys vertToNodeHM
 
 -- get all the neighbors of a given vertex in a graph
 -- two vertices are neighbors if they share an edge
