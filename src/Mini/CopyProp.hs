@@ -72,12 +72,12 @@ applyCopyProp vert (_, vertToNodeHM) (genKillHM, copyInHM) =
       | otherwise = error "shit is fucked up 2"
     doIt :: [Iloc] -> CopySet -> [Iloc]
     doIt [] _ = []
-    -- doIt (iloc@(Mov r1 r2):rest) copyNow = nextIloc:(doIt rest nextCopyNow)
-    --   where
-    --     optimizedIloc@(Mov r1' r2') = doReplacements iloc copyNow
-    --     dstRegs = Set.fromList [r2]
-    --     filteredCopyNow = copyNow `copiesNotKilledBy` dstRegs
-    --     (nextIloc, nextCopyNow) = ((Mov r1' r1'), ((r1', r2') `Set.insert` filteredCopyNow))
+    doIt (iloc@(Mov r1 r2):rest) copyNow = nextIloc:(doIt rest nextCopyNow)
+      where
+        optimizedIloc@(Mov r1' r2') = doReplacements iloc copyNow
+        dstRegs = Set.fromList [r2]
+        filteredCopyNow = copyNow `copiesNotKilledBy` dstRegs
+        (nextIloc, nextCopyNow) = ((Mov r1' r1'), ((r1', r2) `Set.insert` filteredCopyNow))
     doIt (iloc:rest) copyNow = nextIloc:(doIt rest nextCopyNow)
       where
         optimizedIloc = doReplacements iloc copyNow

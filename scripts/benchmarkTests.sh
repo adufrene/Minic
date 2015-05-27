@@ -4,7 +4,7 @@
 set -u
 
 MINI_EXE=minic
-MINI_FLAGS=""
+MINI_FLAGS="--copyProp"
 BENCHMARK_DIR="$(realpath $(dirname ${BASH_SOURCE})/../benchmarks)"
 TIMEOUT=3m
 REMOTE_LOGIN=''
