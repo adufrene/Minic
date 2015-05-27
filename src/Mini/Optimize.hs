@@ -112,7 +112,7 @@ foldDefs (oldHash, oldWork) (_, (vert, ndx)) = (newHash, newWork)
 
 markInsn :: Index -> MarkedNode -> MarkedNode
 markInsn ndx = mapNode mapFun
-    where mapFun = map markIloc . zip [0..]
+    where mapFun = zipWith (curry markIloc) [0..]
           markIloc (insnNdx, x)
             | insnNdx == ndx = mark x
             | otherwise = x
