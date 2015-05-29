@@ -1,6 +1,6 @@
 module Mini.Stack where
 
-newtype Stack a = Stack [a]
+newtype Stack a = Stack [a] deriving (Show)
 
 {- stack funcs-}
 push :: Stack a -> a -> Stack a

@@ -6,7 +6,7 @@ set -u
 MINI_EXE=minic
 MINI_FLAGS=""
 BENCHMARK_DIR="$(realpath $(dirname ${BASH_SOURCE})/../benchmarks)"
-TIMEOUT=3m
+TIME_OUT=3m
 REMOTE_LOGIN=''
 NUM_SUCCESS=0
 NUM_RUN=0
@@ -19,11 +19,17 @@ cleanup() {
     printf "Test Results: %d/%d\n" $NUM_SUCCESS $NUM_RUN
 }
 
-while getopts r: opt
+while getopts t:r:e: opt
 do
     case $opt in
         r)
             REMOTE_LOGIN=$OPTARG
+            ;;
+        t)
+            TIME_OUT=$OPTARG
+            ;;
+        e) 
+            MINI_EXE=$(realpath "$OPTARG")
             ;;
         \?)
 #            echo "Invalid option: -$OPTARG" >&2
@@ -60,10 +66,10 @@ fi
 
 if [[ "$OS" == "$MAC" ]]
 then
-    TIMEOUT_EXE="gtimeout $TIMEOUT"
+    TIMEOUT_EXE="gtimeout $TIME_OUT"
     TMP_DIR=$(mktemp -d tmp.XXXXXX)
 else
-    TIMEOUT_EXE="timeout $TIMEOUT"
+    TIMEOUT_EXE="timeout $TIME_OUT"
     TMP_DIR=$(mktemp -d -p .)
 fi
 

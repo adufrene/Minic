@@ -44,11 +44,24 @@ noAlloc = "--noAlloc"
 checkColors :: String
 checkColors = "--checkColors"
 
-noOpt :: String
-noOpt = "--noOpt"
+-- noOpt :: String
+-- noOpt = "--noOpt"
+
+copyProp :: String
+copyProp = "--copyProp"
+
+noUCR :: String
+noUCR = "--noUCR"
+
+noCP :: String
+noCP = "--noCP"
 
 printDefs :: String
 printDefs = "--printDefs"
+
+optList :: [(String, (IlocGraph -> IlocGraph))]
+optList = [ {-(noCP, copyPropOptimize)
+          , -}(noUCR, removeUselessCode) ]
 
 -- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
@@ -67,7 +80,7 @@ main = do
             do 
                globalEnv <- envReport env
                let graphs = globalEnv `createGraphs` program
-                   optFun = if noOpt `elem` args then id else removeUselessCode
+                   optFun = foldl' (.) id $ map (fromJust . flip lookup optList) (map fst optList \\ args)
                    optimized = optFun <$> graphs
                if printDefs `elem` args
                then print $ createReachingDefs <$> graphs
