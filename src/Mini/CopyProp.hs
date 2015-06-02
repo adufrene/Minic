@@ -14,8 +14,6 @@ import qualified Data.Set as Set
 import Data.Graph hiding (Node)
 import Data.List as L
 
-import Debug.Trace
-
 type CopySet = Set.Set (Reg, Reg) -- {(src, dst)..} where each src is replaced with dst
 type CopyInSet = CopySet
 type GenSet = CopySet
@@ -36,18 +34,12 @@ getNodeGraphPredecessors nodeGraph@(graph, _) vertex = (Set.fromList [start | (s
 
 -- applies copy propegation to a list of node graphs, can be turned off with a flag
 doCopyProp :: [IlocGraph] -> Bool -> [IlocGraph]
-doCopyProp graphs False =
-  trace ("not gonna do the copyProp to a list of iloc graphs")
-  graphs
-doCopyProp graphs True =
-  trace ("gonna do the copyProp to a list of iloc graphs")
-  L.map copyPropOptimize graphs
+doCopyProp graphs False = graphs
+doCopyProp graphs True = L.map copyPropOptimize graphs
 
 -- applies the copy propegation optimization to the given node graph
 copyPropOptimize :: IlocGraph -> IlocGraph
-copyPropOptimize nodeGraph@(graph, vertToNodeHM) =
-  trace ("genKillHM: " ++ (show genKillHM) ++ "\ncopyInHM: " ++ (show copyInHM) ++ "\nvertPreds: " ++ (show vertPreds))
-  (graph, optimizedNodes)
+copyPropOptimize nodeGraph@(graph, vertToNodeHM) = (graph, optimizedNodes)
   where
     optimizedNodes = HM.fromList [(vert, applyCopyPropForThisNode vert) | vert <- nodeVertices]
     nodeVertices = getVertices nodeGraph
