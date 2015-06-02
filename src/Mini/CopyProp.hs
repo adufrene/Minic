@@ -1,8 +1,8 @@
 module Mini.CopyProp
   ( copyPropOptimize
   , doCopyProp
-  )
-  where
+  ) where
+
 
 import Mini.Iloc.Types
 import Mini.RegAlloc
@@ -13,6 +13,8 @@ import Data.HashMap.Strict as HM
 import qualified Data.Set as Set
 import Data.Graph hiding (Node)
 import Data.List as L
+
+import Debug.Trace
 
 type CopySet = Set.Set (Reg, Reg) -- {(src, dst)..} where each src is replaced with dst
 type CopyInSet = CopySet

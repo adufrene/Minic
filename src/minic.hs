@@ -45,12 +45,6 @@ noAlloc = "--noAlloc"
 checkColors :: String
 checkColors = "--checkColors"
 
--- noOpt :: String
--- noOpt = "--noOpt"
-
-copyProp :: String
-copyProp = "--copyProp"
-
 noUCR :: String
 noUCR = "--noUCR"
 
@@ -60,9 +54,12 @@ noCP = "--noCP"
 printDefs :: String
 printDefs = "--printDefs"
 
-optList :: [(String, (IlocGraph -> IlocGraph))]
-optList = [ {-(noCP, copyPropOptimize)
-          , -}(noUCR, removeUselessCode) ]
+printMarks :: String
+printMarks = "--printMarks"
+
+optList :: [(String, IlocGraph -> IlocGraph)]
+optList = [ (noCP, copyPropOptimize)
+          , (noUCR, removeUselessCode) ]
 
 -- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
@@ -80,11 +77,14 @@ main = do
         when (shouldPrint args) $
             do 
                globalEnv <- envReport env
-               let graphs = doCopyProp (globalEnv `createGraphs` program) (copyProp `notElem` args)
-                   optFun = foldl' (.) id $ map (fromJust . flip lookup optList) (map fst optList \\ args)
-                   optimized = optFun <$> graphs
+               let graphs = globalEnv `createGraphs` program
+                   copied = getOptFun noCP args <$> graphs
+                   removed = getOptFun noUCR args <$> copied
+                   optimized = id <$> removed
                if printDefs `elem` args
-               then print $ createReachingDefs <$> graphs
+               then print $ createReachingDefs <$> copied
+               else if printMarks `elem` args
+               then print $ debugMarked <$> copied
                else if printGraphs `elem` args
                then print optimized
                else if testAlloc `elem` args
@@ -95,6 +95,11 @@ main = do
                then writeIloc optimized $ fileNameToIL fileName
                else writeAsm (noAlloc `notElem` args) optimized 
                      (getDeclarations program) $ fileNameToS fileName 
+
+getOptFun :: String -> [String] -> IlocGraph -> IlocGraph
+getOptFun flag args = if flag `elem` args
+                           then id
+                           else fromJust $ lookup flag optList
 
 shouldPrint :: [String] -> Bool
 shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv])

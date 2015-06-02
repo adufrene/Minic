@@ -1,5 +1,6 @@
-module Mini.Optimize ( removeUselessCode 
-                     , createReachingDefs ) where
+module Mini.Optimize ( removeUselessCode
+                     , createReachingDefs
+                     , debugMarked ) where
 
 import Mini.Iloc.Types
 import Mini.RegAlloc
@@ -66,6 +67,11 @@ removeUselessCode ilGraph = (fst ilGraph, sweep <$> fullyMarked)
     where reaches = createReachingDefs ilGraph
           (worklist, marked) = initialMark ilGraph
           fullyMarked = markWorklist worklist marked reaches
+
+debugMarked :: IlocGraph -> MarkedHash
+debugMarked ig = markWorklist worklist marked reaches
+    where (worklist, marked) = initialMark ig
+          reaches = createReachingDefs ig
 
 initialMark :: IlocGraph -> (Worklist, MarkedHash)
 initialMark = HM.foldlWithKey' foldFun ([], HM.empty) . snd
@@ -182,16 +188,14 @@ createGen :: IlocNode -> ReachGen
 createGen = fst . createGenKills
 
 createGenKills :: IlocNode -> (ReachGen, ReachKill)
-createGenKills = fst . foldl' genKillFoldFun ((S.empty, S.empty), S.empty) 
-                    . zip [0..] . getData
+createGenKills = foldl' genKillFoldFun (S.empty, S.empty) . zip [0..] . getData
 
-genKillFoldFun :: ((ReachGen, ReachKill), RegSet) -> (Index, Iloc) 
-                        -> ((ReachGen, ReachKill), RegSet)
-genKillFoldFun ((gen, kill), redefs) (ndx, iloc) = ((newGen, newKill), newRedefs)
-        where dsts = S.fromList $ map createTup $ getDstIlocRegs iloc
+genKillFoldFun :: (ReachGen, ReachKill) -> (Index, Iloc) -> (ReachGen, ReachKill)
+genKillFoldFun (gen, kill) (ndx, iloc) = (newGen, newKill)
+        where dstList = getDstIlocRegs iloc
+              dstSet = S.fromList $ map createTup dstList
               newKill = kill `S.union` S.map createTup (S.fromList $ getSrcIlocRegs iloc)
-              newGen = gen `S.union` dsts `reachDiff` newRedefs
-              newRedefs = redefs `S.union` (S.map fst dsts `S.intersection` S.map fst gen)
+              newGen = S.filter (not . (`elem` dstList) . fst) gen `S.union` dstSet
               createTup x = (x, ndx)
 
 reachDiff :: ReachSet -> RegSet -> ReachSet
@@ -206,9 +210,6 @@ isCritical Brz{} = True
 isCritical Jumpi{} = True
 isCritical Call{} = True
 isCritical RetILOC{} = True
-isCritical Storeglobal{} = True
-isCritical Loadglobal{} = True  -- Is this critical?
-isCritical Println{} = True
 isCritical PrintILOC{} = True
 isCritical ReadILOC{} = True
 isCritical PrepArgs{} = True
@@ -218,5 +219,6 @@ isCritical UnprepArgs{} = True
 isCritical Storeoutargument{} = True
 isCritical Storeai{} = True
 isCritical Del{} = True
-isCritical New{} = True
+isCritical Storeglobal{} = True
+isCritical Println{} = True
 isCritical _ = False
