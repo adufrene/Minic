@@ -19,6 +19,7 @@ import Mini.Optimize
 import Mini.Types
 import Mini.TypeCheck
 import Mini.RegAlloc
+import Mini.CopyProp
 
 testJSON :: String
 testJSON = "--testJSON"
@@ -79,7 +80,7 @@ main = do
         when (shouldPrint args) $
             do 
                globalEnv <- envReport env
-               let graphs = globalEnv `createGraphs` program
+               let graphs = doCopyProp (globalEnv `createGraphs` program) (copyProp `notElem` args)
                    optFun = foldl' (.) id $ map (fromJust . flip lookup optList) (map fst optList \\ args)
                    optimized = optFun <$> graphs
                if printDefs `elem` args

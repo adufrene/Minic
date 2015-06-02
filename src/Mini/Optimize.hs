@@ -217,4 +217,6 @@ isCritical Compi{} = True
 isCritical UnprepArgs{} = True
 isCritical Storeoutargument{} = True
 isCritical Storeai{} = True
+isCritical Del{} = True
+isCritical New{} = True
 isCritical _ = False
