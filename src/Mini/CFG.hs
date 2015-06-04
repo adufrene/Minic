@@ -58,11 +58,10 @@ reg = snd
 createLabel :: LabelNum -> Label
 createLabel num = "L" ++ show num
 
-createGraphs :: GlobalEnv -> Program -> [IlocGraph]
+createGraphs :: GlobalEnv -> Program -> [(Reg, IlocGraph)]
 createGraphs global = snd . L.foldr foldFun (1,[]) . getFunctions
-    where foldFun fun (nextLabel, ngs) = 
-            ngs `app` functionToGraph fun nextLabel global
-          app xs (label, x) = (label, x:xs)
+    where foldFun fun (nextLabel, gs) = (fst . fst) &&& ((:gs) . first snd)
+                    $ functionToGraph fun nextLabel global
 
 replaceRets :: Function -> IlocGraph -> IlocGraph
 replaceRets fun (g, hash) = (g, insert exitVertex retNode newHash)
@@ -85,9 +84,9 @@ addRet (graph, hash) =  if functionReturns
           endVert = snd $ bounds graph
           functionReturns = last (getData $ hash ! endVert) == RetILOC
 
-functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelNum, IlocGraph)
-functionToGraph func nextLabel global = (resLabel, replaceRets func resGraph)
-    where (resLabel, resGraph) = (label *** fromYesNo) numGraph
+functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelReg, IlocGraph)
+functionToGraph func nextLabel global = second (replaceRets func) stripContext
+    where stripContext = second fromYesNo numGraph
           argNode = emptyNode (getFunId func) `addToNode` argIloc
           (nextNum, regHash, locals) = 
             L.foldl' localFoldFun argsHashes $ getFunDeclarations func

@@ -33,5 +33,5 @@ instance Hashable BinExp where
         hashWithSalt salt (LVNDiv lv1 lv2) = (hash lv1 `hashWithSalt` lv2 + salt) 
                                                 * 23753
 
-numberGraph :: Reg -> IlocGraph -> (Reg, IlocGraph)
-numberGraph nextReg ig = undefined
+numberGraph :: (Reg, IlocGraph) -> (Reg, IlocGraph)
+numberGraph (nextReg, ig) = undefined

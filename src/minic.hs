@@ -1,5 +1,7 @@
 module Main where
 
+import Debug.Trace
+
 import Control.Applicative
 import Control.Arrow (second)
 import Control.Monad
@@ -62,9 +64,10 @@ printMarks = "--printMarks"
 noLVN :: String
 noLVN = "--noLVN"
 
-optList :: [(String, IlocGraph -> IlocGraph)]
-optList = [ (noCP, copyPropOptimize)
-          , (noUCR, removeUselessCode) ]
+optList :: [(String, (Reg, IlocGraph) -> (Reg, IlocGraph))]
+optList = [ (noLVN, numberGraph)
+          , (noCP, second copyPropOptimize)
+          , (noUCR, second removeUselessCode) ]
 
 main :: IO ()
 main = do
@@ -81,35 +84,41 @@ main = do
             do 
                globalEnv <- envReport env
                let graphs = globalEnv `createGraphs` program
-                   copied = getOptFun noCP args <$> graphs
-                   removed = getOptFun noUCR args <$> copied
+--                    copied = getOptFun noCP args <$> graphs
+--                    removed = getOptFun noUCR args <$> copied
 --                    numberFun = if noLVN `elem` args then numberGraph else id
-                   optimized = foldLVN 0 removed args
-               if printDefs `elem` args
-               then print $ createReachingDefs <$> copied
-               else if printMarks `elem` args
-               then print $ debugMarked <$> copied
+                   optimized = getOptFun args <$> graphs
+                   stripped = map snd optimized
+--                if printDefs `elem` args
+--                then print $ createReachingDefs <$> copied
+--                else if printMarks `elem` args
+--                then print $ debugMarked <$> copied
+               if False
+               then putStrLn "foo"
                else if printGraphs `elem` args
                then print optimized
                else if testAlloc `elem` args
-               then print $ fmap testIntGraph optimized
+               then print $ fmap testIntGraph stripped
                else if checkColors `elem` args
-               then print $ fmap getRegLookup optimized
+               then print $ fmap getRegLookup stripped
                else if dumpIL `elem` args
-               then writeIloc optimized $ fileNameToIL fileName
-               else writeAsm (noAlloc `notElem` args) optimized 
+               then writeIloc stripped $ fileNameToIL fileName
+               else writeAsm (noAlloc `notElem` args) stripped 
                      (getDeclarations program) $ fileNameToS fileName 
 
-foldLVN :: Reg -> [IlocGraph] -> [String] -> [IlocGraph]
-foldLVN nextReg graphs args
-    | noLVN `elem` args = graphs
-    | otherwise = snd $ foldl' foldFun (nextReg, []) graphs
-    where foldFun (next, il) graph = second (:il) $ numberGraph next graph
+-- foldLVN :: Reg -> [(Reg, IlocGraph)] -> [String] -> [(Reg, IlocGraph)]
+-- foldLVN nextReg graphs args
+--     | noLVN `elem` args = graphs
+--     | otherwise = snd $ foldl' foldFun (nextReg, []) graphs
+--     where foldFun (next, il) graph = second (:il) $ numberGraph next graph
+-- getOptFun :: String -> [String] -> (Reg, IlocGraph) -> (Reg, IlocGraph)
+-- getOptFun flag args = if flag `elem` args
+--                            then id
+--                            else fromJust $ lookup flag optList
 
-getOptFun :: String -> [String] -> IlocGraph -> IlocGraph
-getOptFun flag args = if flag `elem` args
-                           then id
-                           else fromJust $ lookup flag optList
+getOptFun :: [String] -> (Reg, IlocGraph) -> (Reg, IlocGraph)
+getOptFun = foldl' foldFun id . (\\) (map fst optList)
+    where foldFun fun flag = fun . fromJust (lookup flag optList)
 
 shouldPrint :: [String] -> Bool
 shouldPrint = not . any (\x -> x `elem` [testJSON, printProg, printEnv])
