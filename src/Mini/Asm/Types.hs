@@ -11,6 +11,8 @@ module Mini.Asm.Types
         , calleeSaved
         , callerSaved
         , returnReg
+        , getSrcAsmRegs
+        , getDstAsmRegs
         ) where
 
 import Control.Applicative
@@ -565,3 +567,42 @@ createRead f r = [ AsmMov (AsmSAddr scanLabel) (AsmDReg Rdi)
                , AsmMov (AsmImmed 0) (AsmDReg Rax)
                , AsmCall scanf
                , AsmMov (AsmSLabel scanVar) (AsmDReg $ f r) ]
+
+-- asm registers we will read from for this instuction
+getSrcAsmRegs :: Iloc -> [AsmReg]
+getSrcAsmRegs (Div r1 r2 r3) = [Rdx, Rax]
+
+getSrcAsmRegs (Loadinargument _ i _) = getArgRegister i
+
+getSrcAsmRegs Call{} = argRegs
+
+getSrcAsmRegs New{} = [Rax, Rdi]
+getSrcAsmRegs (Del r1) = [Rdi]
+
+getSrcAsmRegs (PrintILOC r1) = [Rdi, Rsi, Rax]
+getSrcAsmRegs (Println r1) = [Rdi, Rsi, Rax]
+getSrcAsmRegs ReadILOC{} = [Rdi, Rsi, Rax]
+
+getSrcAsmRegs _ = []
+
+-- get the asm dest registers
+getDstAsmRegs :: Iloc -> [AsmReg]
+getDstAsmRegs (Div _ _ r3) = [Rax, Rdx]
+
+getDstAsmRegs (Storeoutargument _ i) = getArgRegister i
+
+getDstAsmRegs Call{} = callerSaved
+
+getDstAsmRegs (New _ r1) = callerSaved
+getDstAsmRegs Del{} = callerSaved
+
+getDstAsmRegs PrintILOC{} = callerSaved
+getDstAsmRegs Println{} = callerSaved
+getDstAsmRegs (ReadILOC r) = callerSaved
+
+getDstAsmRegs iloc = []
+
+getArgRegister :: Immed -> [AsmReg]
+getArgRegister i
+    | i < numArgRegs = [argRegs !! i]
+    | otherwise = []

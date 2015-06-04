@@ -5,7 +5,6 @@ module Mini.CopyProp
 
 
 import Mini.Iloc.Types
-import Mini.RegAlloc
 import Mini.CFG
 import Mini.Graph
 

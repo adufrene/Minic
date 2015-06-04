@@ -1,13 +1,16 @@
 fun main() int {
     int x;
-    int y;
+    int y, z;
     x = 0;
     y = 3;
+
 
     while (x < 10) {
         y = y + x;
         x = x + 1;
     }
+
+    z = y;
 
     return 0;
 }

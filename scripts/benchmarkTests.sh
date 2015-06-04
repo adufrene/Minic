@@ -19,7 +19,7 @@ cleanup() {
     printf "Test Results: %d/%d\n" $NUM_SUCCESS $NUM_RUN
 }
 
-while getopts t:r:e: opt
+while getopts t:r:e:f: opt
 do
     case $opt in
         r)
@@ -30,6 +30,9 @@ do
             ;;
         e) 
             MINI_EXE=$(realpath "$OPTARG")
+            ;;
+        f) 
+            MINI_FLAGS=$OPTARG
             ;;
         \?)
 #            echo "Invalid option: -$OPTARG" >&2

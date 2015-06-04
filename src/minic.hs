@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Applicative
+import Control.Arrow (second)
 import Control.Monad
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BS 
@@ -20,6 +21,7 @@ import Mini.Types
 import Mini.TypeCheck
 import Mini.RegAlloc
 import Mini.CopyProp
+import Mini.LVN
 
 testJSON :: String
 testJSON = "--testJSON"
@@ -57,11 +59,12 @@ printDefs = "--printDefs"
 printMarks :: String
 printMarks = "--printMarks"
 
+noLVN :: String
+noLVN = "--noLVN"
+
 optList :: [(String, IlocGraph -> IlocGraph)]
 optList = [ (noCP, copyPropOptimize)
           , (noUCR, removeUselessCode) ]
-
--- if "testJSON" is passed as a command line arg, re-encodes back to JSON then dumps that JSON
 
 main :: IO ()
 main = do
@@ -80,7 +83,8 @@ main = do
                let graphs = globalEnv `createGraphs` program
                    copied = getOptFun noCP args <$> graphs
                    removed = getOptFun noUCR args <$> copied
-                   optimized = id <$> removed
+--                    numberFun = if noLVN `elem` args then numberGraph else id
+                   optimized = foldLVN 0 removed args
                if printDefs `elem` args
                then print $ createReachingDefs <$> copied
                else if printMarks `elem` args
@@ -95,6 +99,12 @@ main = do
                then writeIloc optimized $ fileNameToIL fileName
                else writeAsm (noAlloc `notElem` args) optimized 
                      (getDeclarations program) $ fileNameToS fileName 
+
+foldLVN :: Reg -> [IlocGraph] -> [String] -> [IlocGraph]
+foldLVN nextReg graphs args
+    | noLVN `elem` args = graphs
+    | otherwise = snd $ foldl' foldFun (nextReg, []) graphs
+    where foldFun (next, il) graph = second (:il) $ numberGraph next graph
 
 getOptFun :: String -> [String] -> IlocGraph -> IlocGraph
 getOptFun flag args = if flag `elem` args

@@ -3,7 +3,6 @@ module Mini.Optimize ( removeUselessCode
                      , debugMarked ) where
 
 import Mini.Iloc.Types
-import Mini.RegAlloc
 import Mini.Graph
 
 import Control.Applicative
