@@ -161,27 +161,12 @@ regsPerAsm :: Asm -> [AsmReg]
 regsPerAsm (AsmPush r) = [r]
 regsPerAsm (AsmPop r) = [r]
 regsPerAsm (AsmShift i r) = [r]
-regsPerAsm AsmSection = []
-regsPerAsm AsmText = []
-regsPerAsm AsmData = []
-regsPerAsm AsmAlign = []
-regsPerAsm (AsmString s) = []
-regsPerAsm (AsmVarSize l i) = []
-regsPerAsm (AsmQuad i) = []
-regsPerAsm (AsmGlobal l) = []
-regsPerAsm (AsmFunGlobal l) = []
-regsPerAsm (AsmType l t) = []
-regsPerAsm (AsmFunSize l) = []
 regsPerAsm (AsmAdd r arg) = r : getAsmFromCmp arg
 regsPerAsm (AsmDiv r) = [r]
 regsPerAsm (AsmMult r1 r2) = [r1,r2]
 regsPerAsm (AsmMulti i r1 r2) = [r1,r2]
 regsPerAsm (AsmSub r arg) = r : getAsmFromCmp arg
 regsPerAsm (AsmCmp arg r) = r : getAsmFromCmp arg
-regsPerAsm (AsmJe l) = []
-regsPerAsm (AsmJmp l) = []
-regsPerAsm (AsmCall l) = []
-regsPerAsm AsmRet = []
 regsPerAsm (AsmMov r1 r2) = getAsmFromSrc r1 ++ getAsmFromDest r2
 regsPerAsm (AsmCmoveq r1 r2) = [r1, r2]
 regsPerAsm (AsmCmovgeq r1 r2) = [r1, r2]
@@ -189,7 +174,7 @@ regsPerAsm (AsmCmovgq r1 r2) = [r1, r2]
 regsPerAsm (AsmCmovleq r1 r2) = [r1, r2]
 regsPerAsm (AsmCmovlq r1 r2) = [r1, r2]
 regsPerAsm (AsmCmovneq r1 r2) = [r1, r2]
-regsPerAsm (AsmLabel l) = []
+regsPerAsm _ = []
 
 getAsmFromCmp :: CompArg -> [AsmReg]
 getAsmFromCmp (CompReg r) = [r]
@@ -209,57 +194,30 @@ swapRegs :: Asm -> AsmReg -> AsmReg -> Asm
 swapRegs asm@(AsmPush r) old new = if r == old then AsmPush new else asm
 swapRegs asm@(AsmPop r) old new = if r == old then AsmPop new else asm
 swapRegs (AsmShift i r) old new = AsmShift i $ if r == old then new else r
-swapRegs asm@AsmSection old new = asm
-swapRegs asm@AsmText old new = asm
-swapRegs asm@AsmData old new = asm
-swapRegs asm@AsmAlign old new = asm
-swapRegs asm@(AsmString s) old new = asm
-swapRegs asm@(AsmVarSize l i) old new = asm
-swapRegs asm@(AsmQuad i) old new = asm
-swapRegs asm@(AsmGlobal l) old new = asm
-swapRegs asm@(AsmFunGlobal l) old new = asm
-swapRegs asm@(AsmType l t) old new = asm
-swapRegs asm@(AsmFunSize l) old new = asm
+swapRegs asm@(AsmDiv r) old new = if r == old then AsmDiv new else asm
+swapRegs asm@(AsmMov r1 r2) old new = AsmMov (swapSReg r1 old new) (swapDReg r2 old new)
+swapRegs asm@(AsmMult r1 r2) old new = swap2 AsmMult r1 r2 old new
+swapRegs asm@(AsmMulti i r1 r2) old new = swap2 (AsmMulti i) r1 r2 old new
+swapRegs asm@(AsmCmoveq r1 r2) old new = swap2 AsmCmoveq r1 r2 old new
+swapRegs asm@(AsmCmovgeq r1 r2) old new = swap2 AsmCmovgeq r1 r2 old new
+swapRegs asm@(AsmCmovgq r1 r2) old new = swap2 AsmCmovgq r1 r2 old new
+swapRegs asm@(AsmCmovleq r1 r2) old new = swap2 AsmCmovleq r1 r2 old new
+swapRegs asm@(AsmCmovlq r1 r2) old new = swap2 AsmCmovlq r1 r2 old new
+swapRegs asm@(AsmCmovneq r1 r2) old new = swap2 AsmCmovneq r1 r2 old new
 swapRegs asm@(AsmAdd r arg) old new = AsmAdd
                                        (if r == old then new else r)
                                        (convertArg arg old new)
-swapRegs asm@(AsmDiv r) old new = if r == old then AsmDiv new else asm
-swapRegs asm@(AsmMult r1 r2) old new = AsmMult
-                                        (if r1 == old then new else r1)
-                                        (if r2 == old then new else r2)
-swapRegs asm@(AsmMulti i r1 r2) old new = AsmMulti i
-                                        (if r1 == old then new else r1)
-                                        (if r2 == old then new else r2)
 swapRegs asm@(AsmSub r arg) old new = AsmSub
                                        (if r == old then new else r)
                                        (convertArg arg old new)
 swapRegs asm@(AsmCmp arg r) old new = AsmCmp
                                        (convertArg arg old new)
                                        (if r == old then new else r)
-swapRegs asm@(AsmJe l) old new = asm
-swapRegs asm@(AsmJmp l) old new = asm
-swapRegs asm@(AsmCall l) old new = asm
-swapRegs asm@AsmRet old new = asm
-swapRegs asm@(AsmMov r1 r2) old new = AsmMov (swapSReg r1 old new) (swapDReg r2 old new)
-swapRegs asm@(AsmCmoveq r1 r2) old new = AsmCmoveq
-                                        (if r1 == old then new else r1)
-                                        (if r2 == old then new else r2)
-swapRegs asm@(AsmCmovgeq r1 r2) old new = AsmCmovgeq
-                                        (if r1 == old then new else r1)
-                                        (if r2 == old then new else r2)
-swapRegs asm@(AsmCmovgq r1 r2) old new = AsmCmovgq
-                                        (if r1 == old then new else r1)
-                                        (if r2 == old then new else r2)
-swapRegs asm@(AsmCmovleq r1 r2) old new = AsmCmovleq
-                                        (if r1 == old then new else r1)
-                                        (if r2 == old then new else r2)
-swapRegs asm@(AsmCmovlq r1 r2) old new = AsmCmovlq
-                                        (if r1 == old then new else r1)
-                                        (if r2 == old then new else r2)
-swapRegs asm@(AsmCmovneq r1 r2) old new = AsmCmovneq
-                                        (if r1 == old then new else r1)
-                                        (if r2 == old then new else r2)
-swapRegs asm@(AsmLabel l) old new = asm
+swapRegs asm _ _ = asm
+
+swap2 :: (AsmReg -> AsmReg -> Asm)-> AsmReg -> AsmReg -> AsmReg -> AsmReg -> Asm
+swap2 constr r1 r2 old new = constr (if r1 == old then new else r1)
+                                    (if r2 == old then new else r2)
 
 convertArg :: CompArg -> AsmReg -> AsmReg -> CompArg
 convertArg arg@(CompReg r) old new = if r == old then CompReg new else arg
@@ -298,8 +256,6 @@ globalString l s = [ AsmSection
                    , AsmLabel l
                    , AsmString s ]
 
-{- Create Function prologue to start -}
-{- http://users.csc.calpoly.edu/~akeen/courses/csc431/handouts/references/asm.pdf -}
 functionToAsm :: (Reg -> AsmReg) -> IlocGraph -> [Asm]
 functionToAsm regFun nodeG@(graph, hash) = prologue ++ body ++ epilogue
     where prologue = createPrologue nodeG ++ stackBegin
@@ -571,35 +527,25 @@ createRead f r = [ AsmMov (AsmSAddr scanLabel) (AsmDReg Rdi)
 -- asm registers we will read from for this instuction
 getSrcAsmRegs :: Iloc -> [AsmReg]
 getSrcAsmRegs (Div r1 r2 r3) = [Rdx, Rax]
-
 getSrcAsmRegs (Loadinargument _ i _) = getArgRegister i
-
 getSrcAsmRegs Call{} = argRegs
-
 getSrcAsmRegs New{} = [Rax, Rdi]
 getSrcAsmRegs (Del r1) = [Rdi]
-
 getSrcAsmRegs (PrintILOC r1) = [Rdi, Rsi, Rax]
 getSrcAsmRegs (Println r1) = [Rdi, Rsi, Rax]
 getSrcAsmRegs ReadILOC{} = [Rdi, Rsi, Rax]
-
 getSrcAsmRegs _ = []
 
 -- get the asm dest registers
 getDstAsmRegs :: Iloc -> [AsmReg]
 getDstAsmRegs (Div _ _ r3) = [Rax, Rdx]
-
 getDstAsmRegs (Storeoutargument _ i) = getArgRegister i
-
 getDstAsmRegs Call{} = callerSaved
-
 getDstAsmRegs (New _ r1) = callerSaved
 getDstAsmRegs Del{} = callerSaved
-
 getDstAsmRegs PrintILOC{} = callerSaved
 getDstAsmRegs Println{} = callerSaved
 getDstAsmRegs (ReadILOC r) = callerSaved
-
 getDstAsmRegs iloc = []
 
 getArgRegister :: Immed -> [AsmReg]

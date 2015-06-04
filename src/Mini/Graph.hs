@@ -9,7 +9,7 @@ import Data.HashMap.Strict
 import qualified Data.List as L
 
 data Node a = Node { getLabel :: String
-                               , getData :: [a] }
+                   , getData :: [a] }
 
 instance (Show a) => Show (Node a) where
         show (Node label a) = unlines strs
