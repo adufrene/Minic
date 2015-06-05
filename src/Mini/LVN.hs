@@ -5,6 +5,7 @@ import Control.Monad (join)
 
 import Data.Hashable
 import Data.Graph (Vertex)
+import Data.Maybe (maybe)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List as L
 
@@ -52,7 +53,7 @@ instance Hashable LVKey where
 
 numberGraph :: (Reg, IlocGraph) -> (Reg, IlocGraph)
 numberGraph (nextReg, (graph, hash)) = second (\x -> (graph, x)) 
-        $ HM.foldlWithKey' numberBlock (nextReg, HM.empty) hash 
+        $ HM.foldlWithKey' numberBlock (nextReg + 1, HM.empty) hash 
 
 numberBlock :: (Reg, IlocHash) -> Vertex -> IlocNode -> (Reg, IlocHash)
 numberBlock (nextReg, newHash) v node = 
@@ -60,7 +61,8 @@ numberBlock (nextReg, newHash) v node =
     where (newNext, newIloc) = numberIloc nextReg $ getData node
 
 numberIloc :: Reg -> [Iloc] -> (Reg, [Iloc])
-numberIloc nextReg iloc = (newReg, newIl)
+numberIloc nextReg iloc = 
+        (newReg, snd $ L.foldr (addCopies nextReg lvHash) ([], []) newIl)
     where ((newReg, lvHash), newIl) = L.mapAccumL createLVHash 
             (nextReg, (HM.empty, HM.empty)) iloc
 
@@ -122,3 +124,30 @@ createCopy :: NextAndHash -> LVKey -> LVKey -> (NextAndHash, Iloc)
 createCopy nah expKey dest@(LVReg r) = 
         (second (lvInsert dest lvn) nah, Mov lvn r)
     where lvn = nah ! expKey
+
+addCopies :: Reg -> LVHash -> Iloc -> ([LVN], [Iloc]) -> ([LVN], [Iloc])
+addCopies lvnStart hash x (lvns, xs)
+    | isBinExp x = maybe defaultValue makeCopy foundLVN
+    | isMov x = if isValReg then (srcReg:lvns, x:xs) else defaultValue
+    | otherwise = defaultValue
+    where srcReg = head $ getSrcIlocRegs x
+          dstReg = head $ getDstIlocRegs x
+          defaultValue = (lvns, x:xs)
+          isValReg = srcReg >= lvnStart && srcReg `notElem` lvns  
+          foundLVN = L.find (L.elem dstReg . findRegs hash) lvns
+          makeCopy lvn = (filter (/=lvn) lvns, x:Mov dstReg lvn:xs)
+
+findRegs :: LVHash -> LVN -> [Reg]
+findRegs (_, lToR) = (HM.!) lToR
+
+isBinExp :: Iloc -> Bool
+isBinExp Add{} = True
+isBinExp Div{} = True
+isBinExp Mult{} = True
+isBinExp Multi{} = True
+isBinExp Sub{} = True
+isBinExp _ = False
+
+isMov :: Iloc -> Bool
+isMov Mov{} = True
+isMov _ = False

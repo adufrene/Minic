@@ -84,18 +84,9 @@ main = do
             do 
                globalEnv <- envReport env
                let graphs = globalEnv `createGraphs` program
---                    copied = getOptFun noCP args <$> graphs
---                    removed = getOptFun noUCR args <$> copied
---                    numberFun = if noLVN `elem` args then numberGraph else id
                    optimized = getOptFun args <$> graphs
                    stripped = map snd optimized
---                if printDefs `elem` args
---                then print $ createReachingDefs <$> copied
---                else if printMarks `elem` args
---                then print $ debugMarked <$> copied
-               if False
-               then putStrLn "foo"
-               else if printGraphs `elem` args
+               if printGraphs `elem` args
                then print optimized
                else if testAlloc `elem` args
                then print $ fmap testIntGraph stripped
@@ -105,16 +96,6 @@ main = do
                then writeIloc stripped $ fileNameToIL fileName
                else writeAsm (noAlloc `notElem` args) stripped 
                      (getDeclarations program) $ fileNameToS fileName 
-
--- foldLVN :: Reg -> [(Reg, IlocGraph)] -> [String] -> [(Reg, IlocGraph)]
--- foldLVN nextReg graphs args
---     | noLVN `elem` args = graphs
---     | otherwise = snd $ foldl' foldFun (nextReg, []) graphs
---     where foldFun (next, il) graph = second (:il) $ numberGraph next graph
--- getOptFun :: String -> [String] -> (Reg, IlocGraph) -> (Reg, IlocGraph)
--- getOptFun flag args = if flag `elem` args
---                            then id
---                            else fromJust $ lookup flag optList
 
 getOptFun :: [String] -> (Reg, IlocGraph) -> (Reg, IlocGraph)
 getOptFun = foldl' foldFun id . (\\) (map fst optList)
