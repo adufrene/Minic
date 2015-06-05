@@ -103,10 +103,18 @@ runTest() {
         scp -q "$filename.s" "$REMOTE_LOGIN:"
         scp -q "$input" "$REMOTE_LOGIN:"
         ssh $REMOTE_LOGIN "gcc $filename.s -o $filename && $TIMEOUT_EXE ./$filename < $remote_input | cat &> $tempFile"
+        if [[ $? -ne 0 ]]
+        then
+            printf "Compile error "
+        fi
         scp -q "$REMOTE_LOGIN:$tempFile" .
         ssh $REMOTE_LOGIN "rm $filename $filename.s $remote_input $tempFile"
     else
         gcc $filename.s -o $filename && $TIMEOUT_EXE $filename < $input | cat &> $tempFile
+        if [[ $? -ne 0 ]]
+        then
+            printf "Compile error "
+        fi
     fi
 
     diff $tempFile $output &> /dev/null
@@ -114,6 +122,7 @@ runTest() {
 
 EXIT_STATUS=0
 
+echo "Compile Command: $TIMEOUT_EXE $MINI_EXE <filename> $MINI_FLAGS"
 for bench in $(ls $BENCHMARK_DIR)
 do
     printf "$bench... "

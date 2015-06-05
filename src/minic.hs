@@ -55,14 +55,11 @@ noUCR = "--noUCR"
 noCP :: String
 noCP = "--noCP"
 
-printDefs :: String
-printDefs = "--printDefs"
-
-printMarks :: String
-printMarks = "--printMarks"
-
 noLVN :: String
 noLVN = "--noLVN"
+
+noOpt :: String
+noOpt = "--noOpt"
 
 optList :: [(String, (Reg, IlocGraph) -> (Reg, IlocGraph))]
 optList = [ (noLVN, numberGraph)
@@ -84,7 +81,10 @@ main = do
             do 
                globalEnv <- envReport env
                let graphs = globalEnv `createGraphs` program
-                   optimized = getOptFun args <$> graphs
+                   optFun = if noOpt `elem` args
+                                then id
+                                else getOptFun args 
+                   optimized = optFun <$> graphs
                    stripped = map snd optimized
                if printGraphs `elem` args
                then print optimized
