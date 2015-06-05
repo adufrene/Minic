@@ -1,16 +1,8 @@
 fun main() int {
-    int x;
-    int y, z;
-    x = 0;
-    y = 3;
+    int x, y;
 
-
-    while (x < 10) {
-        y = y + x;
-        x = x + 1;
-    }
-
-    z = y;
+    x = 1 + 2;
+    y = 1 + 2;
 
     return 0;
 }

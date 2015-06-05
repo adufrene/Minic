@@ -1,5 +1,5 @@
 module Mini.Iloc.Types where
-{-|
+{-
 
 This file contains the data definitions for our internal ILOC.
 It is derivied from the instructor provided ILOC handout ("iloc.pdf").
