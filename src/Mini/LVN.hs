@@ -4,7 +4,6 @@ import Control.Arrow
 import Control.Monad (join)
 
 import Data.Hashable
-import Data.Graph (Vertex)
 import Data.Maybe (maybe)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List as L
@@ -52,12 +51,11 @@ instance Hashable LVKey where
         hashWithSalt salt (LVImm i) = hashWithSalt salt i
 
 numberGraph :: (Reg, IlocGraph) -> (Reg, IlocGraph)
-numberGraph (nextReg, (graph, hash)) = second (\x -> (graph, x)) 
-        $ HM.foldlWithKey' numberBlock (nextReg + 1, HM.empty) hash 
+numberGraph (nextReg, graph) =
+        mapGraphKeyAccumL numberBlock (nextReg + 1)  graph 
 
-numberBlock :: (Reg, IlocHash) -> Vertex -> IlocNode -> (Reg, IlocHash)
-numberBlock (nextReg, newHash) v node = 
-        (newNext, HM.insert v (const newIloc `mapNode` node) newHash)
+numberBlock :: Reg -> Vertex -> IlocNode -> (Reg, IlocNode)
+numberBlock nextReg v node = (newNext, const newIloc `mapNode` node)
     where (newNext, newIloc) = numberIloc nextReg $ getData node
 
 numberIloc :: Reg -> [Iloc] -> (Reg, [Iloc])

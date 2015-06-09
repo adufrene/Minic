@@ -29,7 +29,6 @@ import Control.Monad
 
 import Data.Array hiding ((!))
 import Data.Either
-import Data.Graph hiding (Node)
 import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Maybe
@@ -64,25 +63,25 @@ createGraphs global = snd . L.foldr foldFun (1,[]) . getFunctions
                     $ functionToGraph fun nextLabel global
 
 replaceRets :: Function -> IlocGraph -> IlocGraph
-replaceRets fun (g, hash) = (g, insert exitVertex retNode newHash)
-        where retLabel = getFunId fun ++ "_ret"
-              newHash = fromList (mapFun <$> toList hash)
-              mapFun (k,v) = (k, if k `elem` retNodes
-                                  then transformNode v
-                                  else v)
-              transformNode (Node label iloc) = Node label $ init iloc ++ [jmpIloc]
-              jmpIloc = Jumpi retLabel
-              retNode = Node retLabel [RetILOC]
-              retNodes = fmap fst $ filter ((==exitVertex) . snd) $ edges g
+replaceRets fun = flip insertNode (exitVertex, retNode) 
+        . mapGraph (mapNode mapFun)
+    where retLabel = getFunId fun ++ "_ret"
+          mapFun = L.map (\x -> if isRet x then jmpIloc else x)
+          jmpIloc = Jumpi retLabel
+          retNode = Node retLabel [RetILOC]
 
-addRet :: IlocGraph -> IlocGraph
-addRet (graph, hash) =  if functionReturns
-                           then (graph, hash) 
-                           else (graph, adjust adjustFun endVert hash) 
-                                    `addEdge` (endVert, exitVertex)
-    where adjustFun (Node label iloc) = Node label $ iloc ++ [RetILOC]
-          endVert = snd $ bounds graph
-          functionReturns = last (getData $ hash ! endVert) == RetILOC
+isRet :: Iloc -> Bool
+isRet RetILOC = True
+isRet _ = False
+
+-- addRet :: IlocGraph -> IlocGraph
+-- addRet (graph, hash) =  if functionReturns
+--                            then (graph, hash) 
+--                            else (graph, adjust adjustFun endVert hash) 
+--                                     `addEdge` (endVert, exitVertex)
+--     where adjustFun (Node label iloc) = Node label $ iloc ++ [RetILOC]
+--           endVert = snd $ bounds graph
+--           functionReturns = last (getData $ hash ! endVert) == RetILOC
 
 functionToGraph :: Function -> LabelNum -> GlobalEnv -> (LabelReg, IlocGraph)
 functionToGraph func nextLabel global = second (replaceRets func) stripContext
@@ -118,10 +117,14 @@ stmtsToGraph node (stmt:rest) nexts baggage =
             stmtsToGraph startNode rest (nextLabel + 1, reg nexts) baggage
           nextLabel = label nexts
           startNode = emptyNode $ createLabel nextLabel
-          pointToExit = 
-            (buildG defaultBounds 
-                [(entryVertex,initVertex), (initVertex,exitVertex)],
-                singleton initVertex newNode)
+          pointToExit = mkEmpty `insertNode` (entryVertex, emptyNode "") 
+                                `insertNode` (initVertex, newNode) 
+                                `insertNode` (exitVertex, emptyNode "") 
+                                `addEdges` [ (entryVertex,initVertex)
+                                           , (initVertex,exitVertex) ]
+--             (buildG defaultBounds 
+--                 [(entryVertex,initVertex), (initVertex,exitVertex)],
+--                 singleton initVertex newNode)
           (newIloc, newReg) = stmtToIloc stmt baggage $ reg nexts
           newNode = node `addToNode` newIloc
           createGraph f = f stmt node successorGraph baggage
@@ -132,8 +135,8 @@ createCondGraph :: Statement -> IlocNode -> NumAndGraph -> Baggage -> NumAndGrap
 createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (nexts, nextG) baggage = 
         linkGraphs ifThenGraph elseNumGraph nextG thenNexts
     where newNode = node `addToNode` guardInsns `addToNode` [brInsn]
-          brInsn = Brz newReg falseLabel (getGraphLabel thenGraph) 
-          falseLabel = getGraphLabel (maybe nextG snd elseNumGraph)
+          brInsn = Brz newReg falseLabel (getGraphLabel $ fromYesNo thenGraph) 
+          falseLabel = getGraphLabel $ fromYesNo (maybe nextG snd elseNumGraph)
           (guardInsns, newReg) = evalExpr guard baggage $ reg nexts
           nextLabel = label nexts
           (thenNexts, thenGraph) = graphFromBlock thenBlock (nextLabel, newReg + 1)
@@ -141,31 +144,31 @@ createCondGraph (Cond _ guard thenBlock maybeElseBlock) node (nexts, nextG) bagg
           ifThenGraph = appendIf <$> thenGraph
           appendIf = appendGraph (fromNode newNode) [initVertex]
           graphFromBlock block next = 
-            addJump (newGraph block next) (getGraphLabel nextG)
+            addJump (newGraph block next) (getGraphLabel $ fromYesNo nextG)
           newGraph block nextStuff =
             stmtsToGraph (emptyNode $ createLabel $ label nextStuff) 
                 (getBlockStmts block) (label nextStuff + 1, reg nextStuff) baggage 
 
 linkGraphs :: ReturnBlock -> Maybe NumAndGraph -> ReturnBlock -> LabelReg -> NumAndGraph
 linkGraphs ifThenGraph Nothing nextGraph nexts = {-trace ("linking:\n" ++ show ifThenGraph ++ "and\n" ++ show nextGraph) -}(nexts, appendGraph <$> ifThenGraph <*> pure (initVertex:secVert) <*> nextGraph)
-    where secVert = yesNo (const []) (\g -> [graphEnd $ pure g]) ifThenGraph 
+    where secVert = yesNo (const []) (\g -> [graphEnd g]) ifThenGraph 
 linkGraphs ifThenGraph (Just (elseNexts, elseGraph)) nextGraph _ =
         (elseNexts, yesNo Yes (\g -> appendGraph g ifVertices <$> nextGraph) ifGraph)
     where ifGraph = appendGraph <$> ifThenGraph <*> pure [initVertex] <*> elseGraph
-          thenVertex = [graphEnd ifThenGraph | isNo ifThenGraph]
-          elseVertex = [graphEnd ifGraph | isNo elseGraph]
+          thenVertex = [graphEnd $ fromYesNo ifThenGraph | isNo ifThenGraph]
+          elseVertex = [graphEnd $ fromYesNo ifGraph | isNo elseGraph]
           ifVertices = elseVertex ++ thenVertex
 
 createLoopGraph :: Statement -> IlocNode -> NumAndGraph -> Baggage -> NumAndGraph
 createLoopGraph (Loop _ guard body) node (nexts, nextGraph) baggage = 
         ((label bodyNext, guard2Reg + 1), if isNo trueGraph
-            then appendGraph <$> cyclicTG <*> pure [initVertex, graphEnd cyclicTG] <*> nextGraph
+            then appendGraph <$> cyclicTG <*> pure [initVertex, graphEnd $ fromYesNo cyclicTG] <*> nextGraph
             else appendGraph <$> trueGraph <*> pure [initVertex] <*> nextGraph)
     where newNode = node `addToNode` guardInsns `addToNode` [brInsn] 
           (guardInsns, newReg) = evalExpr guard baggage $ reg nexts
           brInsn = Brz newReg contLabel bodyLabel
-          bodyLabel = getGraphLabel unGuarded
-          contLabel = getGraphLabel nextGraph
+          bodyLabel = getGraphLabel $ fromYesNo unGuarded
+          contLabel = getGraphLabel $ fromYesNo nextGraph
           nextLabel = label nexts
           startGraph = fromNode newNode
           startNode = emptyNode $ createLabel nextLabel
@@ -177,31 +180,32 @@ createLoopGraph (Loop _ guard body) node (nexts, nextGraph) baggage =
             addGuard <$> unGuarded <*> pure guard2Insns <*> 
                 pure guard2Reg <*> pure bodyLabel <*> pure contLabel
           trueGraph = appendGraph startGraph [initVertex] <$> bodyGraph
-          trueChild = getChild initVertex trueGraph 
-          cyclicTG = addEdge <$> trueGraph <*> pure (graphEnd trueGraph, trueChild)
+          trueChild = fromYesNo trueGraph `getChild` initVertex
+          cyclicTG = addEdge <$> trueGraph <*> pure (graphEnd $ fromYesNo trueGraph, trueChild)
 
 addGuard :: IlocGraph -> [Iloc] -> Reg -> Label -> Label -> IlocGraph
-addGuard (graph, hash) newIloc reg trueLabel falseLabel = 
-        (graph, adjust adjustFun endVertex hash) 
-    where endVertex = graphEnd $ pure (graph, hash)
+addGuard graph newIloc reg trueLabel falseLabel = 
+        adjustGraph adjustFun endVertex graph 
+    where endVertex = graphEnd graph
           brIloc = Brz reg falseLabel trueLabel
           adjustFun (Node label iloc) = Node label $ iloc ++ newIloc ++ [brIloc]
 
-getGraphLabel :: ReturnBlock -> Label
-getGraphLabel graph = getLabel $ snd (fromYesNo graph) ! getChild entryVertex graph
+getGraphLabel :: IlocGraph -> Label
+getGraphLabel graph = getLabel $ graph `at` head (graph `getSuccessors` entryVertex)
 
-getChild :: Vertex -> ReturnBlock -> Vertex
-getChild v = snd . head . filter ((==v) . fst) . edges . fst . fromYesNo
+getChild :: IlocGraph -> Vertex -> Vertex
+getChild g = head . getSuccessors g
 
 addJump :: NumAndGraph -> Label -> NumAndGraph
 addJump ret@(_, Yes _) _ = ret
-addJump ret@(lr, No (graph, hash)) label = {-trace ("Adding jump to " ++ show ret) $ -}(lr, No (graph, adjusted))
-    where adjusted = adjust adjustFun endVertex hash
-          endVertex = graphEnd $ pure (graph, hash)
+addJump ret@(lr, No graph) label = {-trace ("Adding jump to " ++ show ret) $ -}(lr, No adjusted)
+    where adjusted = adjustGraph adjustFun endVertex graph
+          endVertex = graphEnd graph
           brIloc = Jumpi label
           adjustFun (Node label iloc) = Node label $ iloc ++ [brIloc]
 
-graphEnd :: ReturnBlock -> Vertex
-graphEnd g = snd $ bounds $ fst $ fromYesNo g
+graphEnd :: IlocGraph -> Vertex
+graphEnd = maximum . vertices
 
-
+fromNode :: Node a -> NodeGraph a
+fromNode = insertNode mkEmpty `curry` initVertex

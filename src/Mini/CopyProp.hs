@@ -10,7 +10,6 @@ import Mini.Graph
 
 import Data.HashMap.Strict as HM
 import qualified Data.Set as Set
-import Data.Graph hiding (Node)
 import Data.List as L
 
 import Debug.Trace
@@ -25,13 +24,9 @@ type CopyInLookup = HashMap Vertex CopyInSet
 
 type CopyPropBaggage = (GenKillLookup, CopyInLookup)
 
--- find the vertices in a NodeGraph
-getVertices :: IlocGraph -> [Vertex]
-getVertices (_, vertToNodeHM) = keys vertToNodeHM
-
 -- find all the predecessors of a given node
 getNodeGraphPredecessors :: IlocGraph -> Vertex -> Set.Set Vertex
-getNodeGraphPredecessors nodeGraph@(graph, _) vertex = (Set.fromList [start | (start, end) <- edges graph, end == vertex, start `elem` (getVertices nodeGraph)])
+getNodeGraphPredecessors graph vertex = Set.fromList [start | (start, end) <- edges graph, end == vertex, start `elem` vertices graph]
 
 -- applies copy propegation to a list of node graphs, can be turned off with a flag
 doCopyProp :: [IlocGraph] -> Bool -> [IlocGraph]
@@ -40,33 +35,34 @@ doCopyProp graphs True = L.map copyPropOptimize graphs
 
 -- applies the copy propegation optimization to the given node graph
 copyPropOptimize :: IlocGraph -> IlocGraph
-copyPropOptimize nodeGraph@(graph, vertToNodeHM) = (graph, optimizedNodes)
+copyPropOptimize graph = mapGraphWithKey mapFun graph --(graph, optimizedNodes)
   where
-    optimizedNodes = HM.fromList [(vert, applyCopyPropForThisNode vert) | vert <- nodeVertices]
-    nodeVertices = getVertices nodeGraph
-    vertPreds = [(vert, getNodeGraphPredecessors nodeGraph vert) | vert <- nodeVertices]
-    genKillHM = createGenKillLookup nodeGraph
-    copyInHM = createCopyInLookup nodeGraph genKillHM
+    mapFun vert _ = applyCopyProp graph baggage vert
+--     optimizedNodes = HM.fromList [(vert, applyCopyPropForThisNode vert) | vert <- nodeVertices]
+--     nodeVertices = vertices nodeGraph
+--     vertPreds = [(vert, getNodeGraphPredecessors nodeGraph vert) | vert <- nodeVertices]
+    genKillHM = createGenKillLookup graph
+    copyInHM = createCopyInLookup graph genKillHM
     baggage = (genKillHM, copyInHM)
-    applyCopyPropForThisNode = applyCopyProp nodeGraph baggage
+--     applyCopyPropForThisNode = applyCopyProp nodeGraph baggage
 
 -- applies copy propegation to a given node
 -- requires gen, kill, and copyIn sets
 applyCopyProp :: IlocGraph -> CopyPropBaggage -> Vertex -> IlocNode
-applyCopyProp (_, vertToNodeHM) (genKillHM, copyInHM) vert = (Node label optimizedInsns)
+applyCopyProp graph (genKillHM, copyInHM) vert = Node label optimizedInsns
   where
-    node@(Node label insns) = vertToNodeHM ! vert
+    node@(Node label insns) = graph `at` vert
     optimizedInsns = doIt (copyInHM ! vert) insns
     doIt :: CopySet -> [Iloc] -> [Iloc]
     doIt _ [] = []
-    doIt copyNow (insn:rest) = nextInsn:(doIt nextCopyNow rest)
+    doIt copyNow (insn:rest) = nextInsn : doIt nextCopyNow rest
       where
         optimizedInsn = doReplacements insn copyNow
         dstRegs = Set.fromList $ getDstIlocRegs insn
         filteredCopyNow = copyNow `copiesNotKilledBy` dstRegs
         (nextInsn, nextCopyNow) = handleMov optimizedInsn filteredCopyNow
     handleMov :: Iloc -> CopySet -> (Iloc, CopySet)
-    handleMov (Mov r1 r2) copyNow = ((Mov r1 r2), (r2, r1) `Set.insert` copyNow)
+    handleMov (Mov r1 r2) copyNow = (Mov r1 r2, (r2, r1) `Set.insert` copyNow)
     handleMov insn copyNow = (insn, copyNow)
 
 -- finds the copyIn set for each node
@@ -75,7 +71,7 @@ createCopyInLookup :: IlocGraph -> GenKillLookup -> CopyInLookup
 createCopyInLookup nodeGraph genKillHM = doIt startingCopyInHM
   where
     -- copyIn is initialized to the empty set for each node
-    startingCopyInHM = HM.fromList [(vert, Set.empty) | vert <- getVertices nodeGraph]
+    startingCopyInHM = HM.fromList [(vert, Set.empty) | vert <- vertices nodeGraph]
     -- recalculate copyIn for each node until nothing changes
     doIt copyInHM
       | nextCopyInHM == copyInHM = copyInHM
@@ -86,9 +82,9 @@ createCopyInLookup nodeGraph genKillHM = doIt startingCopyInHM
 
 -- finds the copyIn set of a given node relative to its predecessors
 createCopyIn :: Vertex -> IlocGraph -> CopyPropBaggage -> CopyInSet
-createCopyIn vert nodeGraph@(graph, _) (genKillHM, copyInHM) = foldIntersection predStuff
+createCopyIn vert graph(genKillHM, copyInHM) = foldIntersection predStuff
   where
-    preds = Set.toList $ getNodeGraphPredecessors nodeGraph vert
+    preds = Set.toList $ getNodeGraphPredecessors graph vert
     predStuff = L.map findPredStuff preds
     findPredStuff v = gen `Set.union` (copyIn `copiesNotKilledBy` kill)
       where
@@ -103,7 +99,7 @@ foldIntersection (xs:rest) = L.foldl' Set.intersection xs rest
 
 -- finds the gen/kill sets for each node
 createGenKillLookup :: IlocGraph -> GenKillLookup
-createGenKillLookup = HM.map createGenKill . snd
+createGenKillLookup = HM.map createGenKill . getLookup
 
 -- finds the gen/kill set of a given node
 createGenKill :: IlocNode -> (GenSet, KillSet)
@@ -133,7 +129,7 @@ copiesNotKilledByReg copyIn kill = Set.filter (\(src, dst) -> ((src /= kill) && 
 
 -- apply all of our copy replacements to a given iloc
 doReplacements :: Iloc -> CopySet -> Iloc
-doReplacements iloc copies = iloc `mapToSrcRegs` (replaceReg copies)
+doReplacements iloc copies = iloc `mapToSrcRegs` replaceReg copies
 
 -- apply all the replacements in a copy set to a given register
 replaceReg :: CopySet -> Reg -> Reg

@@ -77,11 +77,11 @@ showIlocHelper :: String -> [String] -> String
 showIlocHelper name args = name ++ " " ++ intercalate ", " args
 
 instance Show Iloc where
-   show (Add r1 r2 r3) = showIlocHelper "add" $ map showReg [r1, r2, r3]
-   show (Div r1 r2 r3) = showIlocHelper "div" $ map showReg [r1, r2, r3]
-   show (Mult r1 r2 r3) = showIlocHelper "mult" $ map showReg [r1, r2, r3]
+   show (Add r1 r2 r3) = showIlocHelper "add" $ fmap showReg [r1, r2, r3]
+   show (Div r1 r2 r3) = showIlocHelper "div" $ fmap showReg [r1, r2, r3]
+   show (Mult r1 r2 r3) = showIlocHelper "mult" $ fmap showReg [r1, r2, r3]
    show (Multi r1 i1 r2) = showIlocHelper "multi" [showReg r1, show i1, showReg r2]
-   show (Sub r1 r2 r3) = showIlocHelper "sub" $ map showReg [r1, r2, r3]
+   show (Sub r1 r2 r3) = showIlocHelper "sub" $ fmap showReg [r1, r2, r3]
    show (Comp r1 r2) = showIlocHelper "comp" [showReg r1, showReg r2, condCodeReg]
    show (Compi r1 i1) = showIlocHelper "compi" [showReg r1, show i1, condCodeReg]
    show (Jumpi l1) = showIlocHelper "jumpi" [l1]

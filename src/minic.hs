@@ -91,10 +91,10 @@ main = do
                else if testAlloc `elem` args
                then print $ fmap testIntGraph stripped
                else if checkColors `elem` args
-               then print $ fmap getRegLookup stripped
+               then print $ fmap getRegLookup optimized
                else if dumpIL `elem` args
                then writeIloc stripped $ fileNameToIL fileName
-               else writeAsm (noAlloc `notElem` args) stripped 
+               else writeAsm (noAlloc `notElem` args) optimized 
                      (getDeclarations program) $ fileNameToS fileName 
 
 getOptFun :: [String] -> (Reg, IlocGraph) -> (Reg, IlocGraph)
@@ -113,18 +113,18 @@ fileNameToIL oldFile = takeBaseName oldFile ++ ".il"
 
 writeIloc :: [IlocGraph] -> String -> IO ()
 writeIloc graphs fileName = do
-        let print = foldl' (\msg ng -> msg ++ "\n" ++ showNodeGraph ng) "" graphs
+        let print = foldl' (\msg ng -> msg ++ "\n" ++ showGraph ng) "" graphs
         writeFile fileName print
 
 fileNameToS :: String -> String
 fileNameToS oldFile = takeBaseName oldFile ++ ".s"
 
-writeAsm :: Bool -> [IlocGraph] -> [Declaration] -> String -> IO ()
+writeAsm :: Bool -> [(Reg, IlocGraph)] -> [Declaration] -> String -> IO ()
 writeAsm shouldAlloc graphs decls fileName = writeFile fileName print 
     where regHashes = fmap getRegLookup graphs
           funAsms = (if shouldAlloc
                         then colorProgramToAsm regHashes
-                        else programToAsm) graphs decls
+                        else programToAsm) (fmap snd graphs) decls
           print = foldl' (\msg insn -> msg ++ show insn ++ "\n") 
                     "" funAsms
 

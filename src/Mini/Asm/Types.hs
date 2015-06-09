@@ -18,7 +18,6 @@ module Mini.Asm.Types
 import Control.Applicative
 import Data.Char
 import Data.Data
-import Data.Graph
 import Data.HashMap.Strict ((!), HashMap)
 import Data.List (intercalate, elem, concatMap, minimum, intersect, foldl', delete, nub)
 
@@ -257,13 +256,13 @@ globalString l s = [ AsmSection
                    , AsmString s ]
 
 functionToAsm :: (Reg -> AsmReg) -> IlocGraph -> [Asm]
-functionToAsm regFun nodeG@(graph, hash) = prologue ++ body ++ epilogue
-    where prologue = createPrologue nodeG ++ stackBegin
+functionToAsm regFun graph = prologue ++ body ++ epilogue
+    where prologue = createPrologue graph ++ stackBegin
           body = concatMap spillVars unfiltered
           regsUsed = concatMap regsPerAsm body
           (stackBegin, stackEnd) = manageStack regsUsed
-          unfiltered = concatMap (functionMapFun regFun nodeG) $ topSort graph 
-          epilogue = stackEnd ++ createEpilogue nodeG
+          unfiltered = concatMap (functionMapFun regFun graph) $ topSort graph 
+          epilogue = stackEnd ++ createEpilogue graph
           filterFun (AsmMov (AsmSReg r1) (AsmDReg r2)) = r1 /= r2
           filterFun _ = True
 
@@ -281,12 +280,12 @@ spillVars asm
           newAsm = foldl' (\a (r,r') -> swapRegs a r r') asm localLookup
 
 functionMapFun :: (Reg -> AsmReg) -> IlocGraph -> Vertex -> [Asm]
-functionMapFun regFun nodeG@(graph, hash) x
+functionMapFun regFun graph x
     | x == entryVertex = []
     | x == exitVertex = labelInsn
     | otherwise = labelInsn ++ concat (ilocToAsm regFun <$> getData node)
-    where node = hash ! x
-          sv = startVert nodeG
+    where node = graph `at` x
+          sv = startVert graph
           labelInsn = if x == sv then [] else [AsmLabel $ getLabel node]
 
 manageStack :: [AsmReg] -> ([Asm], [Asm])
@@ -304,31 +303,15 @@ manageStack regs = (pushInsns ++ subSp, addSp ++ popInsns)
                                  [AsmAddSp totalOffset]) 
 
 createPrologue :: IlocGraph -> [Asm]
-createPrologue (graph, hash) = [ AsmText
-                               , AsmFunGlobal funLabel
-                               , AsmType funLabel FunctionType
-                               , AsmLabel funLabel
---                                , AsmPush Rbp
---                                , AsmPush Rbx
---                                , AsmPush Rsp
---                                , AsmPush R12
---                                , AsmPush R13
---                                , AsmPush R14
---                                , AsmPush R15
-                               {-, AsmMov (AsmSReg Rsp) (AsmDReg Rbp)-} ]
-    where funLabel = funName (graph, hash) 
+createPrologue graph = [ AsmText
+                       , AsmFunGlobal funLabel
+                       , AsmType funLabel FunctionType
+                       , AsmLabel funLabel ]
+    where funLabel = funName graph 
 
 createEpilogue :: IlocGraph -> [Asm]
-createEpilogue (graph, hash) = [ {-AsmMov (AsmSReg Rbp) (AsmDReg Rsp)
---                                , AsmPop R15
---                                , AsmPop R14
---                                , AsmPop R13
---                                , AsmPop R12
---                                , AsmPop Rsp
---                                , AsmPop Rbx
---                                , AsmPop Rbp
-                               ,-} AsmRet
-                               , AsmFunSize $ funName (graph, hash)]
+createEpilogue graph = [ AsmRet
+                       , AsmFunSize $ funName graph]
 
 functionType :: String
 functionType = "@function"
@@ -391,10 +374,10 @@ malloc :: Label
 malloc = "malloc"
 
 funName :: IlocGraph -> Label
-funName ng@(_, hash) = getLabel $ hash ! startVert ng
+funName graph = getLabel $ graph `at` startVert graph
 
 startVert :: IlocGraph -> Vertex
-startVert = snd . head . filter ((==entryVertex) . fst) . edges . fst
+startVert = head . flip getSuccessors entryVertex
 
 srcStr :: AsmSrc -> String
 srcStr (AsmSOReg r) = show r

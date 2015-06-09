@@ -11,7 +11,6 @@ module Mini.RegAlloc
 
 import Control.Arrow
 import Data.HashMap.Strict hiding (filter, null, foldl, foldr)
-import Data.Graph hiding (Node)
 import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Array hiding ((!), elems)
@@ -70,7 +69,7 @@ type GenKillLookup = HashMap Vertex (GenSet, KillSet)
 
 -- finds the gen and kill sets of a node graph
 createGenKillSets :: IlocGraph -> GenKillLookup
-createGenKillSets = map findGenAndKill . snd
+createGenKillSets = map findGenAndKill . getLookup
 
 -- takes a node and returns its gen and kill set
 findGenAndKill :: IlocNode -> (GenSet, KillSet)
@@ -87,38 +86,45 @@ findGenAndKill (Node _ iloc) = findGenAndKillHelper iloc Set.empty Set.empty
 type LiveOutLookup = HashMap Vertex RegSet
 
 createLiveOut :: IlocGraph ->  GenKillLookup -> LiveOutLookup
-createLiveOut (nodeGraph, vertToNodeHM) lookup' =
-  actuallyCreateLiveOut startingLiveOutHM lookup' (nodeGraph, vertToNodeHM)
+createLiveOut graph lookup' =
+  actuallyCreateLiveOut startingLiveOutHM lookup' graph 
   where
-    startingLiveOutHM = fromList $ L.map (\x -> (x, Set.empty)) $ vertices nodeGraph
+    startingLiveOutHM = fromList $ L.map (\x -> (x, Set.empty)) $ vertices graph
 
 {- Switch hashmap parameter to Set -}
 actuallyCreateLiveOut :: LiveOutLookup -> GenKillLookup -> IlocGraph -> LiveOutLookup
-actuallyCreateLiveOut stuffSoFar gkLookup ng
+actuallyCreateLiveOut stuffSoFar gkLookup graph
   | newStuff == Set.fromList (toList stuffSoFar) = stuffSoFar
-  | otherwise = actuallyCreateLiveOut (fromList $ Set.toList newStuff) gkLookup ng
+  | otherwise = actuallyCreateLiveOut (fromList $ Set.toList newStuff) gkLookup graph
   where
     verts = Set.fromList $ keys stuffSoFar
-    newStuff = Set.map (\x -> (x, getLiveOutOfVert x stuffSoFar ng gkLookup)) verts
-    getLiveOutOfVert vert liveOutHM (graph, hm) lookup' =
+    newStuff = Set.map (\x -> (x, getLiveOutOfVert x stuffSoFar graph gkLookup)) verts
+    getLiveOutOfVert vert liveOutHM graph lookup' =
       Set.foldl' Set.union Set.empty (Set.map (\x -> fst (lookup' ! x) `Set.union` ((liveOutHM ! x) Set.\\ snd (lookup' ! x))) successors)
       where
         successors = Set.fromList $ getSuccessors graph vert
 
-type InterferenceGraph = Graph
+type InterferenceGraph = Graph ()
 
-createInterferenceGraph :: IlocGraph -> LiveOutLookup -> InterferenceGraph
-createInterferenceGraph (_, nodeHash) lookup =
-        foldlWithKey' foldFun theEmptyGraph nodeHash
-    where foldFun graph key node = fst $ foldr foldIntGraph (graph, lookup ! key)
-                                        $ getData node
-
+createInterferenceGraph :: IlocGraph -> LiveOutLookup -> Reg -> InterferenceGraph
+createInterferenceGraph graph lookup reg =
+        foldlGraphWithKey' foldFun startGraph graph
+    where foldFun graph' key node = fst $ foldr foldIntGraph 
+                (graph', lookup ! key) $ getData node
+          startGraph = L.foldl' (\g x -> g `insertNode` (x,())) 
+                mkEmpty [(L.minimum colors)..reg]
+                                        
 foldIntGraph :: Iloc -> (InterferenceGraph, RegSet) -> (InterferenceGraph, RegSet)
 foldIntGraph insn (graph, liveNow) = (newGraph, newLiveNow)
     where targetRegs = getDstRegs insn 
           sourceRegSet = Set.fromList $ getSrcRegs insn
           newLiveNow = Set.union sourceRegSet $ Set.filter (`notElem` targetRegs) liveNow
-          newGraph = connectVertices graph (regToVert targetRegs) $ regToVert $ Set.toList liveNow
+          newGraph = graph `addEdges` newEdges
+          newEdges = createEdges (regToVert targetRegs) (regToVert $ Set.toList liveNow)
+
+createEdges :: [Reg] -> [Reg] -> [Edge]
+createEdges src dest = L.concatMap (`mapEdges` dest) src
+    where mapEdges reg = L.nub . L.map (\dest -> (reg, dest)) . filter(/= reg)
 
 regToVert :: [AsmReg] -> [Vertex]
 regToVert = L.map mapFun 
@@ -126,18 +132,18 @@ regToVert = L.map mapFun
           mapFun r = fromMaybe (error $ "Invalid vertex: " ++ show r) 
                             $ r `L.lookup` regVertList 
 
-connectVertices :: Graph -> [Vertex] -> [Vertex] -> Graph
-connectVertices graph src dest = buildG newBnds newEdges
-    where newBnds = newBounds (newBounds (bounds graph) src) dest
-          newEdges = edges graph `L.union` L.concatMap (`createEdges` dest) src
-          createEdges reg = L.nub . L.map (\dest -> (reg, dest)) . filter(/= reg)
-
-newBounds :: Bounds -> [Vertex] -> Bounds
-newBounds (oldLower, oldUpper) verts = (newLower, newUpper)
-    where newUpper = max vertMax oldUpper
-          newLower = min vertMin oldLower
-          vertMax = safeMaximum oldUpper verts
-          vertMin = safeMinimum oldLower verts
+-- connectVertices :: Graph -> [Vertex] -> [Vertex] -> Graph
+-- connectVertices graph src dest = buildG newBnds newEdges
+--     where newBnds = newBounds (newBounds (bounds graph) src) dest
+--           newEdges = edges graph `L.union` L.concatMap (`createEdges` dest) src
+--           createEdges reg = L.nub . L.map (\dest -> (reg, dest)) . filter(/= reg)
+-- 
+-- newBounds :: Bounds -> [Vertex] -> Bounds
+-- newBounds (oldLower, oldUpper) verts = (newLower, newUpper)
+--     where newUpper = max vertMax oldUpper
+--           newLower = min vertMin oldLower
+--           vertMax = safeMaximum oldUpper verts
+--           vertMin = safeMinimum oldLower verts
 
 type DeconstructionStack = Stack (Vertex, [Vertex])
 
@@ -170,9 +176,9 @@ pickNextVertex verts graph
 
 -- = last verts -- TODO: pick better heuristic
 
-makeUndirected :: Graph -> Graph
-makeUndirected dirGraph = buildG (bounds dirGraph) $ L.nub duppedEdges
-    where duppedEdges = L.foldl' (\xs x -> swap x:x:xs) [] $ edges dirGraph
+-- makeUndirected :: Graph -> Graph
+-- makeUndirected dirGraph = buildG (bounds dirGraph) $ L.nub duppedEdges
+--     where duppedEdges = L.foldl' (\xs x -> swap x:x:xs) [] $ edges dirGraph
 
 type Color = Int
 
@@ -184,11 +190,11 @@ spillColor = 0
 
 type ColorLookup = HashMap Vertex Color
 
-theEmptyGraph :: Graph
-theEmptyGraph = buildG (initVertex, initVertex) []
+-- theEmptyGraph :: Graph
+-- theEmptyGraph = buildG (initVertex, initVertex) []
 
 reconstructInterferenceGraph :: DeconstructionStack -> ColorLookup
-reconstructInterferenceGraph stack = actuallyReconstruct stack theEmptyGraph empty
+reconstructInterferenceGraph stack = actuallyReconstruct stack mkEmpty empty
 
 actuallyReconstruct :: DeconstructionStack -> InterferenceGraph -> ColorLookup -> ColorLookup
 actuallyReconstruct stack graph colorHM
@@ -196,11 +202,16 @@ actuallyReconstruct stack graph colorHM
     | otherwise = actuallyReconstruct rest newInterferenceGraph newHM
   where ((nextVert, neighbors), rest) = pop stack
         newEdges = [ (nextVert, nextNeighbor) | nextNeighbor <- neighbors ]
-        newInterferenceGraph = addEdges graph newEdges
+        newInterferenceGraph = addEdgesAndNodes graph newEdges
         newHM = insert nextVert color colorHM
         color = if nextVert > spillColor
                     then pickColor nextVert newInterferenceGraph colorHM
                     else nextVert 
+
+addEdgesAndNodes :: InterferenceGraph -> [Edge] -> InterferenceGraph
+addEdgesAndNodes graph edges = L.foldl' foldFun graph edges `addEdges` edges
+    where foldFun g (from, to) = g `insertIfMissing` (from, ()) 
+                                    `insertIfMissing` (to, ())
 
 -- picks the first color that not used by any of its neighbors
 pickColor :: Vertex -> InterferenceGraph -> ColorLookup -> Color
@@ -225,10 +236,10 @@ safeMinimum _ l = L.minimum l
 colorGraph :: InterferenceGraph -> ColorLookup
 colorGraph = reconstructInterferenceGraph . deconstructInterferenceGraph 
 
-getRegLookup :: IlocGraph -> RegLookup
-getRegLookup graph = fst $ foldlWithKey' foldFun (empty, 1) colorLookup
+getRegLookup :: (Reg, IlocGraph) -> RegLookup
+getRegLookup (reg, graph) = fst $ foldlWithKey' foldFun (empty, 1) colorLookup
     where colorLookup = colorGraph intGraph
-          intGraph = createInterferenceGraph graph loLookup
+          intGraph = createInterferenceGraph graph loLookup reg
           loLookup = createLiveOut graph gkLookup
           gkLookup = createGenKillSets graph
           foldFun (hash, nextLocal) key clr = 
@@ -239,4 +250,6 @@ getRegLookup graph = fst $ foldlWithKey' foldFun (empty, 1) colorLookup
                             $ clr `L.lookup` vertRegList) hash, nextLocal)
 
 testIntGraph :: IlocGraph -> InterferenceGraph
-testIntGraph graph = createInterferenceGraph graph $ createLiveOut graph $ createGenKillSets graph
+testIntGraph graph = createInterferenceGraph graph liveout 0
+    where liveout = createLiveOut graph gkSets
+          gkSets = createGenKillSets graph
