@@ -76,6 +76,8 @@ else
     TMP_DIR=$(mktemp -d -p .)
 fi
 
+REMOTE_TIMEOUT_EXE="timeout $TIME_OUT"
+
 cd $TMP_DIR
 trap cleanup EXIT
 
@@ -102,7 +104,7 @@ runTest() {
 
         scp -q "$filename.s" "$REMOTE_LOGIN:"
         scp -q "$input" "$REMOTE_LOGIN:"
-        ssh $REMOTE_LOGIN "gcc $filename.s -o $filename && $TIMEOUT_EXE ./$filename < $remote_input | cat &> $tempFile"
+        ssh $REMOTE_LOGIN "gcc $filename.s -o $filename && $REMOTE_TIMEOUT_EXE ./$filename < $remote_input | cat &> $tempFile"
         if [[ $? -ne 0 ]]
         then
             printf "Compile error "
