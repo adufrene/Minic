@@ -1948,7 +1948,6 @@ newtype HappyState b c = HappyState
 
 happyShift new_state (1) tk st sts stk@(x `HappyStk` _) =
      let i = (case x of { HappyErrorToken (i) -> i }) in
---     trace "shifting the error token" $
      new_state i i tk (HappyState (new_state)) ((st):(sts)) (stk)
 
 happyShift new_state i tk st sts stk =
@@ -2030,7 +2029,6 @@ happyGoto action j tk st = action j j tk (HappyState action)
 -- parse error if we are in recovery and we fail again
 happyFail (1) tk old_st _ stk@(x `HappyStk` _) =
      let i = (case x of { HappyErrorToken (i) -> i }) in
---      trace "failing" $ 
         happyError_ i tk
 
 {-  We don't need state discarding for our restricted implementation of
@@ -2040,14 +2038,12 @@ happyFail (1) tk old_st _ stk@(x `HappyStk` _) =
 -- discard a state
 happyFail  (1) tk old_st (((HappyState (action))):(sts)) 
                                                 (saved_tok `HappyStk` _ `HappyStk` stk) =
---      trace ("discarding state, depth " ++ show (length stk))  $
         action (1) (1) tk (HappyState (action)) sts ((saved_tok`HappyStk`stk))
 -}
 
 -- Enter error recovery: generate an error token,
 --                       save the old token and carry on.
 happyFail  i tk (HappyState (action)) sts stk =
---      trace "entering error recovery" $
         action (1) (1) tk (HappyState (action)) sts ( (HappyErrorToken (i)) `HappyStk` stk)
 
 -- Internal happy errors:

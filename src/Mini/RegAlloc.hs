@@ -19,8 +19,6 @@ import Data.Maybe
 import Data.Tuple (swap)
 import Prelude hiding (map)
 
-import Debug.Trace
-
 import Mini.Asm.Types
 import Mini.Iloc.Types
 import Mini.Graph

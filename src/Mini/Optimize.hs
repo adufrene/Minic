@@ -15,8 +15,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Set as S
 import Data.Maybe
 
-import Debug.Trace
-
 data Marked a = Marked a Bool deriving (Eq, Show)
 
 instance Functor Marked where 
