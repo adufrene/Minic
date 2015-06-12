@@ -1,8 +1,0 @@
-fun g() void {
-    return;
-}
-
-fun main() int {
-    g();
-    return 1;
-}
