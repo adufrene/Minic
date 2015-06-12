@@ -1,6 +1,7 @@
-module Mini.Optimize ( removeUselessCode
-                     , createReachingDefs
-                     , debugMarked ) where
+module Mini.UCR ( removeUselessCode
+                , createReachingDefs
+                , debugMarked 
+                ) where
 
 import Mini.Iloc.Types
 import Mini.Graph
